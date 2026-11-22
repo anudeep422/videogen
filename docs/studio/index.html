@@ -84,6 +84,7 @@
   <label>Key (Sa)</label><select id="key"></select>
   <label>Scale / raga</label><select id="scale" style="max-width:150px"></select>
   <label>Bars</label><input id="bars" type="number" min="1" max="200" value="8" style="width:56px">
+  <label>Feel</label><select id="feel" title="Human feel: small timing and loudness changes like real players"><option value="0">Machine</option><option value="0.6">Natural</option><option value="1">Loose</option></select>
   <select id="meter"><option value="4">4/4</option><option value="3">3/4</option><option value="2">2/4</option><option value="6">6/8</option><option value="7">7 beats</option></select>
 </div>
 <div style="padding:8px 8px 0"><button id="oneTap" style="width:100%;padding:11px;font-size:15px;font-weight:700;background:linear-gradient(90deg,#f0a830,#e5534b);border:0;color:#1a0d00">✨ Make a full song in one tap</button></div>
@@ -98,6 +99,7 @@
 <div class="toast" id="toast"></div>
 
 <script src="../animate/synth.js"></script>
+<script src="../animate/ambience.js"></script>
 <script src="../lib/mp4-muxer.js"></script>
 <script src="engine.js"></script>
 <script>
@@ -116,7 +118,7 @@ function drumTrack(rhythm, name){ const R = S.RHYTHMS[rhythm]; const t = {id:uid
   setRhythm(t, rhythm); return t; }
 function setRhythm(t, rhythm){ const R = S.RHYTHMS[rhythm]; t.rhythm = rhythm; t.kit = R.kit; t.steps = R.steps; t.stepBeats = R.stepBeats; t.grid = {};
   for(const [row, p] of Object.entries(R.pat)) t.grid[row] = [...p].map(S.velOf); }
-function newSong(){ return {v:1, name:'My song', bpm:90, key:'D', scale:'mohanam', bars:8, meter:4, tracks:[instTrack('r:piano'), drumTrack('keherwa')]}; }
+function newSong(){ return {v:1, feel:0.6, name:'My song', bpm:90, key:'D', scale:'mohanam', bars:8, meter:4, tracks:[instTrack('r:piano'), drumTrack('keherwa')]}; }
 const sel = () => song.tracks.find(t => t.id === selId) || song.tracks[0];
 
 function snapshot(){ return JSON.stringify(song); }
@@ -130,7 +132,7 @@ function fillTop(){
   $('key').innerHTML = Object.keys(S.KEYS).map(k => `<option>${k}</option>`).join('');
   $('scale').innerHTML = Object.entries(S.SCALES).map(([k, v]) => `<option value="${k}">${v.name}</option>`).join('');
 }
-function syncTop(){ $('songName').textContent = song.name; $('bpm').value = song.bpm; $('key').value = song.key; $('scale').value = song.scale; $('bars').value = song.bars; $('meter').value = song.meter;
+function syncTop(){ $('songName').textContent = song.name; $('bpm').value = song.bpm; $('key').value = song.key; $('scale').value = song.scale; $('bars').value = song.bars; $('meter').value = song.meter; $('feel').value = String(song.feel ?? 0.6);
   $('loopBtn').classList.toggle('on', player.loop); $('metroBtn').classList.toggle('on', player.metro); }
 $('bpm').onchange = () => { pushUndo(); song.bpm = Math.max(30, Math.min(240, +$('bpm').value || 90)); changed({keepUI:true}); };
 $('key').onchange = () => { pushUndo(); const d = S.KEYS[$('key').value] - S.KEYS[song.key];
@@ -138,6 +140,7 @@ $('key').onchange = () => { pushUndo(); const d = S.KEYS[$('key').value] - S.KEY
   song.key = $('key').value; changed(); };
 $('scale').onchange = () => { pushUndo(); song.scale = $('scale').value; changed(); };
 $('bars').onchange = () => { pushUndo(); song.bars = Math.max(1, Math.min(200, +$('bars').value || 8)); delete song.sections; changed(); };
+$('feel').onchange = () => { pushUndo(); song.feel = +$('feel').value; changed({keepUI:true}); toast(song.feel ? 'Human feel on' : 'Exact machine timing'); };
 $('meter').onchange = () => { pushUndo(); song.meter = +$('meter').value; changed(); };
 $('undo').onclick = () => { if(!undoStack.length) return; redoStack.push(snapshot()); song = JSON.parse(undoStack.pop()); player.G = null; if(!song.tracks.find(t => t.id === selId)) selId = song.tracks[0]?.id; changed(); };
 $('redo').onclick = () => { if(!redoStack.length) return; undoStack.push(snapshot()); song = JSON.parse(redoStack.pop()); player.G = null; changed(); };
@@ -164,8 +167,9 @@ function frame(){ drawAllPlayheads(); if(player.playing) requestAnimationFrame(f
 function drawAllPlayheads(){ const p = player.position(); $('pos').textContent = posText(p); drawMinis(); followRoll(p); drawRoll(); markGrid(p); }
 
 // ------------------------------------------------------------ track list
-function trackColor(t){ return t.type === 'drum' ? KIT_CLR[t.kit] || '#888' : GROUP_CLR[(S.INSTRUMENTS[t.inst] || {}).group] || '#888'; }
-function trackSub(t){ return t.type === 'drum' ? (S.KITS[t.kit]?.label || t.kit) + ' · ' + (S.RHYTHMS[t.rhythm]?.name.split(' (')[0] || 'own rhythm') : (S.INSTRUMENTS[t.inst]?.label || t.inst); }
+function trackColor(t){ if(t.type === 'amb') return '#38b6c9'; return t.type === 'drum' ? KIT_CLR[t.kit] || '#888' : GROUP_CLR[(S.INSTRUMENTS[t.inst] || {}).group] || '#888'; }
+function ambInfo(id){ return (window.VG_AMB && VG_AMB.LIST.find(a => a.id === id)) || {name:id, icon:'🌿'}; }
+function trackSub(t){ if(t.type === 'amb'){ const a = ambInfo(t.amb); return a.icon + ' ' + a.name; } return t.type === 'drum' ? (S.KITS[t.kit]?.label || t.kit) + ' · ' + (S.RHYTHMS[t.rhythm]?.name.split(' (')[0] || 'own rhythm') : (S.INSTRUMENTS[t.inst]?.label || t.inst); }
 function renderTracks(){
   const box = $('tracks');
   box.innerHTML = song.tracks.map(t => `<div class="trk${t.id === selId ? ' sel' : ''}${t.id === openId ? ' open' : ''}" data-id="${t.id}">
@@ -214,6 +218,7 @@ function drawMinis(){
     c.fillStyle = trackColor(t); c.globalAlpha = audibleUI(t) ? 1 : 0.3;
     if(t.type === 'inst'){ if(t.notes.length){ let lo = 127, hi = 0; for(const n of t.notes){ lo = Math.min(lo, n.m); hi = Math.max(hi, n.m); } const span = Math.max(12, hi - lo);
         for(const n of t.notes) c.fillRect(n.t * k / total * w, h - 4 - (n.m - lo) / span * (h - 8), Math.max(1.5, n.d * k / total * w - 0.5), 2.5); } }
+    else if(t.type === 'amb'){ c.globalAlpha *= 0.55; for(let x = 0; x < w; x += 3){ const a = 0.5 + 0.35 * Math.sin(x * 0.21 + t.amb.length) * Math.sin(x * 0.047); c.fillRect(x, h / 2 - a * h * 0.4, 2, a * h * 0.8); } }
     else { for(const e of S.events({...song, tracks:[t]})) c.fillRect(e.s / total * w, h / 2 - 5 * e.v, 1.5, 10 * e.v); }
     c.globalAlpha = 1; c.fillStyle = '#fff'; c.fillRect(p / total * w, 0, 1.5, h);
   });
@@ -227,7 +232,14 @@ function soundButtons(filter){
 }
 function rhythmButtons(){ const by = {}; for(const [id, R] of Object.entries(S.RHYTHMS)) (by[R.kit] = by[R.kit] || []).push([id, R]);
   return Object.entries(by).map(([kit, list]) => `<h4>${S.KITS[kit].label}</h4><div class="opts">${list.map(([id, R]) => `<button data-rh="${id}">${esc(R.name)}</button>`).join('')}</div>`).join(''); }
+function ambButtons(){ return window.VG_AMB ? `<div class="opts">${VG_AMB.LIST.map(a => `<button data-amb="${a.id}">${a.icon} ${esc(a.name)}</button>`).join('')}</div>` : '<p class="hint">Nature sounds did not load.</p>'; }
+function bindAmbHear(box, onPick){ box.querySelectorAll('[data-amb]').forEach(b => b.onclick = async () => { box.querySelectorAll('[data-amb]').forEach(x => x.classList.toggle('on', x === b)); await hearAmb(b.dataset.amb); onPick && onPick(b.dataset.amb); }); }
+let ambPreview = null;
+async function hearAmb(id){ const G = player.ensure(song); try{ ambPreview && ambPreview.stop(); }catch(e){} const buf = await VG_AMB.render(id, 10); const src = G.ctx.createBufferSource(); src.buffer = buf; src.connect(G.ctx.destination); src.start(); src.stop(G.ctx.currentTime + 6); ambPreview = src; }
 function pickSound(t){
+  if(t.type === 'amb'){ let chosen = t.amb; sheet('Choose nature sound', ambButtons() + `<p class="hint">Tap to hear 6 seconds. Tap ✓ Use to choose.</p><button id="useAmb" class="on" style="margin-top:10px">✓ Use</button>`, box => {
+      box.querySelectorAll('[data-amb]').forEach(b => b.classList.toggle('on', b.dataset.amb === chosen)); bindAmbHear(box, id => chosen = id);
+      $('useAmb').onclick = () => { pushUndo(); t.amb = chosen; t.name = 'Nature · ' + ambInfo(chosen).name; closeSheet(); changed(); }; }); return; }
   if(t.type === 'drum'){ sheet('Choose rhythm for ' + esc(t.name), rhythmButtons() + `<p class="hint">Changing the rhythm replaces this track's pattern.</p>`, box => box.querySelectorAll('[data-rh]').forEach(b => b.onclick = () => { pushUndo(); setRhythm(t, b.dataset.rh); t.name = S.RHYTHMS[b.dataset.rh].name.split(' (')[0]; closeSheet(); player.G = null; changed(); }));
     return; }
   sheet('Choose instrument for ' + esc(t.name), soundButtons() + `<p class="hint">Tap to hear it. Tap ✓ Use to choose.</p><button id="useInst" class="on" style="margin-top:10px">✓ Use</button>`, box => {
@@ -243,7 +255,9 @@ async function hear(inst){
   const t0 = G.ctx.currentTime; delete G.tracks.__pv; ms.forEach((x, i) => setTimeout(() => S.preview(G, song, tmp, x), i * 260));
 }
 function addTrackSheet(){
-  sheet('Add a track', `<h4 style="margin-top:0">Instrument (melody, chords, bass)</h4>` + soundButtons() + `<h4>Rhythm (drums, tabla, mridangam)</h4><div class="opts">${Object.entries(S.RHYTHMS).map(([id, R]) => `<button data-rh="${id}">${esc(R.name)}</button>`).join('')}</div>`, box => {
+  sheet('Add a track', `<h4 style="margin-top:0">Instrument (melody, chords, bass)</h4>` + soundButtons() + `<h4>Rhythm (drums, tabla, mridangam)</h4><div class="opts">${Object.entries(S.RHYTHMS).map(([id, R]) => `<button data-rh="${id}">${esc(R.name)}</button>`).join('')}</div>
+    <h4>Nature & place sounds (play through the whole song)</h4>${ambButtons().replace(/data-amb=/g, 'data-addamb=')}`, box => {
+    box.querySelectorAll('[data-addamb]').forEach(b => b.onclick = () => { pushUndo(); const id = b.dataset.addamb; const t = {id:uid(), type:'amb', amb:id, name:'Nature · ' + ambInfo(id).name, vol:0.45, pan:0, verb:0}; song.tracks.push(t); selId = t.id; closeSheet(); changed(); hearAmb(id); });
     box.querySelectorAll('[data-inst]').forEach(b => b.onclick = () => { pushUndo(); const t = instTrack(b.dataset.inst); song.tracks.push(t); selId = t.id; closeSheet(); changed(); hear(b.dataset.inst); });
     box.querySelectorAll('[data-rh]').forEach(b => b.onclick = () => { pushUndo(); const t = drumTrack(b.dataset.rh); song.tracks.push(t); selId = t.id; closeSheet(); changed(); });
   });
@@ -254,6 +268,13 @@ const PR = {bw:44, rh:22, sx:0, sy:-1, snap:0.5, len:1, lock:true, follow:true, 
 const KEYW = 62, RUL = 22;
 function renderEditor(){
   const t = sel(); if(!t){ $('edTools').innerHTML = '<span class="hint">Add a track to start.</span>'; $('roll').style.display = 'none'; $('grid').style.display = 'none'; return; }
+  if(t.type === 'amb'){
+    $('roll').style.display = 'none'; $('grid').style.display = '';
+    $('edTools').innerHTML = `<span class="t">🌿 ${esc(t.name)}</span>`;
+    $('grid').innerHTML = `<p class="hint" style="margin-top:4px">This sound plays through the whole song and fades in and out. Change its loudness with ⚙ → Volume.</p><h4 class="hint">Change sound</h4>` + ambButtons();
+    $('grid').querySelectorAll('[data-amb]').forEach(b => { b.classList.toggle('on', b.dataset.amb === t.amb); b.onclick = async () => { pushUndo(); t.amb = b.dataset.amb; t.name = 'Nature · ' + ambInfo(t.amb).name; changed(); }; });
+    return;
+  }
   if(t.type === 'inst'){
     $('roll').style.display = ''; $('grid').style.display = 'none';
     $('edTools').innerHTML = `<span class="t">🎵 ${esc(t.name)}</span>
@@ -478,6 +499,7 @@ async function menu(m){
     <li><b>Raga notes</b> shows only the notes of the raga, so every note fits.</li>
     <li><b>✨ Auto-fill</b> writes a melody, chords, bass, arpeggio or drone for you.</li>
     <li><b>Rhythm</b> tracks: pick Teentaal, Adi, Keherwa, rock… or tap the boxes to make your own.</li>
+    <li><b>Feel → Natural</b> adds small timing and loudness changes, like real players.</li>
     <li>⚙ opens volume, left/right and hall echo. <b>M</b> mutes, <b>S</b> plays only that track.</li>
     <li>🔁 repeats. Drag on the bar numbers above the notes to repeat only some bars.</li>
     <li>☰ Menu → download WAV/M4A or send to the 🎬 Animator.</li></ol>`);
@@ -494,7 +516,8 @@ function oneTapSheet(){
     <h4>2 · Length (seconds)</h4><div class="opts" id="otLen">${[30, 45, 60, 90, 120, 180, 300].map(n => `<button data-len="${n}" class="${n === OT.seconds ? 'on' : ''}">${n < 60 ? n + ' s' : (n / 60) + ' min'}</button>`).join('')}
       <input id="otSec" type="number" min="8" max="900" value="${OT.seconds}" style="width:80px" title="Exact seconds"></div>
     <h4>3 · Key (Sa)</h4><select id="otKey"><option value="">Automatic</option>${Object.keys(S.KEYS).map(k => `<option${k === OT.key ? ' selected' : ''}>${k}</option>`).join('')}</select>
-    <h4>4 · Tune number</h4><div class="opts"><input id="otSeed" type="number" min="1" max="99999" value="${OT.seed}" style="width:90px"><button id="otDice">🎲 Another tune</button></div>
+    <h4>4 · Nature sound (optional)</h4><select id="otNat"><option value="">None</option>${window.VG_AMB ? VG_AMB.LIST.map(a => `<option value="${a.id}"${a.id === OT.nature ? ' selected' : ''}>${a.icon} ${esc(a.name)}</option>`).join('') : ''}</select>
+    <h4>5 · Tune number</h4><div class="opts"><input id="otSeed" type="number" min="1" max="99999" value="${OT.seed}" style="width:90px"><button id="otDice">🎲 Another tune</button></div>
     <button id="otGo" class="on" style="width:100%;margin-top:16px;padding:12px;font-size:16px">✨ Make song</button>
     <p class="hint">Your current song will be replaced. Same mood + same tune number = same song again.</p>`, box => {
     box.querySelectorAll('[data-mood]').forEach(b => b.onclick = () => { OT.mood = b.dataset.mood; box.querySelectorAll('[data-mood]').forEach(x => x.classList.toggle('on', x === b)); });
@@ -505,10 +528,11 @@ function oneTapSheet(){
   });
 }
 async function makeOneTap(){
+  if($('otNat')) OT.nature = $('otNat').value;
   OT.key = $('otKey') ? $('otKey').value : OT.key; OT.seed = $('otSeed') ? +$('otSeed').value || 1 : OT.seed; if($('otSec')) OT.seconds = Math.max(8, Math.min(900, +$('otSec').value || 60));
   try{ localStorage.setItem('vg_studio_onetap', JSON.stringify(OT)); }catch(e){}
   closeSheet(); pushUndo();
-  const s = S.compose({mood:OT.mood, seconds:OT.seconds, key:OT.key || null, seed:OT.seed});
+  const s = S.compose({mood:OT.mood, seconds:OT.seconds, key:OT.key || null, seed:OT.seed, nature:OT.nature || null});
   loadSong(s); PR.sx = 0; PR.sy = -1; renderEditor();
   await togglePlay();
   toast(`${S.MOODS[OT.mood].name} · ${OT.seconds}s · tune ${OT.seed}`);

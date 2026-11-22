@@ -1,98 +1,7 @@
 /* VideoGen Studio sound engine — no AI.
    Real instruments: VSCO 2 Community Edition recordings (CC0) in ./samples.
    Indian instruments and Indian percussion: physical-model synth from ../animate/synth.js.
-   // ---------------------------------------------------------------- one-tap songs with sections, fitted to a length in seconds
-// roles: melody, counter (chorus only), pad (chords), bass, arp, drone; rhythm (+ rhythm2 in chorus)
-const MOODS = {
-  spiritual:{name:'🕉️ Spiritual / Upanishad', scales:['revati', 'mayamalavagowla', 'kalyani', 'mohanam'], bpm:[58, 66], keys:['C#', 'D', 'C'],
-    parts:{melody:'s:bansuri', drone:'s:tanpura', pad:'r:cellos', arp:'r:harp', counter:'r:violins'}, verb:0.5},
-  devotional:{name:'🙏 Devotional / bhajan', scales:['mohanam', 'abheri', 'kharaharapriya', 'shivaranjani'], bpm:[88, 100], keys:['C#', 'D', 'C'],
-    parts:{melody:'s:harmonium', counter:'s:bansuri', drone:'s:tanpura'}, rhythm:'keherwa', rhythm2:'bhajan', verb:0.3},
-  carnatic:{name:'🪕 Carnatic veena', scales:['hamsadhwani', 'kalyani', 'mayamalavagowla', 'mohanam', 'kharaharapriya'], bpm:[80, 92], keys:['D', 'E', 'C'],
-    parts:{melody:'s:veena', counter:'r:violin', drone:'s:tanpura'}, rhythm:'adi', verb:0.3},
-  hindustani:{name:'🎶 Hindustani sitar', scales:['kalyani', 'bhairavi', 'hindolam', 'kharaharapriya'], bpm:[72, 84], keys:['C#', 'D'],
-    parts:{melody:'s:sitar', counter:'s:bansuri', drone:'s:tanpura'}, rhythm:'teentaal', verb:0.35},
-  calm:{name:'🌿 Calm / meditation', scales:['mohanam', 'shivaranjani', 'major'], bpm:[60, 70], keys:['D', 'F', 'C'],
-    parts:{melody:'r:flute', pad:'r:violins', arp:'r:harp', drone:'s:tanpura'}, verb:0.55},
-  happy:{name:'😊 Happy / kids', scales:['major', 'mohanam'], bpm:[110, 124], keys:['F', 'G', 'C'],
-    parts:{melody:'r:marimba', counter:'r:glock', bass:'r:pizz', arp:'r:xylophone'}, rhythm:'latin', verb:0.2},
-  cinematic:{name:'🎬 Cinematic / epic', scales:['minor', 'kharaharapriya'], bpm:[84, 96], keys:['D', 'C', 'E'],
-    parts:{melody:'r:horn', counter:'r:trumpet', pad:'r:violins', bass:'r:cellos', arp:'r:pizz'}, rhythm:'epic', verb:0.45},
-  sad:{name:'😢 Sad / emotional', scales:['minor', 'bhairavi'], bpm:[64, 72], keys:['A', 'D', 'E'],
-    parts:{melody:'r:piano', counter:'r:violin', pad:'r:cellos'}, verb:0.45},
-  motivational:{name:'💼 Motivational / business', scales:['major'], bpm:[100, 110], keys:['C', 'D', 'G'],
-    parts:{melody:'r:piano', pad:'r:violins', bass:'r:cellos', arp:'s:guitar'}, rhythm:'pop', verb:0.3},
-  folk:{name:'🌾 Village folk', scales:['kharaharapriya', 'mohanam', 'major'], bpm:[100, 112], keys:['D', 'E'],
-    parts:{melody:'s:bansuri', arp:'s:santoor', bass:'s:guitar'}, rhythm:'dholak', verb:0.25},
-  romantic:{name:'❤️ Romantic', scales:['kalyani', 'major', 'shivaranjani'], bpm:[76, 86], keys:['C', 'D'],
-    parts:{melody:'s:sitar', counter:'r:flute', pad:'r:violins', arp:'s:guitar'}, rhythm:'keherwa', verb:0.4},
-  orchestra:{name:'🎻 Orchestra', scales:['major', 'minor'], bpm:[84, 96], keys:['D', 'G', 'C'],
-    parts:{melody:'r:flute', counter:'r:oboe', pad:'r:violins', bass:'r:basses', arp:'r:harp'}, rhythm:'march', verb:0.45},
-};
-const ROLE_NAME = {melody:'Melody', counter:'Second melody', pad:'Chords', bass:'Bass', arp:'Arpeggio', drone:'Drone'};
-const ROLE_VOL = {melody:0.85, counter:0.55, pad:0.5, bass:0.7, arp:0.5, drone:0.45};
-const ROLE_PAN = {melody:0, counter:0.3, pad:-0.25, bass:0, arp:0.35, drone:-0.15};
-let idn = 0; const tid = () => 'g' + Date.now().toString(36) + (idn++);
-function sections(nb){
-  let intro = nb >= 14 ? 4 : nb >= 8 ? 2 : 1, outro = nb >= 10 ? 2 : 1, mid = Math.max(1, nb - intro - outro);
-  if(mid > 4 && mid % 4){ const rem = mid % 4, toIntro = Math.min(rem, 4 - intro); intro += toIntro; outro += rem - toIntro; mid -= rem; }
-  const out = [{type:'intro', b0:0, n:intro}];
-  const order = ['A', 'B', 'A', 'B', 'C', 'B']; let b = intro, i = 0;
-  while(b < intro + mid){ const n = Math.min(4, intro + mid - b); out.push({type:order[i % order.length], b0:b, n}); b += n; i++; }
-  out.push({type:'outro', b0:b, n:outro}); return out;
-}
-function compose(o){
-  const M = MOODS[o.mood] || MOODS.spiritual, R = rng((o.seed || 1) * 104729 + o.mood.length * 31), meter = 4;
-  const scale = o.scale || R.pick(M.scales), key = o.key || R.pick(M.keys);
-  const bpm0 = M.bpm[0] + R() * (M.bpm[1] - M.bpm[0]), secs = Math.max(8, o.seconds || 60);
-  // pick bars so the middle is whole 4-bar phrases, then set the tempo so the song lasts exactly `secs`
-  let bars = Math.max(4, Math.round(secs / (meter * 60 / bpm0))), best = null;
-  for(let n = Math.max(4, bars - 6); n <= bars + 6; n++){ const sc = sections(n); if((sc.some(x => x.n < 4 && /^[ABC]$/.test(x.type)) || sc[sc.length - 1].n > 3) && n >= 6) continue;
-    const b = n * meter * 60 / secs, cost = Math.abs(Math.log(b / bpm0)); if(!best || cost < best.cost) best = {n, cost}; }
-  if(best) bars = best.n; const bpm = Math.round(bars * meter * 60 / secs * 100) / 100;
-  const song = {v:1, name:`${M.name.replace(/^\S+\s/, '')} · ${SCALES[scale].name.split(' ')[0]} · ${Math.round(secs)}s`, bpm, key, scale, bars, meter, tracks:[], mood:o.mood, seed:o.seed || 1, seconds:secs};
-  const secs_ = sections(bars), seedA = R() * 1e6 | 0, seedB = R() * 1e6 | 0, seedC = R() * 1e6 | 0;
-  const has = (sec, role) => ({intro:['pad', 'arp', 'drone'], A:['melody', 'pad', 'bass', 'drone'], B:['melody', 'counter', 'pad', 'bass', 'arp', 'drone'],
-    C:['counter', 'pad', 'arp', 'drone', 'bass'], outro:['melody', 'pad', 'drone', 'arp']}[sec.type].includes(role));
-  for(const [role, inst] of Object.entries(M.parts)){
-    if(!INSTRUMENTS[inst]) continue;
-    const tr = {id:tid(), type:'inst', inst, name:`${ROLE_NAME[role]} · ${INSTRUMENTS[inst].label}`, notes:[], vol:ROLE_VOL[role], pan:ROLE_PAN[role], verb:M.verb};
-    const bpb = meter;
-    for(const sec of secs_){
-      if(!has(sec, role)) continue;
-      // when a mood has no pad/arp, let the melody instrument play the intro softly
-      let kind = role === 'pad' ? 'chords' : role === 'melody' ? 'melody' : role;
-      if(sec.type === 'outro'){
-        const I = INSTRUMENTS[inst], r = rootOf(song); let sa = r + 12; while(sa < I.range[0] + 3) sa += 12; while(sa > I.range[1] - 3) sa -= 12;
-        if(role === 'melody'){ tr.notes.push({t:sec.b0 * bpb, d:sec.n * bpb - 0.2, m:sa, v:0.75}); continue; }
-        if(role === 'arp'){ kind = 'arp'; }
-        if(role === 'pad'){ for(const m of fit(chordAt(song, 0, Math.max(I.range[0] + 5, Math.min(I.range[1] - 10, 60))), I.range)) tr.notes.push({t:sec.b0 * bpb, d:sec.n * bpb - 0.2, m, v:0.5}); continue; }
-        if(role === 'arp'){ const n = auto(song, tr, 'arp', seedB, 1).map(x => ({...x, t:x.t + sec.b0 * bpb})); tr.notes.push(...n); continue; }
-      }
-      const sd = sec.type === 'B' ? seedB : sec.type === 'C' ? seedC : seedA;
-      const shift = role === 'melody' && sec.type === 'B' ? 5 : role === 'counter' ? 7 : 0;
-      let notes = auto(song, tr, kind, sd + (role === 'counter' ? 17 : 0), sec.n, {shift});
-      if(sec.type === 'intro' && role === 'arp') notes = notes.map(x => ({...x, v:x.v * 0.8}));
-      if(sec.type === 'C' && role === 'counter') notes = notes.map(x => ({...x, v:0.65}));
-      tr.notes.push(...notes.map(x => ({...x, t:x.t + sec.b0 * bpb})));
-    }
-    if(tr.notes.length) song.tracks.push(tr);
-  }
-  // intro for moods without pad/arp: drone carries it; melody gets a soft opening phrase
-  const melTr = song.tracks.find(t => t.name.startsWith('Melody')), introSec = secs_[0];
-  if(melTr && !M.parts.pad && !M.parts.arp){ melTr.notes.push(...auto(song, melTr, 'melody', seedA + 3, introSec.n).map(x => ({...x, v:x.v * 0.6, t:x.t + introSec.b0 * meter}))); }
-  const drumOff = rh => { const off = []; for(const sec of secs_) if(sec.type === 'intro' || sec.type === 'outro' || (sec.type === 'C' && rh === 'main')) for(let b = sec.b0; b < sec.b0 + sec.n; b++) off.push(b); return off; };
-  const addDrum = (rhythm, name, vol, chorusOnly) => { const R2 = RHYTHMS[rhythm]; if(!R2) return; const tr = {id:tid(), type:'drum', kit:R2.kit, rhythm, name, steps:R2.steps, stepBeats:R2.stepBeats, grid:{}, vol, pan:0, verb:Math.min(0.3, M.verb), from:1, to:0};
-    for(const [row, p] of Object.entries(R2.pat)) tr.grid[row] = [...p].map(velOf);
-    tr.off = drumOff('main'); if(chorusOnly) for(const sec of secs_) if(sec.type !== 'B') for(let b = sec.b0; b < sec.b0 + sec.n; b++) tr.off.push(b);
-    tr.off = [...new Set(tr.off)].sort((a, b) => a - b); song.tracks.push(tr); };
-  if(M.rhythm) addDrum(M.rhythm, 'Rhythm · ' + RHYTHMS[M.rhythm].name.split(' (')[0], 0.7);
-  if(M.rhythm2) addDrum(M.rhythm2, 'Chorus rhythm · ' + RHYTHMS[M.rhythm2].name.split(' (')[0], 0.5, true);
-  song.sections = secs_.map(s => ({type:s.type, b0:s.b0, n:s.n}));
-  return song;
-}
-
-window.VG_STUDIO = {MOODS, compose, sections,load, INSTRUMENTS, KITS, RHYTHMS, SCALES, ...}                          */
+   window.VG_STUDIO = {load, compose, MOODS, INSTRUMENTS, KITS, RHYTHMS, SCALES, ...}                          */
 (function(){
 'use strict';
 const SR = 44100;
@@ -137,7 +46,8 @@ const KITS = {
   mridangam:{label:'Mridangam + ghatam', rows:[['s:mri:tha', 'Tha'], ['s:mri:dhi', 'Dhi'], ['s:mri:nam', 'Nam'], ['s:mri:chapu', 'Chapu'], ['s:mri:thom', 'Thom'],
     ['s:mri:ki', 'Ki'], ['s:mri:dheem', 'Dheem'], ['s:ghatam:gum', 'Ghatam gum'], ['s:ghatam:ta', 'Ghatam ta'], ['s:kanjira', 'Kanjira']]},
   folk:{label:'Folk: dholak, dhol, gajjalu', rows:[['s:dholak:dhe', 'Dholak dhe'], ['s:dholak:ta', 'Dholak ta'], ['s:dhol:dhum', 'Dhol dhum'], ['s:dhol:tak', 'Dhol tak'],
-    ['s:manjira', 'Manjira'], ['s:manjira:closed', 'Manjira closed'], ['s:gajjalu', 'Gajjalu'], ['s:taalam', 'Taalam'], ['s:shaker', 'Shaker']]},
+    ['s:manjira', 'Manjira'], ['s:manjira:closed', 'Manjira closed'], ['s:gajjalu', 'Gajjalu'], ['s:taalam', 'Taalam'], ['s:shaker', 'Shaker'],
+    ['s:bell:small', 'Small bell'], ['s:bell:temple', 'Temple bell'], ['s:bowl', 'Singing bowl']]},
 };
 // pattern strings: one char per step. x = hit, o = soft hit, - = rest
 const RHYTHMS = {
@@ -151,6 +61,9 @@ const RHYTHMS = {
   dholak:{name:'Folk dholak', kit:'folk', steps:8, stepBeats:0.5, pat:{'s:dholak:dhe':'x---xx--', 's:dholak:ta':'--xx--x-', 's:shaker':'oooooooo', 's:gajjalu':'x---x---'}},
   bhajan:{name:'Bhajan (dholak + manjira)', kit:'folk', steps:8, stepBeats:0.5, pat:{'s:dholak:dhe':'x--x-x--', 's:dholak:ta':'--x---x-', 's:manjira':'x---x---', 's:manjira:closed':'--o---o-'}},
   dhol:{name:'Dhol dance (bhangra)', kit:'folk', steps:8, stepBeats:0.5, pat:{'s:dhol:dhum':'x--x--x-', 's:dhol:tak':'-xx-xx-x', 's:taalam':'x---x---'}},
+  aarti:{name:'Aarti (dholak, manjira, bell)', kit:'folk', steps:8, stepBeats:0.5, pat:{'s:dholak:dhe':'x--x-x--', 's:dholak:ta':'--x---x-', 's:manjira':'x-x-x-x-', 's:bell:small':'x-------'}},
+  thavil:{name:'Thavil style (wedding)', kit:'mridangam', steps:8, stepBeats:0.5, pat:{'s:mri:thom':'x--x--x-', 's:mri:tha':'-x--x--x', 's:kanjira':'o-o-o-o-', 's:mri:dheem':'x-------'}},
+  bowl:{name:'Singing bowl (slow)', kit:'folk', steps:16, stepBeats:1, pat:{'s:bowl':'x---------------'}},
   rock:{name:'Rock beat', kit:'kit', steps:16, stepBeats:0.25, pat:{'r:kick':'x-----x-x-------', 'r:snare':'----x-------x---', 's:shaker':'o-o-o-o-o-o-o-o-'}},
   pop:{name:'Pop / ballad', kit:'kit', steps:16, stepBeats:0.25, pat:{'r:kick':'x-------x-x-----', 'r:rim':'----x-------x---', 's:shaker':'-o-o-o-o-o-o-o-o'}},
   latin:{name:'Latin (conga, claves)', kit:'kit', steps:16, stepBeats:0.25, pat:{'r:kick':'x-------x-------', 'r:claves':'x--x--x---x-x---', 'r:conga_open':'------x-------x-', 'r:bongo':'--o---o---o---o-', 's:shaker':'oooooooooooooooo'}},
@@ -212,24 +125,39 @@ const rootOf = s => KEYS[s.key] ?? 50;
 function audible(s, tr){ const solo = s.tracks.some(t => t.solo); return !tr.mute && (!solo || tr.solo); }
 
 // events: [{s:sec, tr, type:'note'|'hit', ...}] sorted
+// small repeatable 'random' numbers, so the human feel is the same every time you play
+function hsh(a, b){ let h = 2166136261 ^ a; h = Math.imul(h ^ b, 16777619); h ^= h >>> 13; h = Math.imul(h, 1274126177); h ^= h >>> 16; return (h >>> 0) / 4294967296; }
+function strHash(str){ let h = 7; for(let i = 0; i < str.length; i++) h = Math.imul(h ^ str.charCodeAt(i), 16777619); return h; }
 function events(song){
-  const ev = [], k = spb(song), TB = totalBeats(song);
+  const ev = [], k = spb(song), TB = totalBeats(song), feel = song.feel ?? 0.6, bpb = beatsPerBar(song);
+  const accent = t => { const p = ((t % bpb) + bpb) % bpb; return Math.abs(p) < 1e-3 ? 0.08 : Math.abs(p - Math.round(p)) < 1e-3 ? 0.02 : -0.03; };
   for(const tr of song.tracks){
-    if(tr.type === 'inst'){ for(const n of tr.notes) if(n.t < TB) ev.push({s:n.t * k, dur:Math.min(n.d, TB + 4 - n.t) * k, tr, type:'note', m:n.m, v:n.v ?? 0.8}); }
+    const th = strHash(tr.id || 'x');
+    if(tr.type === 'inst'){ tr.notes.forEach((n, i) => { if(n.t >= TB) return;
+        const dt = feel * (hsh(th, i * 2 + 1) - 0.5) * 0.036, dv = feel * ((hsh(th, i * 2 + 2) - 0.5) * 0.16 + accent(n.t));
+        ev.push({s:Math.max(0, n.t * k + (n.t > 0 ? dt : 0)), dur:Math.min(n.d, TB + 4 - n.t) * k, tr, type:'note', m:n.m, v:Math.max(0.12, Math.min(1, (n.v ?? 0.8) + dv))}); }); }
+    else if(tr.type === 'amb'){ ev.push({s:0, dur:TB * k, tr, type:'amb'}); }
     else if(tr.type === 'drum'){
       const from = (tr.from || 1) - 1, to = Math.min(tr.to || song.bars, song.bars), b0 = from * beatsPerBar(song), b1 = to * beatsPerBar(song);
       const len = tr.steps * tr.stepBeats, off = new Set(tr.off || []), bpb = beatsPerBar(song);
       for(let cyc = b0; cyc < b1 - 1e-6; cyc += len){
-        for(const [row, arr] of Object.entries(tr.grid)) for(let i = 0; i < tr.steps; i++){ const v = arr[i] || 0; const t = cyc + i * tr.stepBeats; if(v && t < b1 - 1e-6 && !off.has(Math.floor(t / bpb + 1e-6))) ev.push({s:t * k, tr, type:'hit', row, v}); }
+        for(const [row, arr] of Object.entries(tr.grid)) for(let i = 0; i < tr.steps; i++){ const v = arr[i] || 0; const t = cyc + i * tr.stepBeats; if(v && t < b1 - 1e-6 && !off.has(Math.floor(t / bpb + 1e-6))){ const j = Math.round(t * 16) * 31 + row.length;
+            ev.push({s:Math.max(0, t * k + (t > 0 ? feel * (hsh(th, j) - 0.5) * 0.016 : 0)), tr, type:'hit', row, v:Math.max(0.1, Math.min(1, v * (1 + feel * ((hsh(th, j + 7) - 0.5) * 0.3 + accent(t) * 1.5))))}); } }
       }
+      for(const h of tr.hits || []) if(h.t <= TB + 1e-6) ev.push({s:h.t * k, tr, type:'hit', row:h.row, v:h.v ?? 1});
     }
   }
   return ev.sort((a, b) => a.s - b.s);
 }
+// nature sounds (from ../animate/ambience.js), rendered to the song length
+const ambBufs = {};
+const ambKey = (id, secs) => id + '|' + Math.ceil(secs + 1);
+async function ambLoad(id, secs){ const k = ambKey(id, secs); if(ambBufs[k]) return ambBufs[k]; if(!window.VG_AMB) return null; return ambBufs[k] = await window.VG_AMB.render(id, Math.ceil(secs + 1)); }
 // buffers the song needs (so playback can start without gaps)
 function needs(song){
   const keys = new Set(), syn = [];
   for(const e of events(song)){
+    if(e.type === 'amb') continue;
     if(e.type === 'note'){ const I = INSTRUMENTS[e.tr.inst]; if(!I) continue; if(I.kind === 'real') keys.add(sampleFor(e.tr.inst, e.m, e.v).key); else syn.push(e); }
     else if(e.row.startsWith('r:')) keys.add('drums/' + e.row.slice(2)); else syn.push(e);
   }
@@ -238,6 +166,7 @@ function needs(song){
 async function prepare(song, onProgress){
   await load();
   const {keys, syn} = needs(song); let done = 0; const total = keys.length + syn.length || 1;
+  for(const tr of song.tracks) if(tr.type === 'amb') await ambLoad(tr.amb, songSeconds(song));
   await Promise.all(keys.map(k => fetchBuf(k).then(() => onProgress && onProgress(++done / total))));
   const t0 = performance.now();
   for(const e of syn){ bufferFor(song, e); done++; if(performance.now() - t0 > 30){ onProgress && onProgress(done / total); await new Promise(r => setTimeout(r, 0)); } }
@@ -245,6 +174,7 @@ async function prepare(song, onProgress){
 }
 // returns {buf, rate, loop, gain, release} or null if not ready yet
 function bufferFor(song, e){
+  if(e.type === 'amb'){ const b = ambBufs[ambKey(e.tr.amb, songSeconds(song))]; if(!b){ ambLoad(e.tr.amb, songSeconds(song)); return null; } return {buf:b, rate:1, gain:1, amb:true}; }
   if(e.type === 'hit'){
     if(e.row.startsWith('r:')){ const b = bufs['drums/' + e.row.slice(2)]; if(!b){ fetchBuf('drums/' + e.row.slice(2)); return null; } return {buf:b, rate:1, gain:0.8}; }
     const name = e.row.slice(2), f = /^(tabla|mri|ghatam|kanjira)/.test(name) ? hz(rootOf(song) + 12) : 300;
@@ -289,10 +219,12 @@ function mixAll(G, song){ for(const tr of song.tracks){ trackNode(G, song, tr); 
 function fire(G, song, e, when, offset = 0){
   const info = bufferFor(song, e); if(!info) return null;
   const ctx = G.ctx, src = ctx.createBufferSource(), g = ctx.createGain(); src.buffer = info.buf; src.playbackRate.value = info.rate;
-  const vel = e.type === 'hit' ? e.v : 0.3 + 0.7 * e.v;
+  const vel = e.type === 'amb' ? 1 : e.type === 'hit' ? e.v : 0.3 + 0.7 * e.v;
   g.gain.value = info.gain * vel; src.connect(g); g.connect(trackNode(G, song, e.tr).input);
+  if(info.amb){ src.start(when, offset); src.stop(when + Math.max(0.1, e.dur - offset + 0.5)); return src; }
   if(e.type === 'note'){
     const len = info.buf.duration / info.rate;
+    if(info.sustain && (song.feel ?? 0.6) > 0 && offset === 0){ g.gain.setValueAtTime(info.gain * vel * 0.55, when); g.gain.linearRampToValueAtTime(info.gain * vel, when + 0.07); }
     if(info.sustain && e.dur > len - 0.5 && info.buf.duration > 2){ src.loop = true; src.loopStart = 1.0; src.loopEnd = info.buf.duration - 0.45; }
     const end = when + e.dur - offset, rel = info.release || 0.3;
     if(!info.synth || SYN[INSTRUMENTS[e.tr.inst].id].sustain){ g.gain.setValueAtTime(info.gain * vel, Math.max(when, end - 0.001)); g.gain.setTargetAtTime(0, Math.max(when, end), rel / 3); }
@@ -323,7 +255,7 @@ class Player {
     if(fromSec >= le - 0.01) fromSec = ls;
     this.segs = [{ctx0:this.ctx.currentTime + 0.08, song0:fromSec, song1:le}]; this.next = fromSec; this.ls = ls; this.le = le;
     // notes that started before the playhead but still sound
-    for(const e of this.ev) if(e.type === 'note' && e.s < fromSec && e.s + e.dur > fromSec + 0.05){ const s = fire(this.G, song, e, this.segs[0].ctx0, fromSec - e.s); if(s){ this.srcs.add(s); s.onended = () => this.srcs.delete(s); } }
+    for(const e of this.ev) if((e.type === 'note' || e.type === 'amb') && e.s < fromSec && e.s + e.dur > fromSec + 0.05){ const s = fire(this.G, song, e, this.segs[0].ctx0, fromSec - e.s); if(s){ this.srcs.add(s); s.onended = () => this.srcs.delete(s); } }
     this.timer = setInterval(() => this.tick(), 25); this.tick();
   }
   refresh(song){ if(!this.playing) return; const p = this.position(); this.start(song, p); }   // after edits
@@ -433,6 +365,25 @@ function auto(song, tr, kind, seed = 1, bars, opts = {}){
   } else if(kind === 'arp'){
     for(let bar = 0; bar < nb; bar++){ const ch = fit(chordAt(song, bar, Math.max(lo + 3, Math.min(hi - 14, 62))), [lo, hi]); const seq = [ch[0], ch[1] ?? ch[0] + 7, ch[2] ?? ch[0] + 12, ch[0] + 12, ch[2] ?? ch[0] + 7, ch[1] ?? ch[0] + 12];
       for(let i = 0; i < bpb * 2; i++) out.push({t:bar * bpb + i * 0.5, d:0.9, m:fit([seq[i % seq.length]], [lo, hi])[0], v:i % 2 ? 0.55 : 0.7}); }
+  } else if(kind === 'alap'){   // slow free opening: grows upward from Sa, phrase by phrase, returns to Sa
+    const pool = scaleMidis(song, Math.max(lo, mid - 12), Math.min(hi, mid + 12)); if(!pool.length) return out;
+    const sa = pool.reduce((b, m) => (m - r) % 12 === 0 && Math.abs(m - mid) < Math.abs(b - mid) ? m : b, pool[0]), si = pool.indexOf(sa), end = nb * bpb;
+    let t = 0, top = 1;
+    while(t < end - 2.5){
+      const seq = []; for(let i = 0; i <= top; i++) seq.push(si + i); for(let i = top - 1; i >= 0; i--) seq.push(si + i);
+      if(top > 2 && R() < 0.5) seq.splice(1, 0, si - 1);   // touch the note below Sa
+      for(const idx of seq){ if(t >= end - 2.5) break; const d = (idx === si ? 2 : 1) * (0.9 + R() * 0.9), m = pool[Math.max(0, Math.min(pool.length - 1, idx))];
+        out.push({t:t + (R() - 0.5) * 0.15, d:d * 0.97, m, v:0.5 + R() * 0.15}); t += d; }
+      top = Math.min(top + 1 + (R() < 0.4 ? 1 : 0), 6);
+    }
+    out.push({t:Math.max(0, t), d:Math.max(1, end - t - 0.1), m:sa, v:0.55});
+    return out.filter(n => n.t >= 0 && n.t < end);
+  } else if(kind === 'chant'){  // Vedic style: three tones around Sa (below, Sa, above), even syllables
+    const pool = scaleMidis(song, mid - 7, mid + 7), sa = pool.reduce((b, m) => (m - r) % 12 === 0 && Math.abs(m - mid) < Math.abs(b - mid) ? m : b, pool[0]);
+    const below = pool.filter(m => m < sa).pop() ?? sa - 2, above = pool.find(m => m > sa) ?? sa + 2;
+    for(let bar = 0; bar < nb; bar++) for(let b = 0; b < bpb; b++){ const t = bar * bpb + b, x = R(); const m = x < 0.55 ? sa : x < 0.78 ? above : below;
+      const last = bar % 2 === 1 && b === bpb - 1; out.push({t, d:last ? 0.95 : (R() < 0.3 ? 0.45 : 0.9), m:last ? sa : m, v:b === 0 ? 0.7 : 0.58});
+      if(!last && R() < 0.3) out.push({t:t + 0.5, d:0.45, m:sa, v:0.55}); }
   } else if(kind === 'counter'){   // slow second line: one chord tone per bar, moving smoothly
     let prev = mid;
     for(let bar = 0; bar < nb; bar++){ const ch = fit(chordAt(song, bar, mid), [lo, hi]).concat(fit(chordAt(song, bar, mid + 12), [lo, hi]));
@@ -450,13 +401,13 @@ function auto(song, tr, kind, seed = 1, bars, opts = {}){
 // ---------------------------------------------------------------- one-tap songs with sections, fitted to a length in seconds
 // roles: melody, counter (chorus only), pad (chords), bass, arp, drone; rhythm (+ rhythm2 in chorus)
 const MOODS = {
-  spiritual:{name:'🕉️ Spiritual / Upanishad', scales:['revati', 'mayamalavagowla', 'kalyani', 'mohanam'], bpm:[58, 66], keys:['C#', 'D', 'C'],
+  spiritual:{indian:true, name:'🕉️ Spiritual / Upanishad', scales:['revati', 'mayamalavagowla', 'kalyani', 'mohanam'], bpm:[58, 66], keys:['C#', 'D', 'C'],
     parts:{melody:'s:bansuri', drone:'s:tanpura', pad:'r:cellos', arp:'r:harp', counter:'r:violins'}, verb:0.5},
-  devotional:{name:'🙏 Devotional / bhajan', scales:['mohanam', 'abheri', 'kharaharapriya', 'shivaranjani'], bpm:[88, 100], keys:['C#', 'D', 'C'],
+  devotional:{indian:true, name:'🙏 Devotional / bhajan', scales:['mohanam', 'abheri', 'kharaharapriya', 'shivaranjani'], bpm:[88, 100], keys:['C#', 'D', 'C'],
     parts:{melody:'s:harmonium', counter:'s:bansuri', drone:'s:tanpura'}, rhythm:'keherwa', rhythm2:'bhajan', verb:0.3},
-  carnatic:{name:'🪕 Carnatic veena', scales:['hamsadhwani', 'kalyani', 'mayamalavagowla', 'mohanam', 'kharaharapriya'], bpm:[80, 92], keys:['D', 'E', 'C'],
+  carnatic:{indian:true, name:'🪕 Carnatic veena', scales:['hamsadhwani', 'kalyani', 'mayamalavagowla', 'mohanam', 'kharaharapriya'], bpm:[80, 92], keys:['D', 'E', 'C'],
     parts:{melody:'s:veena', counter:'r:violin', drone:'s:tanpura'}, rhythm:'adi', verb:0.3},
-  hindustani:{name:'🎶 Hindustani sitar', scales:['kalyani', 'bhairavi', 'hindolam', 'kharaharapriya'], bpm:[72, 84], keys:['C#', 'D'],
+  hindustani:{indian:true, name:'🎶 Hindustani sitar', scales:['kalyani', 'bhairavi', 'hindolam', 'kharaharapriya'], bpm:[72, 84], keys:['C#', 'D'],
     parts:{melody:'s:sitar', counter:'s:bansuri', drone:'s:tanpura'}, rhythm:'teentaal', verb:0.35},
   calm:{name:'🌿 Calm / meditation', scales:['mohanam', 'shivaranjani', 'major'], bpm:[60, 70], keys:['D', 'F', 'C'],
     parts:{melody:'r:flute', pad:'r:violins', arp:'r:harp', drone:'s:tanpura'}, verb:0.55},
@@ -472,6 +423,14 @@ const MOODS = {
     parts:{melody:'s:bansuri', arp:'s:santoor', bass:'s:guitar'}, rhythm:'dholak', verb:0.25},
   romantic:{name:'❤️ Romantic', scales:['kalyani', 'major', 'shivaranjani'], bpm:[76, 86], keys:['C', 'D'],
     parts:{melody:'s:sitar', counter:'r:flute', pad:'r:violins', arp:'s:guitar'}, rhythm:'keherwa', verb:0.4},
+  aarti:{name:'🪔 Temple aarti', scales:['mohanam', 'major', 'abheri'], bpm:[84, 96], keys:['C#', 'D', 'C'], indian:true,
+    parts:{melody:'s:harmonium', counter:'s:bansuri', drone:'s:tanpura'}, rhythm:'aarti', verb:0.35},
+  vedic:{name:'📿 Vedic chant style', scales:['major', 'kharaharapriya', 'mohanam'], bpm:[66, 76], keys:['C#', 'C', 'D'], indian:true, melodyKind:'chant',
+    parts:{melody:'r:cellos', counter:'s:bansuri', drone:'s:tanpura'}, rhythm:'bowl', verb:0.45},
+  wedding:{name:'💐 Wedding (nadaswaram style)', scales:['kalyani', 'major', 'mohanam'], bpm:[100, 112], keys:['D', 'E', 'C'], indian:true,
+    parts:{melody:'r:oboe', counter:'r:clarinet', drone:'s:tanpura'}, rhythm:'thavil', verb:0.3},
+  festival:{name:'🎉 Festival', scales:['major', 'mohanam', 'kharaharapriya'], bpm:[112, 124], keys:['D', 'E', 'F'], indian:true,
+    parts:{melody:'s:bansuri', arp:'s:santoor', bass:'s:guitar'}, rhythm:'dhol', rhythm2:'dholak', verb:0.25},
   orchestra:{name:'🎻 Orchestra', scales:['major', 'minor'], bpm:[84, 96], keys:['D', 'G', 'C'],
     parts:{melody:'r:flute', counter:'r:oboe', pad:'r:violins', bass:'r:basses', arp:'r:harp'}, rhythm:'march', verb:0.45},
 };
@@ -507,7 +466,7 @@ function compose(o){
     for(const sec of secs_){
       if(!has(sec, role)) continue;
       // when a mood has no pad/arp, let the melody instrument play the intro softly
-      let kind = role === 'pad' ? 'chords' : role === 'melody' ? 'melody' : role;
+      let kind = role === 'pad' ? 'chords' : role === 'melody' ? (M.melodyKind || 'melody') : role;
       if(sec.type === 'outro'){
         const I = INSTRUMENTS[inst], r = rootOf(song); let sa = r + 12; while(sa < I.range[0] + 3) sa += 12; while(sa > I.range[1] - 3) sa -= 12;
         if(role === 'melody'){ tr.notes.push({t:sec.b0 * bpb, d:sec.n * bpb - 0.2, m:sa, v:0.75}); continue; }
@@ -520,13 +479,15 @@ function compose(o){
       let notes = auto(song, tr, kind, sd + (role === 'counter' ? 17 : 0), sec.n, {shift});
       if(sec.type === 'intro' && role === 'arp') notes = notes.map(x => ({...x, v:x.v * 0.8}));
       if(sec.type === 'C' && role === 'counter') notes = notes.map(x => ({...x, v:0.65}));
+      const dyn = {intro:0.85, A:0.94, B:1.08, C:0.9, outro:0.9}[sec.type] || 1; notes = notes.map(x => ({...x, v:Math.min(1, x.v * dyn)}));
       tr.notes.push(...notes.map(x => ({...x, t:x.t + sec.b0 * bpb})));
     }
     if(tr.notes.length) song.tracks.push(tr);
   }
   // intro for moods without pad/arp: drone carries it; melody gets a soft opening phrase
   const melTr = song.tracks.find(t => t.name.startsWith('Melody')), introSec = secs_[0];
-  if(melTr && !M.parts.pad && !M.parts.arp){ melTr.notes.push(...auto(song, melTr, 'melody', seedA + 3, introSec.n).map(x => ({...x, v:x.v * 0.6, t:x.t + introSec.b0 * meter}))); }
+  if(melTr && M.indian && introSec.n >= 2) melTr.notes.push(...auto(song, melTr, 'alap', seedA + 5, introSec.n).map(x => ({...x, t:x.t + introSec.b0 * meter})));
+  else if(melTr && !M.parts.pad && !M.parts.arp){ melTr.notes.push(...auto(song, melTr, 'melody', seedA + 3, introSec.n).map(x => ({...x, v:x.v * 0.6, t:x.t + introSec.b0 * meter}))); }
   const drumOff = rh => { const off = []; for(const sec of secs_) if(sec.type === 'intro' || sec.type === 'outro' || (sec.type === 'C' && rh === 'main')) for(let b = sec.b0; b < sec.b0 + sec.n; b++) off.push(b); return off; };
   const addDrum = (rhythm, name, vol, chorusOnly) => { const R2 = RHYTHMS[rhythm]; if(!R2) return; const tr = {id:tid(), type:'drum', kit:R2.kit, rhythm, name, steps:R2.steps, stepBeats:R2.stepBeats, grid:{}, vol, pan:0, verb:Math.min(0.3, M.verb), from:1, to:0};
     for(const [row, p] of Object.entries(R2.pat)) tr.grid[row] = [...p].map(velOf);
@@ -534,10 +495,23 @@ function compose(o){
     tr.off = [...new Set(tr.off)].sort((a, b) => a - b); song.tracks.push(tr); };
   if(M.rhythm) addDrum(M.rhythm, 'Rhythm · ' + RHYTHMS[M.rhythm].name.split(' (')[0], 0.7);
   if(M.rhythm2) addDrum(M.rhythm2, 'Chorus rhythm · ' + RHYTHMS[M.rhythm2].name.split(' (')[0], 0.5, true);
+  // tihai: a phrase played three times, the last stroke landing on beat 1 of the ending
+  const outroSec = secs_[secs_.length - 1], tb = outroSec.b0 - 1, main = song.tracks.find(t => t.type === 'drum');
+  if(main && M.indian !== false && tb >= secs_[0].n && meter === 4){
+    const BOLS = {tabla:['s:tabla:dha', 's:tabla:te', 's:tabla:te', 's:tabla:na', 's:tabla:dha'], mridangam:['s:mri:tha', 's:mri:dhi', 's:mri:ki', 's:mri:nam', 's:mri:thom'],
+      folk:['s:dholak:dhe', 's:dholak:ta', 's:dholak:ta', 's:dholak:dhe', 's:dholak:dhe'], kit:['r:snare', 'r:snare', 'r:tom_hi', 'r:tom_hi', 'r:kick'], orch:['r:timpani', 'r:snare', 'r:snare', 'r:snare', 'r:timpani']}[main.kit];
+    if(BOLS && main.rhythm !== 'bowl'){
+      main.hits = []; for(let rep = 0; rep < 3; rep++) BOLS.forEach((row, i) => main.hits.push({t:tb * meter + (rep * 6 + i) * 0.25, row, v:i === 4 ? 1 : 0.8}));
+      if(main.kit === 'folk' && main.grid['s:manjira']) main.hits.push({t:outroSec.b0 * meter, row:'s:manjira', v:1});
+      for(const t of song.tracks) if(t.type === 'drum'){ t.off = [...new Set([...(t.off || []), tb])].sort((a, b) => a - b); }
+    }
+  }
+  if(o.nature && window.VG_AMB) song.tracks.push({id:tid(), type:'amb', amb:o.nature, name:'Nature · ' + ((window.VG_AMB.LIST.find(a => a.id === o.nature) || {}).name || o.nature), vol:0.4, pan:0, verb:0});
+  song.feel = 0.6;
   song.sections = secs_.map(s => ({type:s.type, b0:s.b0, n:s.n}));
   return song;
 }
 
-window.VG_STUDIO = {MOODS, compose, sections,SR, KEYS, SCALES, SWARA, NAMES, noteName, INSTRUMENTS, KITS, RHYTHMS, velOf, load, fetchBuf, prepare, events, graph, mixAll, mixTrack, preview, previewHit,
+window.VG_STUDIO = {ambLoad, MOODS, compose, sections,SR, KEYS, SCALES, SWARA, NAMES, noteName, INSTRUMENTS, KITS, RHYTHMS, velOf, load, fetchBuf, prepare, events, graph, mixAll, mixTrack, preview, previewHit,
   Player, render, wavBlob, m4aBlob, auto, scaleMidis, beatsPerBar, totalBeats, spb, songSeconds, rootOf, hz};
 })();
