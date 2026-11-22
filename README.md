@@ -128,7 +128,8 @@ Ctrl+Z undo, Ctrl+D duplicate, Delete removes, arrow keys nudge, Space play / pa
 
 Open `https://<your-name>.github.io/videogen/studio/`. It works like a small GarageBand, on a phone too.
 
-- **Real instruments** (recordings of real players, VSCO 2 Community Edition, public domain): piano, violin, violins, violas, cellos, double bass, pizzicato, harp, flute, clarinet, oboe, bassoon, trumpet, French horn, trombone, tuba, marimba, xylophone, glockenspiel, drum kit, timpani, orchestra percussion.
+- **More instruments from GeneralUser GS** (free SoundFont by S. Christian Collins): choir, voice, shehnai, recorded sitar, dulcimer, reed organ, pan flute, koto, shamisen, kalimba, nylon and steel guitar, electric piano, church organ, accordion, celesta, music box, tubular bells, warm pad, taiko.
+- **Real instruments** (recordings of real players, VSCO 2 Community Edition, public domain, with soft/loud and short-note recordings): piano, violin, violins, violas, cellos, double bass, pizzicato, harp, flute, clarinet, oboe, bassoon, trumpet, French horn, trombone, tuba, marimba, xylophone, glockenspiel, drum kit, timpani, orchestra percussion.
 - **Indian instruments** from our own synthesiser: veena, sitar, santoor, bansuri, harmonium, tanpura, guitar, kalimba; tabla, mridangam, ghatam, kanjira, dholak, dhol, manjira, gajjalu.
 - **Tracks**: one instrument or rhythm per track, with mute, solo, volume, left/right and hall echo.
 - **54 ragas and scales**, grouped: Indian 7-note (melakarta / thaat), Indian 5–6 note, Western, World (Japanese, Balinese, Persian).

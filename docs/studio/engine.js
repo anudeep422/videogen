@@ -73,7 +73,7 @@ const noteName = m => NAMES[m % 12] + (Math.floor(m / 12) - 1);
 
 // ---------------------------------------------------------------- instruments
 // real: filled from samples/manifest.json. gain balances loudness between instruments.
-const GAIN = {piano:0.75, violin:0.6, violins:0.55, violas:0.55, cellos:0.6, basses:0.7, pizz:0.7, harp:0.7, flute:0.55, clarinet:0.55, oboe:0.5,
+const GAIN = {choir:0.5, voice:0.55, shehnai:0.5, warmpad:0.45, organ:0.45, accordion:0.5, reedorgan:0.5, taiko:0.8, tubular:0.5, piano:0.75, violin:0.6, violins:0.55, violas:0.55, cellos:0.6, basses:0.7, pizz:0.7, harp:0.7, flute:0.55, clarinet:0.55, oboe:0.5,
   bassoon:0.6, trumpet:0.45, horn:0.5, trombone:0.5, tuba:0.6, marimba:0.7, xylophone:0.5, glock:0.4};
 const RELEASE = {piano:0.25, harp:1.2, marimba:0.8, xylophone:0.6, glock:1.5, pizz:0.4};
 const SYN = {
@@ -477,7 +477,7 @@ function auto(song, tr, kind, seed = 1, bars, opts = {}){
 // roles: melody, counter (chorus only), pad (chords), bass, arp, drone; rhythm (+ rhythm2 in chorus)
 const MOODS = {
   spiritual:{indian:true, name:'🕉️ Spiritual / Upanishad', scales:['revati', 'mayamalavagowla', 'kalyani', 'mohanam'], bpm:[58, 66], keys:['C#', 'D', 'C'],
-    parts:{melody:'s:bansuri', drone:'s:tanpura', pad:'r:cellos', arp:'r:harp', counter:'r:violins'}, verb:0.5},
+    parts:{melody:'s:bansuri', drone:'s:tanpura', pad:'r:cellos', arp:'r:harp', counter:'r:choir'}, verb:0.5},
   devotional:{indian:true, name:'🙏 Devotional / bhajan', scales:['mohanam', 'abheri', 'kharaharapriya', 'shivaranjani'], bpm:[88, 100], keys:['C#', 'D', 'C'],
     parts:{melody:'s:harmonium', counter:'s:bansuri', drone:'s:tanpura'}, rhythm:'keherwa', rhythm2:'bhajan', verb:0.3},
   carnatic:{indian:true, name:'🪕 Carnatic veena', scales:['hamsadhwani', 'kalyani', 'mayamalavagowla', 'mohanam', 'kharaharapriya'], bpm:[80, 92], keys:['D', 'E', 'C'],
@@ -501,19 +501,19 @@ const MOODS = {
   aarti:{name:'🪔 Temple aarti', scales:['mohanam', 'major', 'abheri'], bpm:[84, 96], keys:['C#', 'D', 'C'], indian:true,
     parts:{melody:'s:harmonium', counter:'s:bansuri', drone:'s:tanpura'}, rhythm:'aarti', verb:0.35},
   vedic:{name:'📿 Vedic chant style', scales:['major', 'kharaharapriya', 'mohanam'], bpm:[66, 76], keys:['C#', 'C', 'D'], indian:true, melodyKind:'chant',
-    parts:{melody:'r:cellos', counter:'s:bansuri', drone:'s:tanpura'}, rhythm:'bowl', verb:0.45},
+    parts:{melody:'r:voice', counter:'s:bansuri', drone:'s:tanpura', pad:'r:cellos'}, rhythm:'bowl', verb:0.45},
   wedding:{name:'💐 Wedding (nadaswaram style)', scales:['kalyani', 'major', 'mohanam'], bpm:[100, 112], keys:['D', 'E', 'C'], indian:true,
-    parts:{melody:'r:oboe', counter:'r:clarinet', drone:'s:tanpura'}, rhythm:'thavil', verb:0.3},
+    parts:{melody:'r:shehnai', counter:'r:oboe', drone:'s:tanpura'}, rhythm:'thavil', verb:0.3},
   festival:{name:'🎉 Festival', scales:['major', 'mohanam', 'kharaharapriya'], bpm:[112, 124], keys:['D', 'E', 'F'], indian:true,
     parts:{melody:'s:bansuri', arp:'s:santoor', bass:'s:guitar'}, rhythm:'dhol', rhythm2:'dholak', verb:0.25},
   zen:{name:'🎋 Zen / Japanese calm', scales:['hirajoshi', 'iwato', 'durga'], bpm:[60, 70], keys:['D', 'E', 'A'],
-    parts:{melody:'r:flute', arp:'s:kalimba', pad:'r:violas'}, rhythm:'bowl', verb:0.55},
+    parts:{melody:'r:panflute', arp:'r:koto', pad:'r:warmpad'}, rhythm:'bowl', verb:0.55},
   desert:{name:'🐪 Desert / Arabic', scales:['vakulabharanam', 'mayamalavagowla', 'persian'], bpm:[90, 104], keys:['D', 'E', 'C#'],
     parts:{melody:'r:oboe', counter:'r:violin', bass:'r:pizz', drone:'s:tanpura'}, rhythm:'desert', verb:0.35},
   blues:{name:'🎷 Blues', scales:['blues'], bpm:[76, 92], keys:['E', 'A', 'G'],
-    parts:{melody:'r:piano', bass:'r:basses', arp:'s:guitar'}, rhythm:'pop', verb:0.3},
+    parts:{melody:'r:epiano', bass:'r:basses', arp:'r:steel'}, rhythm:'pop', verb:0.3},
   spanish:{name:'💃 Spanish guitar', scales:['vakulabharanam', 'minor'], bpm:[96, 112], keys:['E', 'A'],
-    parts:{melody:'s:guitar', counter:'r:violin', bass:'r:cellos', arp:'r:harp'}, rhythm:'latin', verb:0.3},
+    parts:{melody:'r:nylon', counter:'r:violin', bass:'r:cellos', arp:'r:steel'}, rhythm:'latin', verb:0.3},
   orchestra:{name:'🎻 Orchestra', scales:['major', 'minor'], bpm:[84, 96], keys:['D', 'G', 'C'],
     parts:{melody:'r:flute', counter:'r:oboe', pad:'r:violins', bass:'r:basses', arp:'r:harp'}, rhythm:'march', verb:0.45},
 };

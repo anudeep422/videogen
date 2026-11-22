@@ -3,3 +3,11 @@ by Versilian Studios (Sam Gossner, Simon Dalzell, Elan Hickler), released
 under CC0 1.0 (public domain): https://github.com/sgossner/VSCO-2-CE
 They were trimmed and converted to MP3 by music/extract_vsco.py.
 No credit is required, but thanks to Versilian Studios is appreciated.
+
+Instruments marked "source: GeneralUser GS" in manifest.json (choir, voice, shehnai,
+sitar_rec, dulcimer, reedorgan, panflute, koto, shamisen, kalimba_rec, nylon, steel,
+epiano, organ, accordion, celesta, musicbox, tubular, warmpad, taiko) come from the
+GeneralUser GS SoundFont 2.0 by S. Christian Collins, licence v2.0: "You may use
+GeneralUser GS without restriction for your own music creation, private or commercial.
+... Please feel free to use it in your software projects, and to modify the SoundFont
+bank or its packaging to suit your needs." Converted by music/extract_sf2.py.

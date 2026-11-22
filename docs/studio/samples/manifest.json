@@ -828,6 +828,595 @@
      108
     ]
    }
+  },
+  "choir": {
+   "label": "Choir \"aah\"",
+   "group": "Voices",
+   "sustain": true,
+   "layers": {
+    "1": [
+     48,
+     51,
+     54,
+     57,
+     60,
+     63,
+     66,
+     69,
+     72,
+     75,
+     78
+    ],
+    "2": [
+     48,
+     51,
+     54,
+     57,
+     60,
+     63,
+     66,
+     69,
+     72,
+     75,
+     78
+    ]
+   },
+   "source": "GeneralUser GS"
+  },
+  "voice": {
+   "label": "Voice \"ooh\"",
+   "group": "Voices",
+   "sustain": true,
+   "layers": {
+    "1": [
+     48,
+     51,
+     54,
+     57,
+     60,
+     63,
+     66,
+     69,
+     72,
+     75,
+     78
+    ],
+    "2": [
+     48,
+     51,
+     54,
+     57,
+     60,
+     63,
+     66,
+     69,
+     72,
+     75,
+     78
+    ]
+   },
+   "source": "GeneralUser GS"
+  },
+  "shehnai": {
+   "label": "Shehnai",
+   "group": "Indian & world (recorded)",
+   "sustain": true,
+   "layers": {
+    "1": [
+     60,
+     63,
+     66,
+     69,
+     72,
+     75,
+     78,
+     81,
+     84,
+     87
+    ],
+    "2": [
+     60,
+     63,
+     66,
+     69,
+     72,
+     75,
+     78,
+     81,
+     84,
+     87
+    ]
+   },
+   "source": "GeneralUser GS"
+  },
+  "sitar_rec": {
+   "label": "Sitar (recorded)",
+   "group": "Indian & world (recorded)",
+   "sustain": false,
+   "layers": {
+    "1": [
+     48,
+     51,
+     54,
+     57,
+     60,
+     63,
+     66,
+     69,
+     72,
+     75,
+     78,
+     81,
+     84
+    ],
+    "2": [
+     48,
+     51,
+     54,
+     57,
+     60,
+     63,
+     66,
+     69,
+     72,
+     75,
+     78,
+     81,
+     84
+    ]
+   },
+   "source": "GeneralUser GS"
+  },
+  "dulcimer": {
+   "label": "Dulcimer (santoor-like)",
+   "group": "Indian & world (recorded)",
+   "sustain": false,
+   "layers": {
+    "1": [
+     55,
+     58,
+     61,
+     64,
+     67,
+     70,
+     73,
+     76,
+     79,
+     82,
+     85,
+     88,
+     91
+    ]
+   },
+   "source": "GeneralUser GS"
+  },
+  "reedorgan": {
+   "label": "Reed organ (harmonium-like)",
+   "group": "Indian & world (recorded)",
+   "sustain": true,
+   "layers": {
+    "1": [
+     48,
+     51,
+     54,
+     57,
+     60,
+     63,
+     66,
+     69,
+     72,
+     75,
+     78,
+     81,
+     84
+    ],
+    "2": [
+     48,
+     51,
+     54,
+     57,
+     60,
+     63,
+     66,
+     69,
+     72,
+     75,
+     78,
+     81,
+     84
+    ]
+   },
+   "source": "GeneralUser GS"
+  },
+  "panflute": {
+   "label": "Pan flute",
+   "group": "Indian & world (recorded)",
+   "sustain": true,
+   "layers": {
+    "1": [
+     60,
+     63,
+     66,
+     69,
+     72,
+     75,
+     78,
+     81,
+     84,
+     87
+    ],
+    "2": [
+     60,
+     63,
+     66,
+     69,
+     72,
+     75,
+     78,
+     81,
+     84,
+     87
+    ]
+   },
+   "source": "GeneralUser GS"
+  },
+  "koto": {
+   "label": "Koto (Japanese)",
+   "group": "Indian & world (recorded)",
+   "sustain": false,
+   "layers": {
+    "1": [
+     48,
+     51,
+     54,
+     57,
+     60,
+     63,
+     66,
+     69,
+     72,
+     75,
+     78,
+     81,
+     84
+    ]
+   },
+   "source": "GeneralUser GS"
+  },
+  "shamisen": {
+   "label": "Shamisen (Japanese)",
+   "group": "Indian & world (recorded)",
+   "sustain": false,
+   "layers": {
+    "1": [
+     48,
+     51,
+     54,
+     57,
+     60,
+     63,
+     66,
+     69,
+     72,
+     75,
+     78,
+     81,
+     84
+    ]
+   },
+   "source": "GeneralUser GS"
+  },
+  "kalimba_rec": {
+   "label": "Kalimba (recorded)",
+   "group": "Indian & world (recorded)",
+   "sustain": false,
+   "layers": {
+    "1": [
+     60,
+     63,
+     66,
+     69,
+     72,
+     75,
+     78,
+     81,
+     84,
+     87
+    ]
+   },
+   "source": "GeneralUser GS"
+  },
+  "nylon": {
+   "label": "Nylon guitar",
+   "group": "Guitars & keys",
+   "sustain": false,
+   "layers": {
+    "1": [
+     40,
+     43,
+     46,
+     49,
+     52,
+     55,
+     58,
+     61,
+     64,
+     67,
+     70,
+     73,
+     76,
+     79
+    ],
+    "2": [
+     40,
+     43,
+     46,
+     49,
+     52,
+     55,
+     58,
+     61,
+     64,
+     67,
+     70,
+     73,
+     76,
+     79
+    ]
+   },
+   "source": "GeneralUser GS"
+  },
+  "steel": {
+   "label": "Steel guitar",
+   "group": "Guitars & keys",
+   "sustain": false,
+   "layers": {
+    "1": [
+     40,
+     43,
+     46,
+     49,
+     52,
+     55,
+     58,
+     61,
+     64,
+     67,
+     70,
+     73,
+     76,
+     79
+    ],
+    "2": [
+     40,
+     43,
+     46,
+     49,
+     52,
+     55,
+     58,
+     61,
+     64,
+     67,
+     70,
+     73,
+     76,
+     79
+    ]
+   },
+   "source": "GeneralUser GS"
+  },
+  "epiano": {
+   "label": "Electric piano",
+   "group": "Guitars & keys",
+   "sustain": false,
+   "layers": {
+    "1": [
+     36,
+     39,
+     42,
+     45,
+     48,
+     51,
+     54,
+     57,
+     60,
+     63,
+     66,
+     69,
+     72,
+     75,
+     78,
+     81,
+     84,
+     87,
+     90
+    ],
+    "2": [
+     36,
+     39,
+     42,
+     45,
+     48,
+     51,
+     54,
+     57,
+     60,
+     63,
+     66,
+     69,
+     72,
+     75,
+     78,
+     81,
+     84,
+     87,
+     90
+    ]
+   },
+   "source": "GeneralUser GS"
+  },
+  "organ": {
+   "label": "Church organ",
+   "group": "Guitars & keys",
+   "sustain": true,
+   "layers": {
+    "1": [
+     36,
+     39,
+     42,
+     45,
+     48,
+     51,
+     54,
+     57,
+     60,
+     63,
+     66,
+     69,
+     72,
+     75,
+     78,
+     81,
+     84
+    ]
+   },
+   "source": "GeneralUser GS"
+  },
+  "accordion": {
+   "label": "Accordion",
+   "group": "Guitars & keys",
+   "sustain": true,
+   "layers": {
+    "1": [
+     48,
+     51,
+     54,
+     57,
+     60,
+     63,
+     66,
+     69,
+     72,
+     75,
+     78,
+     81,
+     84
+    ]
+   },
+   "source": "GeneralUser GS"
+  },
+  "celesta": {
+   "label": "Celesta",
+   "group": "Bells & pads",
+   "sustain": false,
+   "layers": {
+    "1": [
+     60,
+     63,
+     66,
+     69,
+     72,
+     75,
+     78,
+     81,
+     84,
+     87,
+     90,
+     93,
+     96
+    ]
+   },
+   "source": "GeneralUser GS"
+  },
+  "musicbox": {
+   "label": "Music box",
+   "group": "Bells & pads",
+   "sustain": false,
+   "layers": {
+    "1": [
+     60,
+     63,
+     66,
+     69,
+     72,
+     75,
+     78,
+     81,
+     84,
+     87,
+     90,
+     93,
+     96
+    ]
+   },
+   "source": "GeneralUser GS"
+  },
+  "tubular": {
+   "label": "Tubular bells",
+   "group": "Bells & pads",
+   "sustain": false,
+   "layers": {
+    "1": [
+     55,
+     58,
+     61,
+     64,
+     67,
+     70,
+     73,
+     76,
+     79,
+     82
+    ]
+   },
+   "source": "GeneralUser GS"
+  },
+  "warmpad": {
+   "label": "Warm pad",
+   "group": "Bells & pads",
+   "sustain": true,
+   "layers": {
+    "1": [
+     36,
+     39,
+     42,
+     45,
+     48,
+     51,
+     54,
+     57,
+     60,
+     63,
+     66,
+     69,
+     72,
+     75,
+     78,
+     81,
+     84
+    ]
+   },
+   "source": "GeneralUser GS"
+  },
+  "taiko": {
+   "label": "Taiko drum (tuned)",
+   "group": "Bells & pads",
+   "sustain": false,
+   "layers": {
+    "1": [
+     36,
+     39,
+     42,
+     45,
+     48,
+     51,
+     54,
+     57,
+     60
+    ]
+   },
+   "source": "GeneralUser GS"
   }
  },
  "drums": {
@@ -846,5 +1435,6 @@
   "timpani": "Timpani hit",
   "timpani_roll": "Timpani roll",
   "bdrum_concert": "Concert bass drum"
- }
+ },
+ "source2": "GeneralUser GS 2.0 by S. Christian Collins (free licence, see LICENSE.txt)"
 }

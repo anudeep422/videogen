@@ -108,7 +108,7 @@ const S = window.VG_STUDIO, $ = id => document.getElementById(id);
 const player = new S.Player();
 let song = null, selId = null, undoStack = [], redoStack = [], lastAuto = {};
 const uid = () => 't' + Math.random().toString(36).slice(2, 8);
-const GROUP_CLR = {'Real · Keys':'#f0a830', 'Real · Strings':'#e5534b', 'Real · Woodwinds':'#3fb27f', 'Real · Brass':'#d9b84a', 'Real · Mallets':'#4aa3ff', 'Indian & synth':'#c46cff'};
+const GROUP_CLR = {'Real · Keys':'#f0a830', 'Real · Strings':'#e5534b', 'Real · Woodwinds':'#3fb27f', 'Real · Brass':'#d9b84a', 'Real · Mallets':'#4aa3ff', 'Indian & synth':'#c46cff', 'Real · Voices':'#ff8fb1', 'Real · Indian & world (recorded)':'#e0a04a', 'Real · Guitars & keys':'#7ab8ff', 'Real · Bells & pads':'#9be0c0'};
 const KIT_CLR = {kit:'#8a8aa0', orch:'#c98a5a', tabla:'#e07a3a', mridangam:'#d06a8a', folk:'#9bbf3a'};
 const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;'}[c]));
 
@@ -468,7 +468,7 @@ $('menuBtn').onclick = () => {
     <button data-m="open">📂 Open project file</button>
     <button data-m="help">❓ How to use</button></div>
     ${mine.length ? '<h4>My songs</h4>' + mine.map((s, i) => `<div class="item"><span>🎼 ${esc(s.name)}</span><button data-l="${i}">Open</button><button data-d="${i}">✕</button></div>`).join('') : ''}
-    <p class="hint" style="margin-top:14px">Real instruments: VSCO 2 Community Edition recordings (public domain). Indian instruments: made with our own synthesiser. No AI.</p>`, box => {
+    <p class="hint" style="margin-top:14px">Real instruments: VSCO 2 Community Edition recordings (public domain) and GeneralUser GS by S. Christian Collins. Indian instruments: made with our own synthesiser. No AI.</p>`, box => {
     box.querySelectorAll('[data-l]').forEach(b => b.onclick = () => { closeSheet(); undoStack = []; loadSong(JSON.parse(JSON.stringify(mine[+b.dataset.l].song))); toast('Opened'); });
     box.querySelectorAll('[data-d]').forEach(b => b.onclick = () => { if(confirm('Delete this saved song?')){ mine.splice(+b.dataset.d, 1); setMySongs(mine); $('menuBtn').onclick(); } });
     box.querySelectorAll('[data-m]').forEach(b => b.onclick = () => menu(b.dataset.m));

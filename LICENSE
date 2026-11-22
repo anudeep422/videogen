@@ -26,4 +26,5 @@ and licensed under the SIL Open Font License 1.1: https://openfontlicense.org
 js-yaml (docs/lib) is MIT licensed, (c) Vitaly Puzrin.
 mp4-muxer (docs/lib) is MIT licensed, (c) Vanilagy.
 Instrument samples in docs/animate/samples come from the FluidR3_GM SoundFont by Frank Wen, MIT licence.
-Instrument recordings in docs/studio/samples come from VSCO 2 Community Edition by Versilian Studios, CC0 1.0 (public domain).
+Instrument recordings in docs/studio/samples come from VSCO 2 Community Edition by Versilian Studios, CC0 1.0 (public domain),
+and from GeneralUser GS 2.0 by S. Christian Collins (free licence for use in software projects; see docs/studio/samples/LICENSE.txt).
