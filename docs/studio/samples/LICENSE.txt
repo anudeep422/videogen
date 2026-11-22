@@ -1,0 +1,5 @@
+Instrument recordings in this folder come from VSCO 2 Community Edition
+by Versilian Studios (Sam Gossner, Simon Dalzell, Elan Hickler), released
+under CC0 1.0 (public domain): https://github.com/sgossner/VSCO-2-CE
+They were trimmed and converted to MP3 by music/extract_vsco.py.
+No credit is required, but thanks to Versilian Studios is appreciated.

@@ -161,6 +161,7 @@
     <h2 id="soundSec">Sound</h2>
     <button id="aGen" style="width:100%;background:var(--acc);color:#1a1300;border-color:var(--acc);font-weight:600;margin-bottom:4px">🎼 Generate music (real instruments)</button>
     <a href="../music/" style="display:block;text-align:center;color:var(--acc);font-size:12px;margin:2px 0 6px">🎼 Open the full Music Studio (more choices, download MP3/WAV)</a>
+    <a href="../studio/" style="display:block;text-align:center;color:var(--acc);font-size:12px;margin:2px 0 6px">🎹 Instrument Studio — compose with real instruments</a>
     <div class="row"><button id="aMusic">🎵 Simple music</button><button id="aSfx">🔊 Effect</button><button id="aRec">🎙️ Record voice</button><button id="aUpload">📁 Upload</button></div>
     <input id="fAudio" type="file" accept="audio/*,.mp3,.m4a,.wav,.ogg,.aac" hidden>
     <div id="clips" class="layers" style="margin-top:6px"></div>
@@ -1397,6 +1398,9 @@ syncCanvasUI(); resize(); fit(); refreshAll(); setTool('brush'); ensureAudio().t
 try{ const pm = JSON.parse(localStorage.getItem('videogen_pending_music') || 'null'); if(pm){ localStorage.removeItem('videogen_pending_music');
   const S = VG_MUSICGEN.STYLES[pm.style] || {name:pm.style}; pm.seconds = P.duration;
   addClip({name:`🎼 ${S.name.split(':')[0]} · ${pm.raga} · tune ${pm.seed}`, kind:'music', gen:pm, synth:SYNTH_FOR[pm.style] || 'flute', start:0, len:P.duration, volume:0.85}).then(() => toast('Music from the Music Studio added to your video')); } }catch(e){}
+// music sent from the Studio (stored as audio in IndexedDB)
+try{ const ps = JSON.parse(localStorage.getItem('videogen_pending_studio') || 'null'); if(ps){ localStorage.removeItem('videogen_pending_studio');
+  addClip({id:ps.id, name:`🎹 ${ps.name}`, kind:'file', start:0, len:ps.len, volume:0.9}).then(() => toast('Music from the Studio added to your video')); } }catch(e){}
 document.fonts && Promise.all(['700 40px "Noto Sans Telugu"', '700 40px "Noto Sans"'].map(f => document.fonts.load(f))).then(draw).catch(() => {});
 </script>
 </body>

@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>VideoGen Instrument Studio — make music with real instruments</title>
+<style>
+  @font-face{font-family:"Noto Sans";font-weight:400 700;src:url(../fonts/NotoSans-Bold.ttf) format("truetype")}
+  @font-face{font-family:"Noto Sans Telugu";font-weight:400 700;src:url(../fonts/NotoSansTelugu-Bold.ttf) format("truetype")}
+  :root{--bg:#100e18;--panel:#1b1829;--panel2:#262238;--line:#363052;--text:#ece9f6;--dim:#a29cbd;--acc:#f0a830;--acc2:#3fb27f;--red:#e5534b;--blue:#4aa3ff}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;background:var(--bg);color:var(--text);font:14px/1.4 "Noto Sans","Noto Sans Telugu",system-ui,sans-serif}
+  body{min-height:100vh;display:flex;flex-direction:column}
+  select,input,button{font:inherit;color:var(--text)}
+  button{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:7px 11px;cursor:pointer;white-space:nowrap}
+  button:active{transform:scale(.96)} button.on{background:var(--acc);border-color:var(--acc);color:#1a1300;font-weight:700}
+  select,input[type=number],input[type=text]{background:#0d0b14;border:1px solid var(--line);border-radius:8px;padding:6px 7px;max-width:100%}
+  input[type=range]{accent-color:var(--acc);width:100%}
+  header{display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--panel);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
+  header h1{margin:0;font-size:16px;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis} header h1 span{color:var(--acc)}
+  .bar{display:flex;align-items:center;gap:6px;padding:7px 10px;border-bottom:1px solid var(--line);flex-wrap:wrap;background:#15121f}
+  .bar label{color:var(--dim);font-size:12px}
+  #play{font-size:18px;min-width:52px;background:var(--acc2);border-color:var(--acc2);color:#04140c;font-weight:700}
+  #pos{font-variant-numeric:tabular-nums;color:var(--dim);font-size:12.5px;white-space:nowrap}
+  .bar button{padding:6px 9px}
+  .sp{flex:1}
+  #tracks{padding:6px 8px;display:flex;flex-direction:column;gap:5px}
+  .trk{display:grid;grid-template-columns:6px 118px auto 1fr;gap:6px;align-items:center;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:5px 6px 5px 0;overflow:hidden}
+  .trk.sel{border-color:var(--acc);box-shadow:0 0 0 1px var(--acc) inset}
+  .trk .clr{align-self:stretch;border-radius:0 3px 3px 0}
+  .trk .nm{overflow:hidden} .trk .nm b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:13px}
+  .trk .nm small{display:block;color:var(--dim);font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-decoration:underline dotted}
+  .trk .btns{display:flex;gap:3px} .trk .btns button{padding:4px 7px;font-size:12px;border-radius:7px}
+  .trk .btns .m.on{background:var(--red);border-color:var(--red);color:#fff} .trk .btns .s.on{background:var(--blue);border-color:var(--blue);color:#fff}
+  .trk canvas{width:100%;height:32px;display:block;background:#0d0b14;border-radius:6px}
+  .more{grid-column:1/-1;display:none;padding:6px 8px 4px 14px;gap:8px 12px;flex-wrap:wrap;align-items:center;font-size:12.5px;color:var(--dim)}
+  .trk.open .more{display:flex} .more .sl{display:flex;align-items:center;gap:6px;min-width:150px;flex:1}
+  #addTrack{margin:2px 0 0;border-style:dashed;color:var(--dim)}
+  #edWrap{flex:1;display:flex;flex-direction:column;min-height:330px;border-top:1px solid var(--line)}
+  #edTools{display:flex;gap:5px;align-items:center;padding:6px 8px;flex-wrap:wrap;background:var(--panel)}
+  #edTools .t{font-weight:700;margin-right:4px;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #edTools button{padding:5px 9px;font-size:13px}
+  #roll{flex:1;width:100%;display:block;touch-action:none;background:#0d0b14;min-height:300px}
+  #grid{flex:1;overflow:auto;padding:6px 8px 20px}
+  table.g{border-collapse:separate;border-spacing:3px}
+  table.g th{position:sticky;left:0;background:var(--bg);text-align:right;font-weight:400;color:var(--dim);font-size:12px;padding-right:6px;white-space:nowrap;z-index:1;cursor:pointer}
+  table.g td{width:28px;height:30px;min-width:28px;background:#221e33;border-radius:6px;cursor:pointer}
+  table.g td.beat{background:#2c2742} table.g td.x{background:var(--acc)} table.g td.o{background:#9b6f22} table.g td.now{outline:2px solid #fff}
+  table.g tr.hd td{background:none;height:16px;font-size:10.5px;color:var(--dim);text-align:center;cursor:default}
+  .sheet{position:fixed;inset:0;background:#0009;z-index:20;display:none;align-items:flex-end;justify-content:center}
+  .sheet.show{display:flex}
+  .sheet .box{background:var(--panel);border:1px solid var(--line);border-radius:16px 16px 0 0;width:100%;max-width:640px;max-height:85vh;overflow:auto;padding:14px 14px 22px}
+  .sheet h3{margin:0 0 10px;font-size:15px;display:flex;align-items:center} .sheet h3 .x{margin-left:auto}
+  .sheet h4{margin:12px 0 6px;font-size:12px;color:var(--dim);text-transform:uppercase;letter-spacing:.6px}
+  .opts{display:flex;flex-wrap:wrap;gap:6px} .opts button{font-size:13px}
+  .menu button{display:block;width:100%;text-align:left;margin:5px 0;padding:10px 12px}
+  .hint{color:var(--dim);font-size:12.5px}
+  .toast{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);background:var(--acc2);color:#04140c;font-weight:700;padding:9px 16px;border-radius:10px;opacity:0;transition:.3s;pointer-events:none;z-index:30;max-width:90vw;text-align:center}
+  .toast.show{opacity:1}
+  #busy{position:fixed;inset:0;background:#000a;z-index:40;display:none;align-items:center;justify-content:center;flex-direction:column;gap:10px}
+  #busy.show{display:flex} #busy .pb{width:220px;height:8px;background:#333;border-radius:4px;overflow:hidden} #busy .pb i{display:block;height:100%;background:var(--acc);width:0}
+  .item{display:flex;gap:6px;align-items:center;background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:6px 9px;margin:4px 0}
+  .item span{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  @media (min-width:800px){ .trk{grid-template-columns:6px 170px auto 1fr} #roll{min-height:420px} }
+</style>
+</head>
+<body>
+<header>
+  <a href="../" style="text-decoration:none;font-size:18px" title="VideoGen home">🏠</a>
+  <h1>🎹 <span>Instrument</span> Studio · <span id="songName" style="color:var(--text);font-weight:400"></span></h1>
+  <button id="undo" title="Undo">↶</button><button id="redo" title="Redo">↷</button>
+  <button id="menuBtn">☰</button>
+</header>
+<div class="bar">
+  <button id="home" title="Go to start">⏮</button>
+  <button id="play">▶</button>
+  <button id="loopBtn" title="Repeat (drag on the top ruler to repeat some bars)">🔁</button>
+  <button id="metroBtn" title="Metronome click">🥁</button>
+  <span id="pos">Bar 1 · 1</span>
+  <span class="sp"></span>
+  <label title="Beats per minute">Speed ♩</label><input id="bpm" type="number" min="30" max="240" value="90" style="width:58px">
+</div>
+<div class="bar">
+  <label>Key (Sa)</label><select id="key"></select>
+  <label>Scale / raga</label><select id="scale" style="max-width:150px"></select>
+  <label>Bars</label><input id="bars" type="number" min="1" max="200" value="8" style="width:56px">
+  <select id="meter"><option value="4">4/4</option><option value="3">3/4</option><option value="2">2/4</option><option value="6">6/8</option><option value="7">7 beats</option></select>
+</div>
+<div id="tracks"></div>
+<div id="edWrap">
+  <div id="edTools"></div>
+  <canvas id="roll"></canvas>
+  <div id="grid" style="display:none"></div>
+</div>
+<div class="sheet" id="sheet"><div class="box" id="sheetBox"></div></div>
+<div id="busy"><div id="busyMsg">Working…</div><div class="pb"><i id="busyBar"></i></div></div>
+<div class="toast" id="toast"></div>
+
+<script src="../animate/synth.js"></script>
+<script src="../lib/mp4-muxer.js"></script>
+<script src="engine.js"></script>
+<script>
+'use strict';
+const S = window.VG_STUDIO, $ = id => document.getElementById(id);
+const player = new S.Player();
+let song = null, selId = null, undoStack = [], redoStack = [], lastAuto = {};
+const uid = () => 't' + Math.random().toString(36).slice(2, 8);
+const GROUP_CLR = {'Real · Keys':'#f0a830', 'Real · Strings':'#e5534b', 'Real · Woodwinds':'#3fb27f', 'Real · Brass':'#d9b84a', 'Real · Mallets':'#4aa3ff', 'Indian & synth':'#c46cff'};
+const KIT_CLR = {kit:'#8a8aa0', orch:'#c98a5a', tabla:'#e07a3a', mridangam:'#d06a8a', folk:'#9bbf3a'};
+const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;'}[c]));
+
+// ------------------------------------------------------------ song model
+function instTrack(inst, name, notes = []){ const I = S.INSTRUMENTS[inst]; return {id:uid(), type:'inst', inst, name:name || (I ? I.label : inst), notes, vol:0.8, pan:0, verb:0.25}; }
+function drumTrack(rhythm, name){ const R = S.RHYTHMS[rhythm]; const t = {id:uid(), type:'drum', kit:R.kit, rhythm, name:name || R.name.split(' (')[0], steps:R.steps, stepBeats:R.stepBeats, grid:{}, vol:0.8, pan:0, verb:0.15, from:1, to:0};
+  setRhythm(t, rhythm); return t; }
+function setRhythm(t, rhythm){ const R = S.RHYTHMS[rhythm]; t.rhythm = rhythm; t.kit = R.kit; t.steps = R.steps; t.stepBeats = R.stepBeats; t.grid = {};
+  for(const [row, p] of Object.entries(R.pat)) t.grid[row] = [...p].map(S.velOf); }
+function newSong(){ return {v:1, name:'My song', bpm:90, key:'D', scale:'mohanam', bars:8, meter:4, tracks:[instTrack('r:piano'), drumTrack('keherwa')]}; }
+const sel = () => song.tracks.find(t => t.id === selId) || song.tracks[0];
+
+function snapshot(){ return JSON.stringify(song); }
+function pushUndo(){ undoStack.push(snapshot()); if(undoStack.length > 60) undoStack.shift(); redoStack = []; }
+function changed(opts = {}){ save(); if(!opts.noRefresh) player.refresh(song); if(player.G) S.mixAll(player.G, song); if(!opts.keepUI) renderAll(); else { drawMinis(); drawRoll(); } }
+let saveT = 0; function save(){ clearTimeout(saveT); saveT = setTimeout(() => { try{ localStorage.setItem('vg_studio_song', snapshot()); }catch(e){} }, 300); }
+function loadSong(s){ player.stop(); song = s; song.tracks.forEach(t => t.id = t.id || uid()); selId = song.tracks[0]?.id; player.G = null; player.pos = 0; renderAll(); save(); }
+
+// ------------------------------------------------------------ top bars
+function fillTop(){
+  $('key').innerHTML = Object.keys(S.KEYS).map(k => `<option>${k}</option>`).join('');
+  $('scale').innerHTML = Object.entries(S.SCALES).map(([k, v]) => `<option value="${k}">${v.name}</option>`).join('');
+}
+function syncTop(){ $('songName').textContent = song.name; $('bpm').value = song.bpm; $('key').value = song.key; $('scale').value = song.scale; $('bars').value = song.bars; $('meter').value = song.meter;
+  $('loopBtn').classList.toggle('on', player.loop); $('metroBtn').classList.toggle('on', player.metro); }
+$('bpm').onchange = () => { pushUndo(); song.bpm = Math.max(30, Math.min(240, +$('bpm').value || 90)); changed({keepUI:true}); };
+$('key').onchange = () => { pushUndo(); const d = S.KEYS[$('key').value] - S.KEYS[song.key];
+  if(confirm('Move the notes to the new key too?')) song.tracks.forEach(t => t.type === 'inst' && t.notes.forEach(n => n.m += d));
+  song.key = $('key').value; changed(); };
+$('scale').onchange = () => { pushUndo(); song.scale = $('scale').value; changed(); };
+$('bars').onchange = () => { pushUndo(); song.bars = Math.max(1, Math.min(200, +$('bars').value || 8)); changed(); };
+$('meter').onchange = () => { pushUndo(); song.meter = +$('meter').value; changed(); };
+$('undo').onclick = () => { if(!undoStack.length) return; redoStack.push(snapshot()); song = JSON.parse(undoStack.pop()); player.G = null; if(!song.tracks.find(t => t.id === selId)) selId = song.tracks[0]?.id; changed(); };
+$('redo').onclick = () => { if(!redoStack.length) return; undoStack.push(snapshot()); song = JSON.parse(redoStack.pop()); player.G = null; changed(); };
+
+// ------------------------------------------------------------ transport
+async function togglePlay(){
+  if(player.playing){ player.stop(); syncPlay(); return; }
+  player.ensure(song);
+  const {keys} = needsQuick(); if(keys) await busy('Loading instruments…', p => S.prepare(song, p)); else await S.prepare(song);
+  player.start(song, player.pos || 0); syncPlay(); requestAnimationFrame(frame);
+}
+function needsQuick(){ return {keys:true}; }
+function syncPlay(){ $('play').textContent = player.playing ? '⏸' : '▶'; }
+$('play').onclick = togglePlay;
+$('home').onclick = () => { const p = player.playing; player.stop(); player.pos = 0; if(p) player.start(song, 0); drawAllPlayheads(); };
+$('loopBtn').onclick = () => { player.loop = !player.loop; if(player.loop && player.loopA == null){ player.loopA = 0; player.loopB = null; } $('loopBtn').classList.toggle('on', player.loop); player.refresh(song); drawRoll(); };
+$('metroBtn').onclick = () => { player.metro = !player.metro; $('metroBtn').classList.toggle('on', player.metro); player.refresh(song); };
+player.onend = () => { syncPlay(); drawAllPlayheads(); };
+document.addEventListener('keydown', e => { if(e.code === 'Space' && !/INPUT|SELECT|TEXTAREA/.test(e.target.tagName)){ e.preventDefault(); togglePlay(); }
+  if((e.ctrlKey || e.metaKey) && e.key === 'z'){ e.preventDefault(); (e.shiftKey ? $('redo') : $('undo')).onclick(); } });
+function posText(sec){ const b = sec / S.spb(song), bpb = S.beatsPerBar(song); return `Bar ${Math.floor(b / bpb) + 1} · ${Math.floor(b % bpb) + 1}`; }
+function frame(){ drawAllPlayheads(); if(player.playing) requestAnimationFrame(frame); }
+function drawAllPlayheads(){ const p = player.position(); $('pos').textContent = posText(p); drawMinis(); followRoll(p); drawRoll(); markGrid(p); }
+
+// ------------------------------------------------------------ track list
+function trackColor(t){ return t.type === 'drum' ? KIT_CLR[t.kit] || '#888' : GROUP_CLR[(S.INSTRUMENTS[t.inst] || {}).group] || '#888'; }
+function trackSub(t){ return t.type === 'drum' ? (S.KITS[t.kit]?.label || t.kit) + ' · ' + (S.RHYTHMS[t.rhythm]?.name.split(' (')[0] || 'own rhythm') : (S.INSTRUMENTS[t.inst]?.label || t.inst); }
+function renderTracks(){
+  const box = $('tracks');
+  box.innerHTML = song.tracks.map(t => `<div class="trk${t.id === selId ? ' sel' : ''}${t.id === openId ? ' open' : ''}" data-id="${t.id}">
+    <div class="clr" style="background:${trackColor(t)}"></div>
+    <div class="nm"><b>${esc(t.name)}</b><small data-a="inst">${esc(trackSub(t))}</small></div>
+    <div class="btns"><button class="m${t.mute ? ' on' : ''}" data-a="mute" title="Mute">M</button><button class="s${t.solo ? ' on' : ''}" data-a="solo" title="Solo">S</button><button data-a="more" title="Mixer">⚙</button></div>
+    <canvas data-a="mini"></canvas>
+    <div class="more">
+      <span class="sl">Volume <input type="range" min="0" max="1.2" step="0.01" value="${t.vol ?? 0.8}" data-k="vol"></span>
+      <span class="sl">Left ↔ Right <input type="range" min="-1" max="1" step="0.05" value="${t.pan || 0}" data-k="pan"></span>
+      <span class="sl">Echo / hall <input type="range" min="0" max="1" step="0.01" value="${t.verb ?? 0.25}" data-k="verb"></span>
+      ${t.type === 'drum' ? `<span>Play bars <input type="number" min="1" max="${song.bars}" value="${t.from || 1}" data-n="from" style="width:52px"> to <input type="number" min="0" max="${song.bars}" value="${t.to || song.bars}" data-n="to" style="width:52px"></span>` : ''}
+      <button data-a="rename">✏️ Rename</button><button data-a="dup">⧉ Copy</button><button data-a="up">↑</button><button data-a="del" style="color:#ff8a80">🗑 Delete</button>
+    </div></div>`).join('') + `<button id="addTrack">＋ Add instrument or rhythm</button>`;
+  box.querySelectorAll('.trk').forEach(row => {
+    const t = song.tracks.find(x => x.id === row.dataset.id);
+    row.onclick = e => {
+      const a = e.target.dataset.a;
+      if(e.target.closest('.more') && !a) return;
+      if(a === 'mute'){ t.mute = !t.mute; changed({noRefresh:true}); return; }
+      if(a === 'solo'){ t.solo = !t.solo; changed({noRefresh:true}); return; }
+      if(a === 'more'){ openId = openId === t.id ? null : t.id; renderTracks(); return; }
+      if(a === 'inst'){ pickSound(t); return; }
+      if(a === 'rename'){ const n = prompt('Track name', t.name); if(n){ pushUndo(); t.name = n.trim() || t.name; changed(); } return; }
+      if(a === 'dup'){ pushUndo(); const c = JSON.parse(JSON.stringify(t)); c.id = uid(); c.name += ' 2'; song.tracks.splice(song.tracks.indexOf(t) + 1, 0, c); selId = c.id; changed(); return; }
+      if(a === 'up'){ const i = song.tracks.indexOf(t); if(i > 0){ pushUndo(); song.tracks.splice(i, 1); song.tracks.splice(i - 1, 0, t); changed(); } return; }
+      if(a === 'del'){ if(!confirm(`Delete "${t.name}"?`)) return; pushUndo(); song.tracks.splice(song.tracks.indexOf(t), 1); if(selId === t.id) selId = song.tracks[0]?.id; player.G = null; changed(); return; }
+      if(a === 'mini' && t.id === selId){ const r = e.target.getBoundingClientRect(); seek((e.clientX - r.left) / r.width * S.songSeconds(song)); return; }
+      if(selId !== t.id){ selId = t.id; renderTracks(); renderEditor(); }
+    };
+    row.querySelectorAll('input[type=range]').forEach(inp => { inp.oninput = () => { t[inp.dataset.k] = +inp.value; if(player.G) S.mixTrack(player.G, song, t); save(); }; inp.onchange = () => {}; inp.onpointerdown = () => pushUndo(); });
+    row.querySelectorAll('input[data-n]').forEach(inp => inp.onchange = () => { pushUndo(); t[inp.dataset.n] = Math.max(0, Math.min(song.bars, +inp.value || 0)); changed({keepUI:true}); });
+  });
+  $('addTrack').onclick = addTrackSheet;
+  drawMinis();
+}
+let openId = null;
+function seek(sec){ sec = Math.max(0, Math.min(S.songSeconds(song), sec)); if(player.playing) player.start(song, sec); else player.pos = sec; drawAllPlayheads(); }
+function drawMinis(){
+  const total = S.songSeconds(song) || 1, k = S.spb(song), p = player.position();
+  document.querySelectorAll('.trk').forEach(row => {
+    const t = song.tracks.find(x => x.id === row.dataset.id), cv = row.querySelector('canvas'); if(!t || !cv) return;
+    const w = cv.clientWidth, h = cv.clientHeight, dpr = devicePixelRatio || 1; if(cv.width !== w * dpr){ cv.width = w * dpr; cv.height = h * dpr; }
+    const c = cv.getContext('2d'); c.setTransform(dpr, 0, 0, dpr, 0, 0); c.clearRect(0, 0, w, h);
+    const bpb = S.beatsPerBar(song); c.fillStyle = '#ffffff10'; for(let b = 0; b < song.bars; b += 2) c.fillRect(b * bpb * k / total * w, 0, bpb * k / total * w, h);
+    c.fillStyle = trackColor(t); c.globalAlpha = audibleUI(t) ? 1 : 0.3;
+    if(t.type === 'inst'){ if(t.notes.length){ let lo = 127, hi = 0; for(const n of t.notes){ lo = Math.min(lo, n.m); hi = Math.max(hi, n.m); } const span = Math.max(12, hi - lo);
+        for(const n of t.notes) c.fillRect(n.t * k / total * w, h - 4 - (n.m - lo) / span * (h - 8), Math.max(1.5, n.d * k / total * w - 0.5), 2.5); } }
+    else { for(const e of S.events({...song, tracks:[t]})) c.fillRect(e.s / total * w, h / 2 - 5 * e.v, 1.5, 10 * e.v); }
+    c.globalAlpha = 1; c.fillStyle = '#fff'; c.fillRect(p / total * w, 0, 1.5, h);
+  });
+}
+function audibleUI(t){ const solo = song.tracks.some(x => x.solo); return !t.mute && (!solo || t.solo); }
+
+// ------------------------------------------------------------ sound picker / add track
+function soundButtons(filter){
+  const groups = {}; for(const [id, I] of Object.entries(S.INSTRUMENTS)) (groups[I.group] = groups[I.group] || []).push([id, I]);
+  return Object.entries(groups).map(([g, list]) => `<h4>${g}</h4><div class="opts">${list.map(([id, I]) => `<button data-inst="${id}">${esc(I.label)}</button>`).join('')}</div>`).join('');
+}
+function rhythmButtons(){ const by = {}; for(const [id, R] of Object.entries(S.RHYTHMS)) (by[R.kit] = by[R.kit] || []).push([id, R]);
+  return Object.entries(by).map(([kit, list]) => `<h4>${S.KITS[kit].label}</h4><div class="opts">${list.map(([id, R]) => `<button data-rh="${id}">${esc(R.name)}</button>`).join('')}</div>`).join(''); }
+function pickSound(t){
+  if(t.type === 'drum'){ sheet('Choose rhythm for ' + esc(t.name), rhythmButtons() + `<p class="hint">Changing the rhythm replaces this track's pattern.</p>`, box => box.querySelectorAll('[data-rh]').forEach(b => b.onclick = () => { pushUndo(); setRhythm(t, b.dataset.rh); t.name = S.RHYTHMS[b.dataset.rh].name.split(' (')[0]; closeSheet(); player.G = null; changed(); }));
+    return; }
+  sheet('Choose instrument for ' + esc(t.name), soundButtons() + `<p class="hint">Tap to hear it. Tap ✓ Use to choose.</p><button id="useInst" class="on" style="margin-top:10px">✓ Use</button>`, box => {
+    let chosen = t.inst; box.querySelectorAll('[data-inst]').forEach(b => { if(b.dataset.inst === chosen) b.classList.add('on');
+      b.onclick = async () => { chosen = b.dataset.inst; box.querySelectorAll('[data-inst]').forEach(x => x.classList.toggle('on', x === b)); await hear(chosen); }; });
+    $('useInst').onclick = () => { pushUndo(); const oldLabel = S.INSTRUMENTS[t.inst]?.label; if(t.name === oldLabel) t.name = S.INSTRUMENTS[chosen].label; t.inst = chosen; closeSheet(); changed(); };
+  });
+}
+async function hear(inst){
+  const G = player.ensure(song), tmp = {id:'__pv', type:'inst', inst, vol:0.9, pan:0, verb:0.2}, I = S.INSTRUMENTS[inst];
+  const r = S.rootOf(song); let m = r + 12; while(m < I.range[0] + 5) m += 12; while(m > I.range[1] - 5) m -= 12;
+  const ms = [m, m + 4, m + 7]; if(I.kind === 'real') await Promise.all(ms.map(x => S.prepare({...song, tracks:[{...tmp, notes:[{t:0, d:1, m:x, v:0.8}]}]})));
+  const t0 = G.ctx.currentTime; delete G.tracks.__pv; ms.forEach((x, i) => setTimeout(() => S.preview(G, song, tmp, x), i * 260));
+}
+function addTrackSheet(){
+  sheet('Add a track', `<h4 style="margin-top:0">Instrument (melody, chords, bass)</h4>` + soundButtons() + `<h4>Rhythm (drums, tabla, mridangam)</h4><div class="opts">${Object.entries(S.RHYTHMS).map(([id, R]) => `<button data-rh="${id}">${esc(R.name)}</button>`).join('')}</div>`, box => {
+    box.querySelectorAll('[data-inst]').forEach(b => b.onclick = () => { pushUndo(); const t = instTrack(b.dataset.inst); song.tracks.push(t); selId = t.id; closeSheet(); changed(); hear(b.dataset.inst); });
+    box.querySelectorAll('[data-rh]').forEach(b => b.onclick = () => { pushUndo(); const t = drumTrack(b.dataset.rh); song.tracks.push(t); selId = t.id; closeSheet(); changed(); });
+  });
+}
+
+// ------------------------------------------------------------ editor
+const PR = {bw:44, rh:22, sx:0, sy:-1, snap:0.5, len:1, lock:true, follow:true, vel:0.8};
+const KEYW = 62, RUL = 22;
+function renderEditor(){
+  const t = sel(); if(!t){ $('edTools').innerHTML = '<span class="hint">Add a track to start.</span>'; $('roll').style.display = 'none'; $('grid').style.display = 'none'; return; }
+  if(t.type === 'inst'){
+    $('roll').style.display = ''; $('grid').style.display = 'none';
+    $('edTools').innerHTML = `<span class="t">🎵 ${esc(t.name)}</span>
+      <select id="len" title="Length of new notes">${[[0.25, '1/16'], [0.5, '1/8'], [1, '1/4 (beat)'], [2, '1/2'], [3, '3 beats'], [4, 'whole bar']].map(([v, l]) => `<option value="${v}"${v === PR.len ? ' selected' : ''}>${l}</option>`).join('')}</select>
+      <select id="vel" title="How hard">${[[0.5, 'soft'], [0.8, 'normal'], [1, 'loud']].map(([v, l]) => `<option value="${v}"${v === PR.vel ? ' selected' : ''}>${l}</option>`).join('')}</select>
+      <button id="lock" class="${PR.lock ? 'on' : ''}" title="Show only notes of the raga/scale">Raga notes</button>
+      <button id="zo">－</button><button id="zi">＋</button>
+      <button id="autoBtn">✨ Auto-fill</button><button id="clear">🧹</button>`;
+    $('len').onchange = () => PR.len = +$('len').value; $('vel').onchange = () => PR.vel = +$('vel').value;
+    $('lock').onclick = () => { PR.lock = !PR.lock; PR.sy = -1; renderEditor(); };
+    $('zi').onclick = () => { PR.bw = Math.min(160, PR.bw * 1.3); drawRoll(); }; $('zo').onclick = () => { PR.bw = Math.max(12, PR.bw / 1.3); drawRoll(); };
+    $('autoBtn').onclick = () => autoSheet(t);
+    $('clear').onclick = () => { if(t.notes.length && confirm('Remove all notes in this track?')){ pushUndo(); t.notes = []; changed({keepUI:true}); } };
+    sizeRoll(); drawRoll();
+  } else {
+    $('roll').style.display = 'none'; $('grid').style.display = '';
+    $('edTools').innerHTML = `<span class="t">🥁 ${esc(t.name)}</span>
+      <button id="rhy">Rhythm: ${esc(S.RHYTHMS[t.rhythm]?.name.split(' (')[0] || 'own')}</button>
+      <label class="hint">Steps</label><select id="steps">${[3, 4, 6, 7, 8, 9, 10, 12, 14, 16, 24, 32].map(n => `<option${n === t.steps ? ' selected' : ''}>${n}</option>`).join('')}</select>
+      <label class="hint">Each</label><select id="sb">${[[0.25, '1/4 beat'], [1 / 3, '1/3 beat'], [0.5, '1/2 beat'], [1, '1 beat']].map(([v, l]) => `<option value="${v}"${Math.abs(v - t.stepBeats) < 1e-6 ? ' selected' : ''}>${l}</option>`).join('')}</select>
+      <button id="gclear">🧹</button>`;
+    $('rhy').onclick = () => pickSound(t);
+    $('steps').onchange = () => { pushUndo(); t.steps = +$('steps').value; t.rhythm = null; changed(); };
+    $('sb').onchange = () => { pushUndo(); t.stepBeats = +$('sb').value; t.rhythm = null; changed(); };
+    $('gclear').onclick = () => { pushUndo(); t.grid = {}; t.rhythm = null; changed(); };
+    renderGrid(t);
+  }
+}
+function renderGrid(t){
+  const kit = S.KITS[t.kit], perBeat = Math.round(1 / t.stepBeats) || 1;
+  let h = '<table class="g"><tr class="hd"><th></th>' + Array.from({length:t.steps}, (_, i) => `<td>${i % perBeat === 0 ? i / perBeat + 1 : '·'}</td>`).join('') + '</tr>';
+  for(const [row, label] of kit.rows){ const arr = t.grid[row] || [];
+    h += `<tr><th data-row="${row}" title="Tap to hear">${esc(label)} 🔈</th>` + Array.from({length:t.steps}, (_, i) => { const v = arr[i] || 0;
+      return `<td data-row="${row}" data-i="${i}" class="${v >= 0.9 ? 'x' : v > 0 ? 'o' : (i % perBeat === 0 ? 'beat' : '')}"></td>`; }).join('') + '</tr>'; }
+  h += '</table><p class="hint">Tap a box: loud → soft → off. The pattern repeats through the song.</p>';
+  $('grid').innerHTML = h;
+  $('grid').querySelectorAll('td[data-row]').forEach(td => td.onclick = () => {
+    pushUndo(); const arr = t.grid[td.dataset.row] = t.grid[td.dataset.row] || []; const i = +td.dataset.i; while(arr.length < t.steps) arr.push(0);
+    arr[i] = arr[i] >= 0.9 ? 0.55 : arr[i] > 0 ? 0 : 1; t.rhythm = null; if(arr[i]) S.previewHit(player.ensure(song), song, t, td.dataset.row);
+    save(); player.refresh(song); renderGrid(t); drawMinis(); });
+  $('grid').querySelectorAll('th[data-row]').forEach(th => th.onclick = async () => { const G = player.ensure(song); await S.prepare({...song, tracks:[{...t, grid:{[th.dataset.row]:[1]}, from:1, to:1}]}); S.previewHit(G, song, t, th.dataset.row); });
+}
+let lastStep = -1;
+function markGrid(p){
+  const t = sel(); if(!t || t.type !== 'drum' || $('grid').style.display === 'none') return;
+  const beat = p / S.spb(song), from = ((t.from || 1) - 1) * S.beatsPerBar(song), len = t.steps * t.stepBeats;
+  const i = player.playing && beat >= from ? Math.floor(((beat - from) % len) / t.stepBeats) : -1; if(i === lastStep) return; lastStep = i;
+  $('grid').querySelectorAll('td.now').forEach(td => td.classList.remove('now')); if(i >= 0) $('grid').querySelectorAll(`td[data-i="${i}"]`).forEach(td => td.classList.add('now'));
+}
+
+// ---- piano roll
+const roll = $('roll');
+function rows(t){ const I = S.INSTRUMENTS[t.inst] || {range:[36, 96]}; let lo = Math.max(21, I.range[0] - 3), hi = Math.min(108, I.range[1] + 3);
+  for(const n of t.notes){ lo = Math.min(lo, n.m); hi = Math.max(hi, n.m); }
+  const list = PR.lock && song.scale !== 'chromatic' ? S.scaleMidis(song, lo, hi) : Array.from({length:hi - lo + 1}, (_, i) => lo + i);
+  if(PR.lock) for(const n of t.notes) if(!list.includes(n.m)) list.push(n.m);
+  return list.sort((a, b) => b - a); }
+function sizeRoll(){ const r = roll.getBoundingClientRect(), dpr = devicePixelRatio || 1; const h = Math.max(300, innerHeight - r.top - 4);
+  roll.style.height = h + 'px'; roll.width = Math.round(r.width * dpr); roll.height = Math.round(h * dpr); }
+function rollW(){ return roll.width / (devicePixelRatio || 1); } function rollH(){ return roll.height / (devicePixelRatio || 1); }
+function clampScroll(t, R){ const maxX = Math.max(0, S.totalBeats(song) * PR.bw - (rollW() - KEYW) + 40), maxY = Math.max(0, R.length * PR.rh - (rollH() - RUL));
+  if(PR.sy < 0){ // centre on the notes or around Sa of the middle octave
+    const ms = t.notes.length ? t.notes.map(n => n.m).sort((a, b) => a - b)[t.notes.length >> 1] : (() => { let m = S.rootOf(song) + 12; const I = S.INSTRUMENTS[t.inst]; if(I){ while(m < I.range[0]) m += 12; while(m > I.range[1]) m -= 12; } return m; })();
+    let i = R.indexOf(ms); if(i < 0) i = R.findIndex(m => m <= ms); PR.sy = i * PR.rh - (rollH() - RUL) / 2; }
+  PR.sx = Math.max(0, Math.min(maxX, PR.sx)); PR.sy = Math.max(0, Math.min(maxY, PR.sy)); }
+function swara(m){ const rel = (m - S.rootOf(song) + 120) % 12; return S.SWARA[rel]; }
+function drawRoll(){
+  const t = sel(); if(!t || t.type !== 'inst' || roll.style.display === 'none') return;
+  const R = rows(t); clampScroll(t, R);
+  const c = roll.getContext('2d'), dpr = devicePixelRatio || 1, W = rollW(), H = rollH(), bw = PR.bw, rh = PR.rh, bpb = S.beatsPerBar(song), TB = S.totalBeats(song);
+  c.setTransform(dpr, 0, 0, dpr, 0, 0); c.fillStyle = '#0d0b14'; c.fillRect(0, 0, W, H);
+  const x0 = KEYW - PR.sx, y0 = RUL - PR.sy, root = S.rootOf(song) % 12;
+  // rows
+  const i0 = Math.max(0, Math.floor(PR.sy / rh)), i1 = Math.min(R.length, Math.ceil((PR.sy + H) / rh) + 1);
+  for(let i = i0; i < i1; i++){ const m = R[i], y = y0 + i * rh, black = [1, 3, 6, 8, 10].includes(m % 12);
+    c.fillStyle = (m % 12) === root ? '#2a2140' : black ? '#141120' : '#19162a'; c.fillRect(KEYW, y, W, rh - 1); }
+  // beats & bars
+  const b0 = Math.max(0, Math.floor(PR.sx / bw)), b1 = Math.min(TB, Math.ceil((PR.sx + W) / bw));
+  for(let b = b0; b <= b1; b++){ const x = x0 + b * bw; c.fillStyle = b % bpb === 0 ? '#5a5280' : '#2b2640'; c.fillRect(x, RUL, b % bpb === 0 ? 1.5 : 1, H);
+    if(PR.snap < 1 && bw * PR.snap > 10){ c.fillStyle = '#1f1b30'; for(let s = PR.snap; s < 1; s += PR.snap) c.fillRect(x + s * bw, RUL, 1, H); } }
+  c.fillStyle = '#00000088'; c.fillRect(x0 + TB * bw, RUL, W, H);
+  // loop region
+  if(player.loop){ const a = (player.loopA || 0) / S.spb(song), b = (player.loopB ?? S.songSeconds(song)) / S.spb(song); c.fillStyle = '#f0a83018'; c.fillRect(x0 + a * bw, RUL, (b - a) * bw, H); }
+  // notes
+  const clr = trackColor(t), rowIdx = new Map(R.map((m, i) => [m, i]));
+  for(const n of t.notes){ const i = rowIdx.get(n.m); if(i === undefined) continue; const x = x0 + n.t * bw, y = y0 + i * rh, w = Math.max(6, n.d * bw - 1);
+    if(x > W || x + w < KEYW || y > H || y + rh < RUL) continue;
+    c.globalAlpha = 0.45 + 0.55 * (n.v ?? 0.8); c.fillStyle = n === drag?.note ? '#fff' : clr; roundRect(c, x + 0.5, y + 1.5, w, rh - 4, 4); c.fill(); c.globalAlpha = 1;
+    if(w > 26){ c.fillStyle = '#0008'; c.font = '10px "Noto Sans",sans-serif'; c.fillText(swara(n.m), x + 4, y + rh - 7); } }
+  // playhead
+  const ph = x0 + player.position() / S.spb(song) * bw; if(ph >= KEYW){ c.fillStyle = '#fff'; c.fillRect(ph, RUL, 1.5, H); }
+  // keys column
+  c.fillStyle = '#1b1829'; c.fillRect(0, RUL, KEYW, H);
+  c.font = '11px "Noto Sans",sans-serif'; c.textBaseline = 'middle';
+  for(let i = i0; i < i1; i++){ const m = R[i], y = y0 + i * rh, black = [1, 3, 6, 8, 10].includes(m % 12);
+    c.fillStyle = black ? '#2d2944' : '#d8d4e8'; c.fillRect(0, y, KEYW - 3, rh - 1);
+    c.fillStyle = black ? '#d8d4e8' : (m % 12) === root ? '#a0620a' : '#26223a'; c.fillText(swara(m).replace(/[₁₂]/, s => s === '₁' ? '¹' : '²'), 3, y + rh / 2);
+    c.font = '9px "Noto Sans",sans-serif'; c.textAlign = 'right'; c.fillText(S.noteName(m), KEYW - 6, y + rh / 2); c.textAlign = 'left'; c.font = '11px "Noto Sans",sans-serif'; }
+  // ruler
+  c.fillStyle = '#211d33'; c.fillRect(0, 0, W, RUL); c.fillStyle = '#a29cbd'; c.font = '11px "Noto Sans",sans-serif';
+  for(let b = b0 - (b0 % bpb); b <= b1; b += bpb){ const x = x0 + b * bw; if(x >= KEYW - 2){ c.fillText(String(b / bpb + 1), x + 3, RUL / 2); c.fillRect(x, 12, 1, RUL - 12); } }
+  if(player.loop){ const a = (player.loopA || 0) / S.spb(song), b = (player.loopB ?? S.songSeconds(song)) / S.spb(song); c.fillStyle = '#f0a830'; c.fillRect(Math.max(KEYW, x0 + a * bw), RUL - 4, Math.max(0, x0 + b * bw - Math.max(KEYW, x0 + a * bw)), 4); }
+  if(ph >= KEYW){ c.fillStyle = '#fff'; c.beginPath(); c.moveTo(ph - 5, 0); c.lineTo(ph + 6, 0); c.lineTo(ph + 0.5, 8); c.fill(); }
+  c.fillStyle = '#1b1829'; c.fillRect(0, 0, KEYW, RUL); c.fillStyle = '#a29cbd'; c.fillText('Bar', 6, RUL / 2);
+  if(!t.notes.length){ c.fillStyle = '#ffffff70'; c.font = '13px "Noto Sans",sans-serif'; c.textAlign = 'center'; c.fillText('Tap to add notes · drag to scroll · ✨ Auto-fill', KEYW + (W - KEYW) / 2, RUL + 24); c.textAlign = 'left'; }
+}
+function roundRect(c, x, y, w, h, r){ c.beginPath(); c.moveTo(x + r, y); c.arcTo(x + w, y, x + w, y + h, r); c.arcTo(x + w, y + h, x, y + h, r); c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); c.closePath(); }
+function followRoll(p){ if(!player.playing || !PR.follow) return; const t = sel(); if(!t || t.type !== 'inst') return; const x = p / S.spb(song) * PR.bw, W = rollW() - KEYW;
+  if(x < PR.sx || x > PR.sx + W * 0.85) PR.sx = Math.max(0, x - W * 0.1); }
+let drag = null;
+function hit(t, R, px, py){ const bt = (px - KEYW + PR.sx) / PR.bw, i = Math.floor((py - RUL + PR.sy) / PR.rh), m = R[i];
+  let note = null; for(const n of t.notes) if(n.m === m && bt >= n.t && bt <= n.t + Math.max(n.d, 6 / PR.bw)) note = n;
+  return {bt, i, m, note}; }
+roll.addEventListener('pointerdown', e => {
+  const t = sel(); if(!t || t.type !== 'inst') return; roll.setPointerCapture(e.pointerId);
+  const r = roll.getBoundingClientRect(), px = e.clientX - r.left, py = e.clientY - r.top, R = rows(t);
+  if(pointers.size >= 1){ pointers.set(e.pointerId, {x:e.clientX, y:e.clientY}); drag = {mode:'pinch', d0:pinchDist(), bw0:PR.bw}; return; }
+  pointers.set(e.pointerId, {x:e.clientX, y:e.clientY});
+  if(py < RUL){ drag = {mode:'ruler', x0:px, beat0:Math.max(0, (px - KEYW + PR.sx) / PR.bw)}; return; }
+  if(px < KEYW){ const h = hit(t, R, KEYW + 1, py); if(h.m) S.preview(player.ensure(song), song, t, h.m, PR.vel); drag = {mode:'pan', x0:e.clientX, y0:e.clientY, sx:PR.sx, sy:PR.sy, moved:true}; return; }
+  const h = hit(t, R, px, py);
+  if(h.note){ const n = h.note, xEnd = KEYW - PR.sx + (n.t + n.d) * PR.bw, wpx = n.d * PR.bw;
+    drag = {mode:px > xEnd - Math.max(10, Math.min(22, wpx * 0.35)) ? 'resize' : 'move', note:n, x0:px, y0:py, t0:n.t, d0:n.d, i0:h.i, moved:false, before:snapshot()}; }
+  else drag = {mode:'pan', x0:e.clientX, y0:e.clientY, sx:PR.sx, sy:PR.sy, moved:false, px, py};
+});
+const pointers = new Map(); const pinchDist = () => { const [a, b] = [...pointers.values()]; return a && b ? Math.hypot(a.x - b.x, a.y - b.y) : 1; };
+roll.addEventListener('pointermove', e => {
+  if(!drag) return; if(pointers.has(e.pointerId)) pointers.set(e.pointerId, {x:e.clientX, y:e.clientY});
+  const t = sel(), r = roll.getBoundingClientRect(), px = e.clientX - r.left, py = e.clientY - r.top;
+  if(drag.mode === 'pinch'){ PR.bw = Math.max(12, Math.min(160, drag.bw0 * pinchDist() / drag.d0)); drawRoll(); return; }
+  if(drag.mode === 'pan'){ const dx = e.clientX - drag.x0, dy = e.clientY - drag.y0; if(Math.abs(dx) + Math.abs(dy) > 8) drag.moved = true; if(drag.moved){ PR.sx = drag.sx - dx; PR.sy = drag.sy - dy; drawRoll(); } return; }
+  if(drag.mode === 'ruler'){ if(Math.abs(px - drag.x0) > 10){ drag.loop = true; const b = Math.max(0, (px - KEYW + PR.sx) / PR.bw), bpb = S.beatsPerBar(song);
+      const a = Math.floor(Math.min(b, drag.beat0) / bpb) * bpb, z = Math.ceil(Math.max(b, drag.beat0) / bpb) * bpb; player.loop = true; player.loopA = a * S.spb(song); player.loopB = Math.max(a + bpb, z) * S.spb(song); $('loopBtn').classList.add('on'); drawRoll(); } return; }
+  const R = rows(t), n = drag.note, dxb = (px - drag.x0) / PR.bw;
+  if(Math.abs(px - drag.x0) + Math.abs(py - drag.y0) > 6) drag.moved = true; if(!drag.moved) return;
+  if(drag.mode === 'move'){ n.t = Math.max(0, Math.round((drag.t0 + dxb) / PR.snap) * PR.snap); const i = Math.max(0, Math.min(R.length - 1, drag.i0 + Math.round((py - drag.y0) / PR.rh)));
+    if(R[i] !== n.m){ n.m = R[i]; S.preview(player.ensure(song), song, t, n.m, n.v ?? 0.8); } }
+  else n.d = Math.max(PR.snap, Math.round((drag.d0 + dxb) / PR.snap) * PR.snap);
+  drawRoll();
+});
+function endPointer(e){
+  pointers.delete(e.pointerId); if(!drag) return; const d = drag; if(d.mode === 'pinch'){ if(!pointers.size) drag = null; return; } drag = null; const t = sel();
+  if(d.mode === 'ruler'){ if(!d.loop) seek(d.beat0 * S.spb(song)); else player.refresh(song); return; }
+  if(d.mode === 'pan'){ if(!d.moved && d.px !== undefined && e.type === 'pointerup'){ const R = rows(t), h = hit(t, R, d.px, d.py); if(h.m !== undefined && h.bt >= 0 && h.bt < S.totalBeats(song)){
+      pushUndo(); const n = {t:Math.floor(h.bt / PR.snap + 1e-6) * PR.snap, d:PR.len, m:h.m, v:PR.vel}; t.notes.push(n); S.preview(player.ensure(song), song, t, n.m, n.v); changed({keepUI:true}); } } return; }
+  if(!d.moved){ pushUndo(); t.notes.splice(t.notes.indexOf(d.note), 1); changed({keepUI:true}); return; }   // tap on a note = remove it
+  undoStack.push(d.before); redoStack = []; changed({keepUI:true});
+}
+roll.addEventListener('pointerup', endPointer); roll.addEventListener('pointercancel', endPointer);
+roll.addEventListener('wheel', e => { e.preventDefault(); if(e.ctrlKey){ PR.bw = Math.max(12, Math.min(160, PR.bw * (e.deltaY < 0 ? 1.1 : 0.9))); } else { PR.sx += e.shiftKey ? e.deltaY : e.deltaX; PR.sy += e.shiftKey ? 0 : e.deltaY; } drawRoll(); }, {passive:false});
+addEventListener('resize', () => { if(sel()?.type === 'inst'){ sizeRoll(); drawRoll(); } drawMinis(); });
+
+// ------------------------------------------------------------ auto-fill
+function autoSheet(t){
+  const kinds = [['melody', '🎶 Melody', 'a tune in the raga'], ['chords', '🎹 Chords', 'long chords, one per bar'], ['bass', '🎸 Bass line', 'low notes on beats'], ['arp', '🌊 Arpeggio', 'broken chords (harp, guitar, piano)'], ['drone', '🪕 Drone', 'tanpura style Pa-Sa-Sa-Sa']];
+  sheet('✨ Auto-fill ' + esc(t.name), `<p class="hint">Makes notes using music rules and dice — no AI. Uses the key and raga at the top. Press again for a different version.</p>
+    <div class="opts">${kinds.map(([k, l, h]) => `<button data-k="${k}" title="${h}">${l}</button>`).join('')}</div>
+    <p style="margin-top:12px"><label><input type="checkbox" id="keepOld"> Keep existing notes (add on top)</label></p>`, box => box.querySelectorAll('[data-k]').forEach(b => b.onclick = () => {
+      const k = b.dataset.k; lastAuto[t.id + k] = (lastAuto[t.id + k] || Math.floor(Math.random() * 1000)) + 1; pushUndo();
+      const notes = S.auto(song, t, k, lastAuto[t.id + k]); t.notes = $('keepOld').checked ? t.notes.concat(notes) : notes; PR.sy = -1; closeSheet(); changed(); toast('Done — press ▶ to listen'); }));
+}
+
+// ------------------------------------------------------------ sheets, toast, busy
+function sheet(title, html, bind){ $('sheetBox').innerHTML = `<h3>${title}<button class="x" onclick="closeSheet()">✕</button></h3>` + html; $('sheet').classList.add('show'); bind && bind($('sheetBox')); }
+function closeSheet(){ $('sheet').classList.remove('show'); }
+$('sheet').onclick = e => { if(e.target.id === 'sheet') closeSheet(); };
+function toast(m, bad){ const t = $('toast'); t.textContent = m; t.style.background = bad ? 'var(--red)' : ''; t.classList.add('show'); clearTimeout(toast.h); toast.h = setTimeout(() => t.classList.remove('show'), 2600); }
+async function busy(msg, fn){ $('busyMsg').textContent = msg; $('busyBar').style.width = '0'; const show = setTimeout(() => $('busy').classList.add('show'), 250);
+  try{ return await fn(p => $('busyBar').style.width = Math.round(p * 100) + '%'); } finally { clearTimeout(show); $('busy').classList.remove('show'); } }
+
+// ------------------------------------------------------------ menu: songs, export, animator
+const fileName = ext => (song.name || 'song').replace(/[^\wఀ-౿ -]+/g, '').trim().replace(/\s+/g, '_') + '.' + ext;
+function download(blob, name){ const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); }
+function mySongs(){ try{ return JSON.parse(localStorage.getItem('vg_studio_songs') || '[]'); }catch(e){ return []; } }
+function setMySongs(l){ try{ localStorage.setItem('vg_studio_songs', JSON.stringify(l)); }catch(e){ toast('Phone storage is full', true); } }
+$('menuBtn').onclick = () => {
+  const mine = mySongs();
+  sheet('Menu', `<div class="menu">
+    <button data-m="save">💾 Save to My songs</button>
+    <button data-m="rename">✏️ Rename song</button>
+    <button data-m="new">📄 New empty song</button>
+    <button data-m="demo">🎵 Example songs</button>
+    <button data-m="wav">⬇️ Download WAV (best quality)</button>
+    <button data-m="m4a">⬇️ Download M4A (small file)</button>
+    <button data-m="anim">🎬 Use this music in the Animator</button>
+    <button data-m="json">📦 Save project file</button>
+    <button data-m="open">📂 Open project file</button>
+    <button data-m="help">❓ How to use</button></div>
+    ${mine.length ? '<h4>My songs</h4>' + mine.map((s, i) => `<div class="item"><span>🎼 ${esc(s.name)}</span><button data-l="${i}">Open</button><button data-d="${i}">✕</button></div>`).join('') : ''}
+    <p class="hint" style="margin-top:14px">Real instruments: VSCO 2 Community Edition recordings (public domain). Indian instruments: made with our own synthesiser. No AI.</p>`, box => {
+    box.querySelectorAll('[data-l]').forEach(b => b.onclick = () => { closeSheet(); undoStack = []; loadSong(JSON.parse(JSON.stringify(mine[+b.dataset.l].song))); toast('Opened'); });
+    box.querySelectorAll('[data-d]').forEach(b => b.onclick = () => { if(confirm('Delete this saved song?')){ mine.splice(+b.dataset.d, 1); setMySongs(mine); $('menuBtn').onclick(); } });
+    box.querySelectorAll('[data-m]').forEach(b => b.onclick = () => menu(b.dataset.m));
+  });
+};
+async function menu(m){
+  if(m === 'save'){ const n = prompt('Song name', song.name); if(!n) return; song.name = n.trim(); const l = mySongs().filter(s => s.name !== song.name); l.unshift({name:song.name, song:JSON.parse(snapshot())}); setMySongs(l.slice(0, 40)); closeSheet(); syncTop(); save(); toast('Saved in My songs'); }
+  if(m === 'rename'){ const n = prompt('Song name', song.name); if(n){ song.name = n.trim(); syncTop(); save(); } closeSheet(); }
+  if(m === 'new'){ if(!confirm('Start a new song? (Save this one first if you want to keep it.)')) return; closeSheet(); undoStack = []; loadSong(newSong()); }
+  if(m === 'demo') demoSheet();
+  if(m === 'wav' || m === 'm4a' || m === 'anim'){
+    closeSheet(); player.stop(); syncPlay();
+    try{
+      const buf = await busy('Making your music…', p => S.render(song, p));
+      if(m === 'wav'){ download(S.wavBlob(buf), fileName('wav')); toast('WAV saved'); }
+      else if(m === 'm4a'){ download(await S.m4aBlob(buf), fileName('m4a')); toast('M4A saved'); }
+      else { const id = 'studio_' + Date.now(); await idbPut(id, S.wavBlob(buf));
+        localStorage.setItem('videogen_pending_studio', JSON.stringify({id, name:song.name, len:Math.round(buf.duration * 100) / 100})); location.href = '../animate/'; }
+    }catch(e){ console.error(e); toast(e.message || 'Could not make the music', true); }
+  }
+  if(m === 'json'){ download(new Blob([snapshot()], {type:'application/json'}), fileName('song.json')); closeSheet(); }
+  if(m === 'open'){ const inp = document.createElement('input'); inp.type = 'file'; inp.accept = '.json,application/json';
+    inp.onchange = async () => { try{ const s = JSON.parse(await inp.files[0].text()); if(!s.tracks) throw 0; closeSheet(); undoStack = []; loadSong(s); toast('Opened'); }catch(e){ toast('This is not a VideoGen song file', true); } }; inp.click(); }
+  if(m === 'help') sheet('How to use', `<ol style="padding-left:18px;margin:0;line-height:1.7">
+    <li>Choose <b>Key (Sa)</b>, <b>raga</b>, <b>speed</b> and number of <b>bars</b> at the top.</li>
+    <li>Each row is a <b>track</b> (one instrument or one rhythm). Tap the small instrument name to change it. ＋ adds a track.</li>
+    <li>Tap a track to edit it below. <b>Instrument</b>: tap an empty place to add a note, drag a note to move it, drag its right end to make it longer, tap a note to remove it. Drag on empty space to scroll; pinch to zoom.</li>
+    <li><b>Raga notes</b> shows only the notes of the raga, so every note fits.</li>
+    <li><b>✨ Auto-fill</b> writes a melody, chords, bass, arpeggio or drone for you.</li>
+    <li><b>Rhythm</b> tracks: pick Teentaal, Adi, Keherwa, rock… or tap the boxes to make your own.</li>
+    <li>⚙ opens volume, left/right and hall echo. <b>M</b> mutes, <b>S</b> plays only that track.</li>
+    <li>🔁 repeats. Drag on the bar numbers above the notes to repeat only some bars.</li>
+    <li>☰ Menu → download WAV/M4A or send to the 🎬 Animator.</li></ol>`);
+}
+function idb(){ return new Promise((res, rej) => { const r = indexedDB.open('videogen_audio', 1); r.onupgradeneeded = () => r.result.createObjectStore('blobs'); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }); }
+async function idbPut(id, blob){ const db = await idb(); return new Promise((res, rej) => { const tx = db.transaction('blobs', 'readwrite'); tx.objectStore('blobs').put(blob, id); tx.oncomplete = res; tx.onerror = () => rej(tx.error); }); }
+
+// ------------------------------------------------------------ example songs
+const DEMOS = {
+  orchestra:{name:'Morning orchestra', make(){ const s = {v:1, name:'Morning orchestra', bpm:84, key:'D', scale:'major', bars:8, meter:4, tracks:[]};
+    const v = instTrack('r:violins', 'Violins'), c = instTrack('r:cellos', 'Cellos'), f = instTrack('r:flute', 'Flute'), h = instTrack('r:harp', 'Harp'), tp = drumTrack('epic', 'Timpani');
+    v.notes = S.auto(s, v, 'chords', 3); c.notes = S.auto(s, c, 'bass', 3); f.notes = S.auto(s, f, 'melody', 11); h.notes = S.auto(s, h, 'arp', 2); v.vol = 0.55; h.vol = 0.6; h.pan = 0.3; v.pan = -0.25; v.verb = 0.4; f.verb = 0.35;
+    tp.grid = {'r:timpani':[1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], 'r:timpani_roll':[]}; tp.steps = 16; tp.stepBeats = 0.25; tp.rhythm = null; tp.vol = 0.6;
+    s.tracks = [f, v, c, h, tp]; return s; }},
+  bhajan:{name:'Bhajan — harmonium, bansuri, tabla', make(){ const s = {v:1, name:'Bhajan', bpm:96, key:'C#', scale:'mohanam', bars:8, meter:4, tracks:[]};
+    const hm = instTrack('s:harmonium', 'Harmonium'), b = instTrack('s:bansuri', 'Bansuri'), tp = instTrack('s:tanpura', 'Tanpura'), tb = drumTrack('keherwa', 'Tabla'), mj = drumTrack('bhajan', 'Dholak + manjira');
+    hm.notes = S.auto(s, hm, 'melody', 5); b.notes = S.auto(s, b, 'melody', 5).filter((n, i) => n.t >= 16).map(n => ({...n, m:n.m + 12 > 88 ? n.m : n.m + 12, v:0.6})); tp.notes = S.auto(s, tp, 'drone', 1);
+    tp.vol = 0.5; b.vol = 0.55; b.pan = 0.25; mj.from = 5; mj.vol = 0.5; mj.grid = {'s:manjira':[1, 0, 0, 0, 1, 0, 0, 0], 's:manjira:closed':[0, 0, 0.55, 0, 0, 0, 0.55, 0]}; mj.rhythm = null;
+    s.tracks = [hm, b, tp, tb, mj]; return s; }},
+  carnatic:{name:'Carnatic — veena and mridangam', make(){ const s = {v:1, name:'Veena in Hamsadhwani', bpm:88, key:'D', scale:'hamsadhwani', bars:8, meter:4, tracks:[]};
+    const ve = instTrack('s:veena', 'Veena'), tp = instTrack('s:tanpura', 'Tanpura'), mr = drumTrack('adi', 'Mridangam');
+    ve.notes = S.auto(s, ve, 'melody', 9); tp.notes = S.auto(s, tp, 'drone', 1); tp.vol = 0.5; s.tracks = [ve, tp, mr]; return s; }},
+  piano:{name:'Piano ballad with cellos', make(){ const s = {v:1, name:'Piano ballad', bpm:72, key:'C', scale:'major', bars:8, meter:4, tracks:[]};
+    const p1 = instTrack('r:piano', 'Piano melody'), p2 = instTrack('r:piano', 'Piano chords'), c = instTrack('r:cellos', 'Cellos'), d = drumTrack('pop', 'Soft drums');
+    p1.notes = S.auto(s, p1, 'melody', 21).map(n => ({...n, m:n.m < 64 ? n.m + 12 : n.m})); p2.notes = S.auto(s, p2, 'arp', 4).map(n => ({...n, m:n.m > 64 ? n.m - 12 : n.m, v:0.5})); c.notes = S.auto(s, c, 'chords', 2).filter((n, i, a) => n.t >= 8);
+    c.vol = 0.5; c.verb = 0.4; d.from = 5; d.vol = 0.55; s.tracks = [p1, p2, c, d]; return s; }},
+  kids:{name:'Kids — marimba and xylophone', make(){ const s = {v:1, name:'Happy kids', bpm:116, key:'F', scale:'major', bars:8, meter:4, tracks:[]};
+    const ma = instTrack('r:marimba', 'Marimba'), xy = instTrack('r:pizz', 'Strings pizzicato'), gl = instTrack('r:glock', 'Glockenspiel'), d = drumTrack('latin', 'Claves & conga');
+    ma.notes = S.auto(s, ma, 'melody', 7); xy.notes = S.auto(s, xy, 'bass', 7).map(n => ({...n, d:0.5})); gl.notes = S.auto(s, gl, 'melody', 7).filter(n => n.t % 4 === 0); gl.vol = 0.45; d.vol = 0.6;
+    s.tracks = [ma, xy, gl, d]; return s; }},
+  folk:{name:'Village folk — dholak and gajjalu', make(){ const s = {v:1, name:'Village folk', bpm:104, key:'D', scale:'kharaharapriya', bars:8, meter:4, tracks:[]};
+    const fl = instTrack('s:bansuri', 'Bansuri'), sa = instTrack('s:santoor', 'Santoor'), d = drumTrack('dholak', 'Dholak + gajjalu');
+    fl.notes = S.auto(s, fl, 'melody', 13); sa.notes = S.auto(s, sa, 'arp', 13).map(n => ({...n, v:0.5})); sa.vol = 0.5; s.tracks = [fl, sa, d]; return s; }},
+};
+function demoSheet(){ sheet('Example songs', `<p class="hint">Open one, listen, then change it. Your current song will be replaced (save it first).</p><div class="menu">${Object.entries(DEMOS).map(([k, d]) => `<button data-d="${k}">🎵 ${esc(d.name)}</button>`).join('')}</div>`,
+  box => box.querySelectorAll('[data-d]').forEach(b => b.onclick = () => { closeSheet(); undoStack = []; loadSong(DEMOS[b.dataset.d].make()); toast('Press ▶ to listen'); })); }
+
+// ------------------------------------------------------------ start
+function renderAll(){ syncTop(); renderTracks(); renderEditor(); }
+(async () => {
+  fillTop();
+  try{ await S.load('./samples/'); }catch(e){ toast('Could not load instruments. Check the internet.', true); }
+  let s = null; try{ s = JSON.parse(localStorage.getItem('vg_studio_song') || 'null'); }catch(e){}
+  const q = new URLSearchParams(location.search).get('demo');
+  if(q && DEMOS[q]) s = DEMOS[q].make();
+  loadSong(s && s.tracks ? s : DEMOS.bhajan.make());
+  if(!s) toast('Example song loaded — press ▶');
+})();
+</script>
+</body>
+</html>

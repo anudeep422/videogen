@@ -130,6 +130,21 @@ The engine lives in `docs/animate/synth.js` (instruments) and `synthmusic.js` (c
 Shortcuts on a computer: V select, B brush, L line, R rectangle, O circle, F fill, T text, E eraser, H move view,
 Ctrl+Z undo, Ctrl+D duplicate, Delete removes, arrow keys nudge, Space play / pause, K add keyframe.
 
+## 🎹 Instrument Studio (compose with real instruments)
+
+Open `https://<your-name>.github.io/videogen/studio/`. It works like a small GarageBand, on a phone too.
+
+- **Real instruments** (recordings of real players, VSCO 2 Community Edition, public domain): piano, violin, violins, violas, cellos, double bass, pizzicato, harp, flute, clarinet, oboe, bassoon, trumpet, French horn, trombone, tuba, marimba, xylophone, glockenspiel, drum kit, timpani, orchestra percussion.
+- **Indian instruments** from our own synthesiser: veena, sitar, santoor, bansuri, harmonium, tanpura, guitar, kalimba; tabla, mridangam, ghatam, kanjira, dholak, dhol, manjira, gajjalu.
+- **Tracks**: one instrument or rhythm per track, with mute, solo, volume, left/right and hall echo.
+- **Piano roll** with **raga mode** (shows only the raga's notes, with Sa Ri Ga names).
+- **Rhythm grid** with Teentaal, Keherwa, Dadra, Rupak, Adi, Rupaka, Misra chapu, folk dholak, bhajan, dhol, rock, pop, latin, waltz, march, cinematic.
+- **✨ Auto-fill** (rules and dice, no AI): melody, chords, bass, arpeggio, drone.
+- Repeat, metronome, undo, My songs, example songs, project files.
+- Download **WAV** or **M4A**, or send the music straight into the **Animator**.
+
+Samples are made by `music/extract_vsco.py` (it checks every note's pitch and fixes octave names).
+
 ## 3. Run on your own computer (optional)
 
 Install Python 3.10 or newer and FFmpeg (`ffmpeg` must work in the terminal), then run:
