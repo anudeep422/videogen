@@ -1,24 +1,20 @@
-# 🎬 VideoGen: animation software in Python and JavaScript (no AI)
+# 🎬 VideoGen: make animation videos and music on your phone (no AI)
 
-Write a scene, or drag one together in the web editor, and get an animated **MP4 with music**.
-It comes with Indian village scenery built in: mountains, paddy fields, coconut palms, huts, temples,
-bullock carts, women carrying water pots, villagers, ponds and rivers. It does morning, noon, evening
-and night, and supports **Telugu and English titles**. Everything is drawn with code. No AI and no paid services.
+Free tools that run in the browser, hosted on GitHub Pages. Everything is drawn and played with code.
+No AI and no paid services. Telugu and English text supported.
 
-```
-┌──────────────────────┐   scene.yaml   ┌──────────────────────┐   MP4   ┌──────────────┐
-│ VideoGen Studio      │ ─────────────▶ │ Python engine        │ ──────▶ │ your video   │
-│ (web editor, JS)     │                │ (cairo + ffmpeg)     │         │ + music      │
-│ drag, preview, save  │                │ runs on PC or GitHub │         │              │
-└──────────────────────┘                └──────────────────────┘         └──────────────┘
-```
+| Tool | What it does | Address |
+|---|---|---|
+| 🏠 Home | Links to the tools | `/videogen/` |
+| ✏️ Animator | Draw, animate, templates, characters, effects, camera, music, export MP4 | `/videogen/animate/` |
+| 🎹 Instrument Studio | Music with real instruments, one-tap songs by mood, piano roll, rhythms | `/videogen/studio/` |
 
 | Part | Language | Folder |
 |---|---|---|
-| Rendering engine (drawing, animation, music, export) | Python | `videogen/`, `render.py` |
-| Visual scene editor | HTML + JavaScript | `docs/` |
-| Automatic rendering and editor hosting | GitHub Actions (YAML) | `.github/workflows/` |
-| Scene files | YAML | `scenes/` |
+| Web tools | HTML + JavaScript | `docs/` |
+| Python video engine (renders scene files, optional) | Python | `videogen/`, `render.py`, `scenes/` |
+| Sample tools | Python | `music/` |
+| Hosting and rendering | GitHub Actions (YAML) | `.github/workflows/` |
 
 ---
 
@@ -37,19 +33,12 @@ and night, and supports **Telugu and English titles**. Everything is drawn with 
 
 ## 2. Make a video (works on a phone, no installation)
 
-1. Open the Scene maker: `https://<your-username>.github.io/videogen/scenes/`
-2. Press **Load example** or **New**, then add and drag elements and press **Play** to preview.
-3. Press **🚀 Render on GitHub**. The first time, it asks for a GitHub key:
-   - Open github.com/settings/personal-access-tokens/new
-   - Repository access: **Only select repositories → videogen**
-   - Permissions: **Contents: Read and write**, **Actions: Read-only**
-   - Generate it, paste it into the editor, and press **Test & save**. It is stored only in your browser.
-4. Give the video a name. The editor saves the scene to `scenes/`, GitHub renders it in 1 to 3 minutes,
-   and a **Play / Download** button appears.
-5. All your videos are under **🎞️ My videos**, and on the repo page under **Releases → Rendered videos**.
+1. Open the ✏️ Animator → Templates → pick one → change the text.
+2. Open the 🎹 Instrument Studio → ✨ Make a full song in one tap → choose mood and length → ☰ → Use this music in the Animator.
+3. In the Animator → Export → MP4.
 
-Only the scene you changed is rendered. Changing the engine re-renders every scene.
-You can also render by hand: **Actions → Render videos → Run workflow**.
+The Python engine can still turn scene files in `scenes/` into videos: `python render.py scenes/village.yaml`,
+or on GitHub under **Actions → Render videos → Run workflow**.
 
 ## ✏️ VideoGen Animator (draw anything)
 
@@ -108,10 +97,7 @@ Colour filters: day to night, warm sunset, old film, black and white, and dark c
 **Scenes:** ✂️ New scene here ends the current scene with a fade, and new things belong to the next scene.
 **Text animation:** typewriter, word by word, letters bounce in, wave and glow (Telugu letters stay whole).
 
-## 🎼 Music Studio (separate page)
-
-Open `https://<your-username>.github.io/videogen/music/`. Choose a style, raga, key, speed, length and tune number,
-tap **Make music**, listen, then download **WAV** or **M4A**, share it, keep it in "My tunes", or send it to the Animator.
+## 🎼 Built-in music engine (used by the Animator's Sound panel and the Instrument Studio)
 
 **Synthesised Indian instruments (physical models, no recordings, work offline):** veena, sitar (with sympathetic
 strings), tanpura (with jawari buzz), santoor, bansuri (with breath), harmonium, organ, guitar, harp, marimba, xylophone,

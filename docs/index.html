@@ -17,6 +17,7 @@
   .tag{color:#b9b2d6;margin:6px 0 4px;font-size:16px}
   .te{color:#8f88ad;font-size:14px;margin:0 0 22px}
   .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  .grid a:first-child{grid-column:1/-1}
   a.card{display:flex;flex-direction:column;gap:6px;text-decoration:none;color:inherit;background:#1b1829;border:1px solid #363052;border-radius:18px;padding:18px 16px;transition:.15s;position:relative;overflow:hidden}
   a.card:hover,a.card:active{transform:translateY(-2px);border-color:var(--c)}
   a.card::before{content:"";position:absolute;inset:0 0 auto 0;height:4px;background:var(--c)}
@@ -47,14 +48,6 @@
     <a class="card" href="studio/" style="--c:#e5534b">
       <span class="ic">🎹</span><b>Instrument Studio</b>
       <p>Music with real instruments. One tap: choose a mood and video length, get a full song. Or compose note by note.</p>
-      <span class="go">Open →</span></a>
-    <a class="card" href="music/" style="--c:#3fb27f">
-      <span class="ic">🎼</span><b>Music Studio</b>
-      <p>Quick background music: pick a style and raga, press make. Indian instruments, download WAV or M4A.</p>
-      <span class="go">Open →</span></a>
-    <a class="card old" href="scenes/" style="--c:#8e6cff">
-      <span class="ic">🏞️</span><b>Scene maker</b>
-      <p>The first tool: write a scene file (village example) and render the video on GitHub.</p>
       <span class="go">Open →</span></a>
   </div>
 
