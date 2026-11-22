@@ -608,7 +608,7 @@ async function renderOnGitHub(){
     else $('rResult').innerHTML=`<div class="hint">Rendered. <a href="${run.html_url}" target="_blank" rel="noopener">Open the run</a> and download it under Artifacts.</div>`;
   }catch(e){
     const i=S.findIndex(x=>x[1]==='on'); if(i>=0){ S[i][1]='bad'; } steps(S);
-    $('rResult').innerHTML=`<div class="hint" style="color:var(--bad)">${e.status===401?'Your GitHub key is wrong or expired. Tap 🚀 again to set it up.':e.status===403||e.status===404?'The key has no permission. It needs Contents: Read and write, and Actions: Read-only.':e.message}</div>`;
+    $('rResult').innerHTML=`<div class="hint" style="color:var(--bad)">${e.status===401?'Your GitHub key is wrong or expired. Tap 🚀 again to set it up.':e.status===403||e.status===404?'The key has no permission. It needs Contents: Read and write, and Actions: Read-only.<br><span style="color:var(--dim)">GitHub said: '+e.message+'</span>':e.message}</div>`;
     if(e.status===401){ const c2=ghCfg(); c2.token=''; ghStore(c2); }
   }
 }
