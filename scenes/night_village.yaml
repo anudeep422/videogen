@@ -1,4 +1,4 @@
-# A quiet night in the village - shows the night palette, moon and stars.
+# A quiet night in the village: shows the night palette, moon and stars.
 video: {width: 1280, height: 720, fps: 30}
 audio: {music: drone, birds: false, breeze: true, key: C}
 
