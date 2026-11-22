@@ -1,0 +1,83 @@
+# Village Morning -> evening, 3 scenes.
+# x = left/right position (world), y = ground line (410 = horizon, 720 = bottom of screen).
+# speed = pixels per second (negative = moves left), start = second it appears.
+
+video:
+  width: 1280
+  height: 720
+  fps: 30
+
+audio:
+  music: flute
+  key: D
+  birds: true
+  bells: true
+
+scenes:
+  # ---------------------------------------------------------------- 1. title
+  - duration: 7
+    time: morning
+    camera: {pan: 40}
+    elements:
+      - {type: clouds, count: 5}
+      - {type: mountains}
+      - {type: fields}
+      - {type: palm, x: -120, y: 470}
+      - {type: palm, x: 1420, y: 462, size: 0.8}
+      - {type: hut, x: 250, y: 492, smoke: true}
+      - {type: hut, x: 450, y: 486, size: 0.8, wall: '#D49A5C'}
+      - {type: grass}
+      - {type: text, text: "మా ఊరు", size: 96, y: 230, start: 0.8, end: 6.5}
+      - {type: text, text: "Our Village", size: 40, y: 320, start: 1.6, end: 6.5}
+
+  # ---------------------------------------------------------------- 2. village life
+  - duration: 20
+    time: morning
+    camera: {x: 20, pan: 140}
+    elements:
+      - {type: clouds, count: 5}
+      - {type: birds, start: 2}
+      - {type: mountains}
+      - {type: fields}
+      - {type: palm, x: -120, y: 470}
+      - {type: palm, x: 40, y: 476, size: 0.85}
+      - {type: palm, x: 900, y: 445, size: 0.55}
+      - {type: palm, x: 1420, y: 462, size: 0.8}
+      - {type: palm, x: 1560, y: 468}
+      - {type: palm, x: 1150, y: 505}
+      - {type: tree, x: 700, y: 480, size: 0.6}
+      - {type: hut, x: 250, y: 492, smoke: true}
+      - {type: hut, x: 450, y: 486, size: 0.82, wall: '#D49A5C'}
+      - {type: hut, x: -30, y: 500, size: 1.1, wall: '#BF8148'}
+      - {type: bush, x: 600, y: 497}
+      - {type: bush, x: 1000, y: 528}
+      - {type: bush, x: 1700, y: 566}
+      - {type: road, y: 549}
+      - {type: cart, x: -450, y: 549, speed: 48, turban: '#C0392B'}
+      - {type: cart, x: -450, y: 556, speed: 48, start: 9, turban: '#E67E22', load: hay}
+      - {type: pond, x: 1260, y: 615}
+      - {type: woman, x: 1080, y: 690, speed: -36, saree: '#C8102E', border: '#E7B416', blouse: '#1E8449', pot: brass}
+      - {type: woman, x: 1230, y: 700, speed: -36, saree: '#6C3483', border: '#F1C40F', blouse: '#E67E22', pot: clay, two_pots: true}
+      - {type: woman, x: 1390, y: 694, speed: -36, saree: '#117A65', border: '#E74C3C', blouse: '#C0392B', pot: brass}
+      - {type: man, x: -200, y: 660, speed: 30, start: 6}
+      - {type: grass}
+
+  # ---------------------------------------------------------------- 3. evening at the temple
+  - duration: 10
+    time: evening
+    camera: {pan: 60}
+    elements:
+      - {type: clouds, count: 4}
+      - {type: birds, start: 1, speed: 60, y: 180}
+      - {type: mountains}
+      - {type: fields}
+      - {type: river, y: 470, width: 26}
+      - {type: temple, x: 640, y: 540}
+      - {type: palm, x: 380, y: 530}
+      - {type: palm, x: 920, y: 520, size: 0.9}
+      - {type: tree, x: 1150, y: 600}
+      - {type: hut, x: 160, y: 600, size: 1.1}
+      - {type: woman, x: 1300, y: 680, speed: -40, saree: '#F39C12', border: '#C0392B', pot: none}
+      - {type: man, x: 1380, y: 690, speed: -40}
+      - {type: grass}
+      - {type: text, text: "శుభ సాయంత్రం", size: 64, y: 120, start: 2, end: 9.3}

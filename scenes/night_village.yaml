@@ -1,0 +1,21 @@
+# A quiet night in the village - shows the night palette, moon and stars.
+video: {width: 1280, height: 720, fps: 30}
+audio: {music: drone, birds: false, breeze: true, key: C}
+
+scenes:
+  - duration: 12
+    time: night
+    camera: {pan: 80}
+    elements:
+      - {type: clouds, count: 3, speed: 5}
+      - {type: mountains}
+      - {type: fields}
+      - {type: hut, x: 300, y: 520, size: 1.2}
+      - {type: hut, x: 560, y: 505, size: 1.0, wall: '#D49A5C'}
+      - {type: hut, x: 900, y: 530, size: 1.3, wall: '#BF8148'}
+      - {type: palm, x: 120, y: 540, size: 1.1}
+      - {type: palm, x: 1100, y: 520}
+      - {type: tree, x: 760, y: 600}
+      - {type: man, x: 1400, y: 680, speed: -35}
+      - {type: grass}
+      - {type: text, text: "Good night", size: 54, y: 620, start: 3, end: 11}
