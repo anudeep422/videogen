@@ -24,3 +24,5 @@ SOFTWARE.
 Fonts in fonts/ and docs/fonts/ (Noto Sans, Noto Sans Telugu) are by Google
 and licensed under the SIL Open Font License 1.1: https://openfontlicense.org
 js-yaml (docs/lib) is MIT licensed, (c) Vitaly Puzrin.
+mp4-muxer (docs/lib) is MIT licensed, (c) Vanilagy.
+Instrument samples in docs/animate/samples come from the FluidR3_GM SoundFont by Frank Wen, MIT licence.

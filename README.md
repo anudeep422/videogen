@@ -87,6 +87,12 @@ explosion, horse gallop, applause, birds, sparkle, cartoon bonk, boing, slide wh
 **Record your voice** while the animation plays, or **upload** your own MP3. Each clip has start time, volume and fade.
 Everything is mixed into the exported MP4 (AAC, or Opus where AAC is not available). Templates come with music.
 
+**🎼 Music generator (real instruments, in the Animator):** 🎵 Sound → 🎼 Generate music. Choose a style (spiritual flute,
+meditation, devotional sitar, festival shehnai and dhol, corporate piano, happy, epic), a raga (Mohanam, Hamsadhwani,
+Hindolam, Shankarabharanam, Kalyani, Mayamalavagowla, Kharaharapriya, Abheri), length, key, speed and tune number.
+It composes by rules and plays with real recorded instruments (FluidR3 SoundFont, MIT licence), right in the browser.
+Templates use it for their background music. The same generator is also available in Python in `music/`.
+
 **Coming next:** Stage 5 motion-graphics effects, Stage 6 bones,
 Stage 7 library and templates, Stage 8 phone install and Windows app.
 

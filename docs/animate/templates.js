@@ -12,7 +12,9 @@ const MUSIC_NAME = {flute:'Calm flute (spiritual)', drone:'Tanpura drone (medita
 const tpl = (cat, name, ratio, build) => TPL.push({cat, name, ratio, build:() => { const p = build();
   if(!p.audio.some(c => c.kind === 'music')){ const m = MUSIC_FOR[cat] || 'flute'; p.audio.unshift(musicClip(m, p.duration)); } return p; }});
 const aid = () => Math.random().toString(36).slice(2, 10);
-const musicClip = (m, d) => ({id:aid(), name:MUSIC_NAME[m] || m, kind:'music', synth:m, start:0, len:d, volume:0.8, fadeIn:1.5, fadeOut:2});
+const GEN_STYLE = {flute:'spiritual', drone:'meditation', happy:'happy', corporate:'corporate', epic:'epic', festival:'festival'};
+// real-instrument music from musicgen.js (falls back to the simple synth music when offline)
+const musicClip = (m, d) => ({id:aid(), name:'🎼 ' + (MUSIC_NAME[m] || m), kind:'music', gen:{style:GEN_STYLE[m] || 'spiritual', seconds:d, key:'D', seed:7}, synth:m, start:0, len:d, volume:0.8});
 const SIZE = {'16:9':[1280, 720], '9:16':[1080, 1920], '1:1':[1080, 1080]};
 
 // ---------------------------------------------------------------- builder

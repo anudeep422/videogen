@@ -131,7 +131,8 @@
     </div>
 
     <h2 id="soundSec">Sound</h2>
-    <div class="row"><button id="aMusic">🎵 Music</button><button id="aSfx">🔊 Effect</button><button id="aRec">🎙️ Record voice</button><button id="aUpload">📁 Upload</button></div>
+    <button id="aGen" style="width:100%;background:var(--acc);color:#1a1300;border-color:var(--acc);font-weight:600;margin-bottom:4px">🎼 Generate music (real instruments)</button>
+    <div class="row"><button id="aMusic">🎵 Simple music</button><button id="aSfx">🔊 Effect</button><button id="aRec">🎙️ Record voice</button><button id="aUpload">📁 Upload</button></div>
     <input id="fAudio" type="file" accept="audio/*,.mp3,.m4a,.wav,.ogg,.aac" hidden>
     <div id="clips" class="layers" style="margin-top:6px"></div>
     <div class="hint" style="margin-top:4px">Effects, voice and uploads start at the current time, so move the time slider first. Voice recording plays your animation while you speak.</div>
@@ -215,12 +216,28 @@
     <div class="hint" style="padding:0 12px 10px">All sounds are made by code on your device. Royalty free, no AI.</div>
   </div>
 </div>
+<div id="genModal" style="position:fixed;inset:0;background:#000a;display:none;z-index:12;align-items:center;justify-content:center;padding:10px">
+  <div style="background:var(--panel);border:1px solid var(--line);border-radius:12px;width:min(480px,100%);max-height:92vh;overflow:auto;padding:14px">
+    <div style="display:flex;align-items:center;margin-bottom:6px"><b style="font-size:16px">🎼 Music generator</b><span style="flex:1"></span><button id="genClose">Close</button></div>
+    <div class="hint" style="margin-bottom:8px">Composes a new tune from your choices and plays it with real recorded instruments. No AI. Same choices = same tune.</div>
+    <div class="f"><label>Style</label><select id="gStyle"></select></div>
+    <div class="f"><label>Raga</label><select id="gRaga"></select></div>
+    <div class="f"><label>Length (s)</label><input id="gLen" type="number" min="5" max="600" step="1" style="background:#12141a;border:1px solid var(--line);border-radius:6px;padding:5px"></div>
+    <div class="f"><label>Key</label><select id="gKey"></select></div>
+    <div class="f"><label>Speed</label><select id="gTempo"><option value="">Normal (best for style)</option><option value="0.8">Slower</option><option value="1.2">Faster</option></select></div>
+    <div class="f"><label>Tune no.</label><div class="row" style="margin:0"><input id="gSeed" type="number" min="1" max="99999" value="1" style="width:90px;background:#12141a;border:1px solid var(--line);border-radius:6px;padding:5px"><button id="gDice">🎲 New tune</button></div></div>
+    <div class="row" style="margin-top:10px"><button id="gPlay" style="padding:8px 14px">▶ Listen</button><button id="gAdd" style="background:var(--acc);color:#1a1300;border-color:var(--acc);font-weight:600;padding:8px 14px">＋ Add to video</button></div>
+    <div id="gMsg" class="hint" style="margin-top:6px"></div>
+    <div class="hint" style="margin-top:8px;font-size:11px">Instrument sounds: FluidR3 SoundFont by Frank Wen (MIT licence).</div>
+  </div>
+</div>
 <div class="toast" id="toast"></div>
 
 <script src="../lib/mp4-muxer.js"></script>
 <script src="library.js"></script>
 <script src="templates.js"></script>
 <script src="sound.js"></script>
+<script src="musicgen.js"></script>
 <script>
 /* ==========================================================================
    VideoGen Animator – Stage 1: vector drawing with layers.
@@ -905,8 +922,10 @@ async function idbPut(id, blob){ const db = await idb(); return new Promise((res
 async function idbGet(id){ try{ const db = await idb(); return await new Promise(res => { const rq = db.transaction('blobs').objectStore('blobs').get(id); rq.onsuccess = () => res(rq.result || null); rq.onerror = () => res(null); }); }catch(e){ return null; } }
 function clipLen(c){ const b = abuf[c.id]; return b ? b.duration : (c.len || 1); }
 async function loadClip(c){
-  if(abuf[c.id] && (!c.synth || abuf[c.id]._len === c.len)) return abuf[c.id];
+  if(abuf[c.id] && (!(c.synth || c.gen) || abuf[c.id]._len === c.len)) return abuf[c.id];
   try{
+    if(c.gen){ try{ const b = await VG_MUSICGEN.render({...c.gen, seconds:c.len || c.gen.seconds}); b._len = c.len; abuf[c.id] = b; return b; }
+      catch(e){ console.warn('music generator', e); if(!c.synth) throw e; } }
     if(c.synth){ const b = await VG_SOUND.render(c.synth, c.len || P.duration); b._len = c.len; abuf[c.id] = b; }
     else { const blob = await idbGet(c.id); if(!blob) return null; abuf[c.id] = await AC().decodeAudioData(await blob.arrayBuffer()); }
   }catch(e){ console.warn('audio', e); return null; }
@@ -934,6 +953,31 @@ function previewClip(c){ stopAudio(); loadClip(c).then(b => { if(!b) return toas
   const g = ctx.createGain(); g.gain.value = c.volume ?? 1; src.connect(g); g.connect(ctx.destination); src.start(); src.stop(ctx.currentTime + Math.min(b.duration, 8)); playingSrc.push(src); }); }
 async function addClip(c){ pushUndo(); c.id = c.id || uid(); c.volume = c.volume ?? 1; P.audio.push(c); renderClips(); await loadClip(c); renderClips(); drawTrack(); autosave(); return c; }
 const KIND = {music:'🎵', sfx:'🔊', voice:'🎙️', file:'📁'};
+// ---- music generator dialog
+const SYNTH_FOR = {spiritual:'flute', meditation:'drone', devotional:'flute', festival:'festival', corporate:'corporate', happy:'happy', epic:'epic'};
+function genParams(){ const st = $('gStyle').value, G = VG_MUSICGEN, tm = $('gTempo').value;
+  return {style:st, raga:$('gRaga').value || G.STYLES[st].raga, seconds:Math.max(5, Math.min(600, +$('gLen').value || P.duration)), key:$('gKey').value,
+          tempo:tm ? Math.round(G.STYLES[st].tempo * +tm) : null, seed:Math.max(1, +$('gSeed').value || 1)}; }
+function openGen(){
+  const G = window.VG_MUSICGEN; if(!G) return toast('Music generator did not load', true);
+  if(!$('gStyle').options.length){
+    $('gStyle').innerHTML = Object.entries(G.STYLES).map(([k, v]) => `<option value="${k}">${v.name}</option>`).join('');
+    $('gRaga').innerHTML = '<option value="">Best for this style</option>' + Object.entries(G.RAGAS).map(([k, v]) => `<option value="${k}">${v.name}</option>`).join('');
+    $('gKey').innerHTML = Object.keys(G.KEYS).map(k => `<option ${k === 'D' ? 'selected' : ''}>${k}</option>`).join('');
+  }
+  $('gLen').value = Math.round(P.duration); $('gMsg').textContent = ''; $('genModal').style.display = 'flex';
+}
+async function genRender(){ const g = genParams(); $('gMsg').textContent = 'Composing and loading instruments…'; $('gPlay').disabled = $('gAdd').disabled = true;
+  try{ const t0 = performance.now(); const b = await VG_MUSICGEN.render(g); $('gMsg').textContent = `Ready: ${b.duration.toFixed(1)} s (${((performance.now() - t0) / 1000).toFixed(1)} s to make)`; return [g, b]; }
+  catch(e){ $('gMsg').textContent = 'Could not make music: ' + e.message + ' (it needs the internet the first time)'; return [g, null]; }
+  finally{ $('gPlay').disabled = $('gAdd').disabled = false; } }
+$('aGen').onclick = openGen; $('genClose').onclick = () => { stopAudio(); $('genModal').style.display = 'none'; };
+$('gDice').onclick = () => { $('gSeed').value = 1 + Math.floor(Math.random() * 99999); };
+$('gPlay').onclick = async () => { stopAudio(); const [, b] = await genRender(); if(!b) return; const ctx = AC(), src = ctx.createBufferSource(); src.buffer = b; src.connect(ctx.destination); src.start(); src.stop(ctx.currentTime + Math.min(b.duration, 20)); playingSrc.push(src); };
+$('gAdd').onclick = async () => { const [g, b] = await genRender(); if(!b) return; stopAudio();
+  const st = VG_MUSICGEN.STYLES[g.style].name.split(':')[0];
+  await addClip({name:`🎼 ${st} · ${g.raga} · tune ${g.seed}`, kind:'music', gen:g, synth:SYNTH_FOR[g.style], start:0, len:g.seconds, volume:0.85});
+  $('genModal').style.display = 'none'; toast('Music added to your video'); };
 function renderClips(){
   const box = $('clips'); if(!box) return; box.innerHTML = '';
   if(!(P.audio || []).length){ box.innerHTML = '<span class="hint">No sound yet. Add music, an effect, or record your voice.</span>'; return; }
