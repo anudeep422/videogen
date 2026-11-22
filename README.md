@@ -72,7 +72,16 @@ Effects (glow, sparkles, light rays, smoke, rain, petals, confetti, fire). Use *
 and **Auto-key** records it. Drag the diamonds to retime. Easing (smooth, linear, ease in/out, overshoot, bounce, hold),
 "show from / to" times, a motion path display, and 12 quick animations (fade, pop, slide in, spin, pulse, shake, bounce).
 
-**Coming next:** Stage 3 MP4 export, Stage 4 sound, Stage 5 motion-graphics effects, Stage 6 bones,
+**🎬 Stage 3 (now): Export video.** Makes a real H.264 **MP4 on your own device** (phone or PC). Nothing is uploaded.
+Choose small, standard or high quality, then Download or Share straight to WhatsApp. Works at 16:9, 9:16 (Reels / Shorts) and 1:1.
+
+**🧩 Templates (16 ready animated videos):** Spiritual (Upanishad intro, daily quote, temple good morning, shloka of the day),
+Insurance & business (3 reasons to protect your family, advisor introduction, special offer Reel, thank-you message),
+YouTube & social (channel intro, subscribe end screen, Top 5 Shorts, square quote post), and Greetings (Diwali, Sankranti,
+birthday, good morning Reel). Open one, select a text, tap **✏️ Edit text**, then **🎬 Export video**.
+Add your own in `docs/animate/templates.js`.
+
+**Coming next:** Stage 4 sound, Stage 5 motion-graphics effects, Stage 6 bones,
 Stage 7 library and templates, Stage 8 phone install and Windows app.
 
 Shortcuts on a computer: V select, B brush, L line, R rectangle, O circle, F fill, T text, E eraser, H move view,
