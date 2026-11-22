@@ -44,8 +44,17 @@ function Builder(ratio, duration){
     },
     text(t, x, y, size, fill, opts = {}){
       const o = {id:id(), type:'text', x, y, rotation:0, scaleX:1, scaleY:1, opacity:1, text:t, size, fill};
+      if(opts.anim) o.tfx = {k:opts.anim, t0:opts.at ?? 0, d:opts.dur ?? 1.5};
       p.layers[opts.layer ?? 2].objects.push(o); return o;
-    }
+    },
+    box(x, y, w, h, fill, opts = {}){ const o = {id:id(), type:'rect', x, y, w, h, rotation:0, scaleX:1, scaleY:1, opacity:opts.op ?? 1, fill, stroke:opts.stroke || null, width:opts.lw || 0, radius:opts.r ?? 18};
+      p.layers[opts.layer ?? 1].objects.push(o); return o; },
+    char(preset, x, y, size, acts = [], opts = {}){ const o = window.VG_CHAR.make(preset); o.id = id(); o.x = x; o.y = y; o.scaleX = o.scaleY = size; o.actions = acts.map(([a, t0, t1]) => ({a, t0, t1}));
+      if(opts.face) o.face = opts.face; if(opts.expr) o.expr = opts.expr; p.layers[opts.layer ?? 1].objects.push(o); return o; },
+    fx(kind, t0, t1, opts = {}){ const o = window.VG_FX.make(kind, W, H); o.id = id(); o.name = window.VG_FX.KINDS[kind][0]; o.show = [t0, t1]; Object.assign(o, opts);
+      p.layers[2].objects.push(o); return o; },
+    scene(list, a, b){ list.forEach(o => { o.show = [a, b]; }); },
+    gen(style, raga, vol = 0.5){ p.audio.unshift({id:aid(), name:'🎼 ' + style + ' · ' + raga, kind:'music', gen:{style, raga, seconds:duration, key:'D', seed:3}, synth:'flute', start:0, len:duration, volume:vol}); }
   };
 }
 // change the words inside a library element (title bar, name strip, badge…)
@@ -110,6 +119,34 @@ tpl('Spiritual', 'Temple good morning', '9:16', () => { const b = Builder('9:16'
   anim(b.text('శుభోదయం', 540, 360, 130, '#B03A2E'), 'pop', 1.0, 1, W, H);
   b.sfx('birds', 0.5, 0.8); b.sfx('bell', 1.0, 0.6);
   anim(b.text('Good Morning', 540, 500, 58, '#5D4037'), 'fadein', 1.7, 0.8, W, H);
+  return b.p; });
+tpl('Spiritual', 'Upanishad mantra explainer (Isha 2)', '16:9', () => { const b = Builder('16:9', 45), W = b.W, H = b.H; b.p.cuts = [7, 22, 38];
+  // 1 · title
+  const s1 = [b.bg('Saffron glow'), b.el('Sun with rays', 640, 230, 380, {op:.4}), b.el('Om symbol', 640, 210, 220),
+    b.text('ఈశావాస్య ఉపనిషత్తు', 640, 450, 76, '#7B241C', {anim:'typewriter', at:1.2, dur:1.6}), b.text('మంత్రం 2', 640, 560, 50, '#A04000')];
+  anim(s1[1], 'turn', 0, 7, W, H); anim(s1[2], 'pop', 0.4, 0.9, W, H); anim(s1[4], 'fadein', 3.0, 0.8, W, H); b.scene(s1, null, 7);
+  b.sfx('bell', 0.4, 0.8);
+  // 2 · the mantra
+  const s2 = [b.bg('Green fields'), b.el('Ashram', 470, 440, 190), b.el('Rishi meditating', 230, 560, 290),
+    b.box(860, 330, 680, 330, '#FFF8E7', {op:.88, stroke:'#E67E22', lw:4}),
+    b.text('కుర్వన్నేవేహ కర్మాణి\nజిజీవిషేచ్ఛతం సమాః ।', 860, 260, 42, '#4A2C0A', {anim:'words', at:8.2, dur:4}),
+    b.text('ఏవం త్వయి నాన్యథేతోఽస్తి\nన కర్మ లిప్యతే నరే ॥', 860, 410, 42, '#4A2C0A', {anim:'words', at:13, dur:4})];
+  anim(s2[2], 'up', 7.3, 1.2, W, H); anim(s2[3], 'pop', 7.6, 0.6, W, H);
+  b.scene(s2, 7, 22); b.fx('petals', 7, 22, {density:0.5});
+  // 3 · the meaning: keep doing your work
+  const s3 = [b.bg('Green fields'), b.el('Bullock cart', 980, 560, 170), b.el('Village hut', 170, 470, 190),
+    b.char('farmer', 260, 640, 1.3, [['walk', 23, 29], ['wave', 29, 31], ['walk', 31, 37]]),
+    b.box(640, 120, 1120, 170, '#FFFFFF', {op:.85, r:22}),
+    b.text('ఇక్కడ కర్మలు చేస్తూనే నూరేళ్లు జీవించాలని కోరుకో.\nఇలా జీవిస్తే కర్మ నిన్ను అంటదు.', 640, 120, 36, '#1B4F72', {anim:'typewriter', at:23, dur:5})];
+  const fr = s3[3]; key(fr, 'x', 23, 260, 'linear'); key(fr, 'x', 29, 680); key(fr, 'x', 31, 680, 'linear'); key(fr, 'x', 37, 1100);
+  b.scene(s3, 22, 38);
+  // 4 · end card
+  const s4 = [b.bg('Saffron glow'), b.text('తదుపరి: మంత్రం 3', 640, 230, 70, '#7B241C'), b.el('Subscribe button', 640, 420, 110), b.el('Diya lamp', 220, 560, 170), b.el('Diya lamp', 1060, 560, 170)];
+  anim(s4[1], 'down', 38.4, 0.8, W, H); anim(anim(s4[2], 'pop', 39.2, 0.8, W, H), 'pulse', 41, 0.8, W, H); b.scene(s4, 38, null);
+  b.sfx('ding', 39.2, 0.6); b.sfx('bell', 38.2, 0.5);
+  // scene changes
+  [7, 22, 38].forEach(t => b.fx('fade', t - 0.5, t + 0.5));
+  b.gen('bansuri', 'mohanam', 0.45);
   return b.p; });
 tpl('Spiritual', 'Shloka of the day', '16:9', () => { const b = Builder('16:9', 9), W = b.W, H = b.H;
   b.bg('Saffron glow');
