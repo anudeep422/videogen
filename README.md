@@ -33,11 +33,11 @@ and night, and supports **Telugu and English titles**. Everything is drawn with 
    git push -u origin main
    ```
 3. Go to **Settings → Pages → Source: GitHub Actions**. The editor goes live at
-   `https://<your-username>.github.io/videogen/`.
+   `https://<your-username>.github.io/videogen/` (the home page with all tools).
 
 ## 2. Make a video (works on a phone, no installation)
 
-1. Open the editor: `https://<your-username>.github.io/videogen/`
+1. Open the Scene maker: `https://<your-username>.github.io/videogen/scenes/`
 2. Press **Load example** or **New**, then add and drag elements and press **Play** to preview.
 3. Press **🚀 Render on GitHub**. The first time, it asks for a GitHub key:
    - Open github.com/settings/personal-access-tokens/new
