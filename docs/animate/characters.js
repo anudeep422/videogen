@@ -86,6 +86,8 @@ function limb(c, x, y, a1, l1, a2, l2, w1, w2, col1, col2){
 function draw(c, o, t){
   const L = Object.assign({}, PRESETS[o.preset] || PRESETS.man, o.look || {});
   const p = poseAt(o, t), act = actionAt(o, t);
+  // lip sync: mouth opens with the loudness of the chosen voice recording, head moves a little
+  if(o.lip && window.VG_CHAR.lip){ const lv = window.VG_CHAR.lip(o, t); if(lv > 0.06){ p.mouth = Math.max(p.mouth, Math.min(1, lv * 1.15)); p.head = (p.head || 0) + lv * 4 * Math.sin(t * 4.3); } }
   let face = o.face || 1;
   if(o.autoFace !== false && o.keys && o.keys.x && o.keys.x.length > 1 && window.propAt){ const v = window.propAt(o.__base || o, 'x', t + 0.05) - window.propAt(o.__base || o, 'x', t - 0.05); if(Math.abs(v) > 0.3) face = Math.sign(v) * Math.sign(o.scaleX || 1); }
   const sz = L.size || 1; c.save(); c.scale(face * sz, sz);

@@ -122,6 +122,7 @@
       <div id="cActs" class="presets"></div>
       <div class="row" style="margin-top:6px"><button id="cTurn">Turn ↔</button><button id="cDelAct">Remove action here</button><button id="cClearAct">Remove all actions</button></div>
       <div class="f"><label>Face</label><select id="cExpr"><option value="happy">😊 Happy</option><option value="sad">😢 Sad</option><option value="surprised">😮 Surprised</option><option value="angry">😠 Angry</option></select></div>
+      <div class="f"><label>Lip sync</label><select id="cLip" title="Mouth moves with a voice recording"><option value="">Off</option></select></div>
       <div class="f"><label>Skin</label><input type="color" id="cSkin"></div>
       <div class="f"><label>Hair</label><input type="color" id="cHair"></div>
       <div class="f"><label>Top</label><input type="color" id="cTop"></div>
@@ -246,6 +247,21 @@
     <div class="hint" style="padding:0 12px 10px">All sounds are made by code on your device. Royalty free, no AI.</div>
   </div>
 </div>
+<div id="subModal" style="position:fixed;inset:0;background:#000a;display:none;z-index:12;align-items:center;justify-content:center;padding:10px">
+  <div style="background:var(--panel);border:1px solid var(--line);border-radius:12px;width:min(480px,100%);max-height:92vh;overflow:auto;padding:14px">
+    <div style="display:flex;align-items:center;margin-bottom:6px"><b style="font-size:16px">📝 Subtitles for <span id="subClip"></span></b><span style="flex:1"></span><button onclick="document.getElementById('subModal').style.display='none'">Close</button></div>
+    <div class="hint" style="margin-bottom:8px">Type what you say in this recording, <b>one line per sentence</b> (Telugu or English). Each line appears when you speak it and hides at the pause after.</div>
+    <div class="hint" id="subInfo" style="color:var(--acc);margin-bottom:6px"></div>
+    <textarea id="subText" rows="7" style="width:100%;background:#12141a;color:var(--text);border:1px solid var(--line);border-radius:8px;padding:8px;font:15px 'Noto Sans','Noto Sans Telugu',sans-serif" placeholder="ఈశావాస్యమిదం సర్వం&#10;యత్కించ జగత్యాం జగత్"></textarea>
+    <div class="row" style="margin-top:8px;gap:6px;flex-wrap:wrap">
+      <select id="subPos"><option value="bottom">Bottom</option><option value="top">Top</option></select>
+      <select id="subSize"><option value="0.045">Small</option><option value="0.06" selected>Medium</option><option value="0.08">Large</option></select>
+      <select id="subStyle"><option value="box">White on dark box</option><option value="yellow">Yellow on dark box</option><option value="plain">White with outline</option></select>
+    </div>
+    <label class="hint" style="display:block;margin:8px 0"><input type="checkbox" id="subReplace" checked> Replace earlier subtitles of this recording</label>
+    <button id="subGo" style="width:100%;background:var(--acc);color:#1a1300;border-color:var(--acc);font-weight:700;padding:10px">📝 Make subtitles</button>
+  </div>
+</div>
 <div id="genModal" style="position:fixed;inset:0;background:#000a;display:none;z-index:12;align-items:center;justify-content:center;padding:10px">
   <div style="background:var(--panel);border:1px solid var(--line);border-radius:12px;width:min(480px,100%);max-height:92vh;overflow:auto;padding:14px">
     <div style="display:flex;align-items:center;margin-bottom:6px"><b style="font-size:16px">🎼 Music generator</b><span style="flex:1"></span><button id="genClose">Close</button></div>
@@ -274,6 +290,7 @@
 <script src="../lib/mp4-muxer.js"></script>
 <script src="library.js"></script>
 <script src="characters.js"></script>
+<script src="animals.js"></script>
 <script src="effects.js"></script>
 <script src="templates.js"></script>
 <script src="sound.js"></script>
@@ -1074,11 +1091,12 @@ function renderClips(){
   if(!(P.audio || []).length){ box.innerHTML = '<span class="hint">No sound yet. Add music, an effect, or record your voice.</span>'; return; }
   P.audio.forEach((c, i) => { const d = document.createElement('div'); d.className = 'layer'; d.style.flexWrap = 'wrap';
     d.innerHTML = `<span>${KIND[c.kind] || '🎵'}</span><span class="nm" title="${c.name}">${c.name}</span><span class="hint">${clipLen(c).toFixed(1)}s</span>
-      <button data-a="play" title="Listen">▶</button><button data-a="del" title="Remove">✕</button>
+      <button data-a="play" title="Listen">▶</button>${c.kind === 'voice' || c.kind === 'file' ? '<button data-a="sub" title="Subtitles timed to this voice">📝</button>' : ''}<button data-a="del" title="Remove">✕</button>
       <div style="display:flex;gap:6px;align-items:center;width:100%;font-size:11px;color:var(--dim)">start <input data-a="start" type="number" step="0.1" min="0" value="${(+c.start).toFixed(1)}" style="width:56px;background:#12141a;border:1px solid var(--line);border-radius:5px;padding:2px 4px">
       <button data-a="now" title="Start at current time" style="font-size:11px">⏱ now</button> vol <input data-a="vol" type="range" min="0" max="150" value="${Math.round((c.volume ?? 1) * 100)}" style="flex:1;min-width:50px">
       <label><input data-a="fade" type="checkbox" ${c.fadeIn || c.fadeOut ? 'checked' : ''}> fade</label></div>`;
     d.querySelector('[data-a=play]').onclick = () => previewClip(c);
+    if(d.querySelector('[data-a=sub]')) d.querySelector('[data-a=sub]').onclick = async () => { await loadClip(c); if(!abuf[c.id]) return toast('Sound not available', true); openSubtitles(c); };
     d.querySelector('[data-a=del]').onclick = () => { pushUndo(); P.audio.splice(i, 1); renderClips(); drawTrack(); autosave(); };
     d.querySelector('[data-a=now]').onclick = () => { pushUndo(); c.start = +T.toFixed(2); renderClips(); drawTrack(); autosave(); };
     d.querySelector('[data-a=start]').onchange = e => { pushUndo(); c.start = Math.max(0, +e.target.value || 0); drawTrack(); autosave(); };
@@ -1111,6 +1129,72 @@ $('fAudio').onchange = async e => { const f = e.target.files[0]; e.target.value 
   const c = await addClip({id, name:f.name.replace(/\.[^.]+$/, ''), kind:'file', start:+T.toFixed(2), volume:1});
   if(!abuf[c.id]){ P.audio.splice(P.audio.indexOf(c), 1); renderClips(); return toast('This audio file could not be read', true); }
   toast(`Added ${c.name} (${abuf[c.id].duration.toFixed(1)}s)`); };
+// ---- voice loudness (for lip sync and subtitles): 60 values per second, 0..1
+const ENV = {};
+function envOf(c){
+  const b = abuf[c.id]; if(!b) return null; const key = c.id + '|' + b.length; if(ENV[key]) return ENV[key];
+  const d = b.getChannelData(0), sr = b.sampleRate, hop = Math.floor(sr / 60), n = Math.floor(d.length / hop), v = new Float32Array(n);
+  for(let i = 0; i < n; i++){ let s = 0; for(let j = i * hop; j < (i + 1) * hop; j++) s += d[j] * d[j]; v[i] = Math.sqrt(s / hop); }
+  const sorted = Array.from(v).sort((a, b) => a - b), ref = sorted[Math.floor(n * 0.95)] || 1e-4, floor = sorted[Math.floor(n * 0.2)] || 0;
+  let sm = 0; for(let i = 0; i < n; i++){ const x = Math.max(0, Math.min(1.2, (v[i] - floor * 1.5) / (ref - floor * 1.5 || 1e-4))); sm = x > sm ? sm + (x - sm) * 0.7 : sm + (x - sm) * 0.3; v[i] = sm; }
+  return ENV[key] = {rate:60, v};
+}
+function voiceLevel(t, which){
+  let lv = 0;
+  for(const c of P.audio || []){
+    if(which === 'voice' ? c.kind !== 'voice' : which.startsWith('clip:') ? 'clip:' + c.id !== which : true) continue;
+    if(t < c.start) continue; const e = envOf(c); if(!e) continue; const i = Math.floor((t - c.start) * e.rate); if(i >= 0 && i < e.v.length) lv = Math.max(lv, e.v[i]);
+  }
+  return lv;
+}
+if(window.VG_CHAR) VG_CHAR.lip = (o, t) => o.lip ? voiceLevel(t, o.lip) : 0;
+
+// ---- subtitles timed to a voice clip
+function speechParts(c){
+  const e = envOf(c); if(!e) return [];
+  const on = Array.from(e.v, x => x > 0.14), segs = []; let st = -1, lastOn = -1;
+  for(let i = 0; i < on.length; i++){ if(on[i]){ if(st < 0) st = i; lastOn = i; } else if(st >= 0 && i - lastOn > 0.3 * e.rate){ segs.push([st, lastOn]); st = -1; } }
+  if(st >= 0) segs.push([st, lastOn]);
+  return segs.filter(([a, b]) => b - a > 0.12 * e.rate).map(([a, b]) => [c.start + a / e.rate, c.start + (b + 1) / e.rate]);
+}
+function fitLines(lines, segs, c){
+  segs = segs.map(x => x.slice());
+  if(!segs.length){ const d = clipLen(c) / lines.length; return lines.map((l, i) => [c.start + i * d, c.start + (i + 1) * d]); }
+  while(segs.length > lines.length){ let k = 0, g = 1e9; for(let i = 0; i < segs.length - 1; i++){ const gap = segs[i + 1][0] - segs[i][1]; if(gap < g){ g = gap; k = i; } } segs.splice(k, 2, [segs[k][0], segs[k + 1][1]]); }
+  while(segs.length < lines.length){ let k = 0; for(let i = 1; i < segs.length; i++) if(segs[i][1] - segs[i][0] > segs[k][1] - segs[k][0]) k = i; const [a, b] = segs[k], m = (a + b) / 2; segs.splice(k, 1, [a, m], [m, b]); }
+  return segs.map((sg, i) => [sg[0] - 0.08, Math.min(sg[1] + 0.35, i + 1 < segs.length ? segs[i + 1][0] - 0.1 : sg[1] + 0.8)]);
+}
+function wrapLine(text, size, maxW){
+  const probe = {text, size}; ctx.save(); ctx.font = fontFor(probe); if(ctx.measureText(text).width <= maxW){ ctx.restore(); return text; }
+  const words = text.split(/\s+/), out = []; let cur = '';
+  for(const w of words){ const t = cur ? cur + ' ' + w : w; if(ctx.measureText(t).width > maxW && cur){ out.push(cur); cur = w; } else cur = t; }
+  if(cur) out.push(cur); ctx.restore(); return out.join('\n');
+}
+function makeSubtitles(c, text, pos, sizeK, style){
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean); if(!lines.length) return 0;
+  const times = fitLines(lines, speechParts(c), c), W = P.width, H = P.height, size = Math.round(H * sizeK);
+  let L = P.layers.find(l => l.name === 'Subtitles'); if(!L){ L = {id:uid(), name:'Subtitles', visible:true, locked:false, opacity:1, objects:[], fixed:true}; P.layers.push(L); }
+  const col = style === 'yellow' ? '#ffd54a' : '#ffffff', bg = style === 'plain' ? null : 'rgba(0,0,0,0.55)';
+  lines.forEach((l, i) => {
+    const t = {id:uid(), type:'text', x:0, y:0, rotation:0, scaleX:1, scaleY:1, opacity:1, text:wrapLine(l, size, W * 0.84), size, fill:col};
+    measureText(t); const kids = [];
+    if(bg) kids.push({id:uid(), type:'rect', x:0, y:0, w:t._w + size * 1.2, h:t._h + size * 0.5, rotation:0, scaleX:1, scaleY:1, opacity:1, fill:bg, stroke:null, width:0, radius:size * 0.35});
+    else { t.stroke = '#000'; }
+    kids.push(t);
+    const g = {id:uid(), type:'group', name:'Subtitle ' + (i + 1), x:W / 2, y:pos === 'top' ? H * 0.12 + t._h / 2 : H * 0.9 - t._h / 2, rotation:0, scaleX:1, scaleY:1, opacity:1, children:kids,
+      show:[+Math.max(0, times[i][0]).toFixed(2), +Math.min(P.duration, times[i][1]).toFixed(2)], subOf:c.id};
+    touch(g); L.objects.push(g);
+  });
+  return lines.length;
+}
+function openSubtitles(c){
+  $('subClip').textContent = c.name; $('subModal').style.display = 'flex';
+  const parts = speechParts(c); $('subInfo').textContent = parts.length ? `Found ${parts.length} spoken part${parts.length > 1 ? 's' : ''} in this recording.` : 'Could not find clear speech; lines will be spread evenly.';
+  $('subGo').onclick = () => { const txt = $('subText').value; if(!txt.trim()) return toast('Type what you say first', true); pushUndo();
+    if($('subReplace').checked){ const L = P.layers.find(l => l.name === 'Subtitles'); if(L) L.objects = L.objects.filter(o => o.subOf !== c.id); }
+    const n = makeSubtitles(c, txt, $('subPos').value, +$('subSize').value, $('subStyle').value); $('subModal').style.display = 'none'; refreshAll(); autosave();
+    toast(`${n} subtitles added, timed to your voice. Press ▶ to check`); };
+}
 async function startRecording(){
   if(!navigator.mediaDevices || !window.MediaRecorder) return toast('Recording is not supported in this browser', true);
   let stream; try{ stream = await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true, noiseSuppression:true}}); }
@@ -1121,7 +1205,11 @@ async function startRecording(){
   rec.onstop = async () => { stream.getTracks().forEach(t => t.stop()); const blob = new Blob(parts, {type:rec.mimeType || 'audio/webm'}); const id = uid();
     await idbPut(id, blob); const n = P.audio.filter(c => c.kind === 'voice').length + 1;
     const c = await addClip({id, name:'Voice ' + n, kind:'voice', start:startT, volume:1.2});
-    toast(abuf[c.id] ? `Voice recorded (${abuf[c.id].duration.toFixed(1)}s)` : 'Recording failed', !abuf[c.id]); };
+    if(!abuf[c.id]) return toast('Recording failed', true);
+    const chars = []; P.layers.forEach(L => L.objects.forEach(o => o.type === 'char' && chars.push(o))); const sc = selId && chars.find(o => o.id === selId);
+    const who = sc || (chars.length === 1 ? chars[0] : null);
+    if(who && !who.lip){ who.lip = 'voice'; draw(); autosave(); toast(`Voice recorded (${abuf[c.id].duration.toFixed(1)}s). Lip sync is on for the character`); }
+    else toast(`Voice recorded (${abuf[c.id].duration.toFixed(1)}s). Tap 📝 on it to add subtitles`); };
   recState = {rec, startT}; rec.start(200); $('aRec').textContent = '⏹ Stop recording'; $('aRec').style.background = '#c0392b';
   $('side').classList.remove('open'); toast('Recording… speak now. Tap ⏹ (or ▶) to stop'); play();
 }
@@ -1253,6 +1341,9 @@ function syncCharUI(){
   const o = selChar(); $('charSec').style.display = o ? '' : 'none';
   $('charBar').style.display = o && tool === 'select' && !playing ? 'flex' : 'none';
   if(!o) return; const L = Object.assign({}, VG_CHAR.PRESETS[o.preset], o.look || {});
+  const vcs = (P.audio || []).filter(c => c.kind === 'voice' || c.kind === 'file');
+  $('cLip').innerHTML = '<option value="">Off</option><option value="voice">🎙️ All my voice recordings</option>' + vcs.map(c => `<option value="clip:${c.id}">${KIND[c.kind]} ${c.name.replace(/</g, '&lt;')}</option>`).join('');
+  $('cLip').value = o.lip || '';
   $('cExpr').value = o.expr || 'happy'; $('cSkin').value = L.skin; $('cHair').value = L.hair; $('cTop').value = L.top; $('cBot').value = L.bottom;
 }
 (function buildCharUI(){
@@ -1267,6 +1358,8 @@ function syncCharUI(){
   $('cTurn').onclick = () => { const o = selChar(); if(!o) return; pushUndo(); o.face = -(o.face || 1); o.autoFace = false; draw(); autosave(); toast('Turned around'); };
   $('cDelAct').onclick = () => { const o = selChar(); if(!o) return; pushUndo(); o.actions = (o.actions || []).filter(s => !(T >= s.t0 && T <= s.t1)); afterEdit(); draw(); };
   $('cClearAct').onclick = () => { const o = selChar(); if(!o) return; pushUndo(); o.actions = []; afterEdit(); draw(); };
+  $('cLip').onchange = e => { const o = selChar(); if(!o) return; pushUndo(); o.lip = e.target.value || undefined; (P.audio || []).forEach(c => (c.kind === 'voice' || c.kind === 'file') && loadClip(c)); draw(); autosave();
+    if(o.lip) toast('Lip sync on: the mouth follows the voice. Press ▶ to see it'); };
   $('cExpr').onchange = e => { const o = selChar(); if(!o) return; pushUndo(); o.expr = e.target.value; draw(); autosave(); };
   [['cSkin', 'skin'], ['cHair', 'hair'], ['cTop', 'top'], ['cBot', 'bottom']].forEach(([id, k]) => $(id).oninput = e => { const o = selChar(); if(!o) return; o.look = o.look || {}; o.look[k] = e.target.value; draw(); autosave(); });
 })();
