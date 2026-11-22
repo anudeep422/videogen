@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>VideoGen Animator</title>
+<style>
+  @font-face{font-family:"Noto Sans";font-weight:400 700;src:url(../fonts/NotoSans-Bold.ttf) format("truetype")}
+  @font-face{font-family:"Noto Sans Telugu";font-weight:400 700;src:url(../fonts/NotoSansTelugu-Bold.ttf) format("truetype")}
+  :root{--bg:#14161c;--panel:#1d2029;--panel2:#262a37;--line:#343a4c;--text:#e8e9ee;--dim:#9aa0b4;--acc:#f0a830;--acc2:#3fb27f;--bad:#e5534b}
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;height:100%;overflow:hidden}
+  body{background:var(--bg);color:var(--text);font:14px/1.35 "Noto Sans",system-ui,sans-serif;display:flex;flex-direction:column;touch-action:none}
+  button,select,input{font:inherit;color:var(--text)}
+  button{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:6px 10px;cursor:pointer;white-space:nowrap}
+  button:hover{border-color:var(--acc)}
+  button.on{background:var(--acc);color:#1a1300;border-color:var(--acc)}
+  button:disabled{opacity:.4}
+  header{display:flex;align-items:center;gap:6px;padding:6px 8px;background:var(--panel);border-bottom:1px solid var(--line);overflow-x:auto;flex-shrink:0}
+  header h1{font-size:15px;margin:0 6px 0 2px;white-space:nowrap}
+  header h1 span{color:var(--acc)}
+  header .sp{flex:1}
+  #wrap{flex:1;display:flex;min-height:0}
+  #stage{flex:1;position:relative;min-width:0;background:#0d0f14;overflow:hidden}
+  #cv{position:absolute;inset:0;width:100%;height:100%;display:block}
+  #zoomBox{position:absolute;right:8px;top:8px;display:flex;gap:4px}
+  #zoomBox button{padding:4px 9px;background:#1d2029cc}
+  .mfile{display:none}
+  #status{position:absolute;left:8px;bottom:8px;right:8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:max-content;font-size:12px;color:var(--dim);background:#1d2029cc;padding:3px 8px;border-radius:6px;pointer-events:none}
+  #tools{display:flex;gap:4px;padding:6px;background:var(--panel);border-top:1px solid var(--line);overflow-x:auto;flex-shrink:0}
+  #tools button{min-width:56px;display:flex;flex-direction:column;align-items:center;padding:4px 6px;font-size:11px}
+  #tools button b{font-size:19px;line-height:1.2;font-weight:400}
+  #side{width:280px;background:var(--panel);border-left:1px solid var(--line);overflow:auto;padding:10px;flex-shrink:0}
+  h2{font-size:11px;text-transform:uppercase;letter-spacing:.8px;color:var(--dim);margin:14px 0 6px}
+  h2:first-child{margin-top:0}
+  .row{display:flex;gap:4px;flex-wrap:wrap;align-items:center;margin:4px 0}
+  .row button{padding:4px 8px;font-size:12px}
+  .f{display:grid;grid-template-columns:78px 1fr;align-items:center;gap:6px;margin:5px 0}
+  .f label{color:var(--dim);font-size:12px}
+  .f input[type=range]{width:100%}
+  .f select{width:100%;background:#12141a;border:1px solid var(--line);border-radius:6px;padding:5px}
+  .f input[type=color]{width:100%;height:30px;padding:0;border:1px solid var(--line);border-radius:6px;background:none}
+  .swatches{display:grid;grid-template-columns:repeat(9,1fr);gap:3px;margin:4px 0}
+  .swatches i{display:block;aspect-ratio:1;border-radius:5px;border:1px solid #0006;cursor:pointer}
+  .layers{display:flex;flex-direction:column;gap:3px}
+  .layer{display:flex;align-items:center;gap:4px;padding:4px 6px;border-radius:7px;background:var(--panel2);border:1px solid transparent;font-size:13px}
+  .layer.sel{border-color:var(--acc);background:#2f2a1e}
+  .layer .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer}
+  .layer button{padding:1px 6px;font-size:13px;background:none;border:none}
+  .hint{color:var(--dim);font-size:12px}
+  #panelBtn{display:none;background:var(--acc);color:#1a1300;border-color:var(--acc);font-weight:600}
+  .toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:var(--acc2);color:#04140c;padding:8px 14px;border-radius:8px;font-weight:600;opacity:0;transition:.3s;pointer-events:none;z-index:9}
+  .toast.show{opacity:1}
+  @media (max-width:820px){
+    #panelBtn{display:inline-block}
+    .filebtns,.studio{display:none}
+    .mfile{display:block}
+    header h1 .full{display:none}
+    #side{position:fixed;right:0;top:0;bottom:0;width:min(300px,86vw);z-index:8;transform:translateX(100%);transition:.25s;box-shadow:-8px 0 30px #000a}
+    #side.open{transform:none}
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>✏️ <span class="full">Video<span>Gen</span> </span>Animator</h1>
+  <button id="bUndo" title="Undo">↶</button>
+  <button id="bRedo" title="Redo">↷</button>
+  <button id="panelBtn">☰ Layers &amp; file</button>
+  <span class="filebtns"><button id="bNew">New</button> <button id="bOpen">Open</button> <button id="bSave">Save</button> <button id="bPng">Export PNG</button></span>
+  <input id="fOpen" type="file" accept=".json,.anim" hidden>
+  <input id="fImg" type="file" accept="image/*" hidden>
+  <span class="sp"></span>
+  <a class="studio" href="../" style="color:var(--dim);font-size:12px;white-space:nowrap;margin-right:6px">🎬 VideoGen Studio</a>
+</header>
+
+<div id="wrap">
+  <div id="stage">
+    <canvas id="cv"></canvas>
+    <div id="status">Brush</div>
+    <div id="zoomBox"><button id="zOut">−</button><button id="zFit">Fit</button><button id="zIn">+</button></div>
+  </div>
+  <aside id="side">
+    <div class="mfile"><h2>File</h2>
+      <div class="row"><button id="mNew">New</button><button id="mOpen">Open</button><button id="mSave">Save</button><button id="mPng">Export PNG</button></div>
+      <div class="row"><a href="../" style="color:var(--acc);font-size:12px">🎬 Open VideoGen Studio</a></div></div>
+    <h2>Colour &amp; brush</h2>
+    <div class="swatches" id="swatches"></div>
+    <div class="f"><label>Line colour</label><input type="color" id="cStroke" value="#1e1e1e"></div>
+    <div class="f"><label>Fill colour</label><div class="row" style="margin:0"><input type="color" id="cFill" value="#f0a830" style="flex:1"><label class="hint"><input type="checkbox" id="noFill"> none</label></div></div>
+    <div class="f"><label>Thickness</label><input type="range" id="rWidth" min="1" max="60" value="6"></div>
+    <div class="f"><label>Opacity</label><input type="range" id="rOpacity" min="5" max="100" value="100"></div>
+    <div class="hint">Colours apply to what you draw next, and to the selected object.</div>
+
+    <h2>Selected object</h2>
+    <div class="row">
+      <button id="oDup">Duplicate</button><button id="oDel">Delete</button>
+      <button id="oUp">Forward</button><button id="oDown">Back</button>
+      <button id="oFlip">Flip ↔</button><button id="oLayer">→ Layer…</button>
+    </div>
+
+    <h2>Layers <span class="hint" style="text-transform:none;letter-spacing:0">(top is in front)</span></h2>
+    <div id="layers" class="layers"></div>
+    <div class="row">
+      <button id="lAdd">+ Layer</button><button id="lDup">Duplicate</button>
+      <button id="lUp">↑</button><button id="lDown">↓</button>
+      <button id="lRen">Rename</button><button id="lDel">Delete</button>
+    </div>
+    <div class="f"><label>Layer opacity</label><input type="range" id="lOpacity" min="0" max="100" value="100"></div>
+
+    <h2>Canvas</h2>
+    <div class="f"><label>Background</label><input type="color" id="cBg" value="#ffffff"></div>
+    <div class="f"><label>Size</label><select id="sSize">
+      <option value="1280x720">1280×720 (YouTube)</option><option value="1920x1080">1920×1080 (Full HD)</option>
+      <option value="1080x1920">1080×1920 (Shorts / Reels)</option><option value="1080x1080">1080×1080 (Square)</option></select></div>
+    <div class="hint" style="margin-top:10px">Stage 1 of the animator: drawing and layers. The timeline and MP4 export come in the next stages.</div>
+  </aside>
+</div>
+
+<div id="tools">
+  <button data-tool="select"><b>👆</b>Select</button>
+  <button data-tool="brush" class="on"><b>🖌️</b>Brush</button>
+  <button data-tool="line"><b>╱</b>Line</button>
+  <button data-tool="rect"><b>▭</b>Rectangle</button>
+  <button data-tool="ellipse"><b>◯</b>Circle</button>
+  <button data-tool="fill"><b>🪣</b>Fill</button>
+  <button data-tool="text"><b>🔤</b>Text</button>
+  <button data-tool="eraser"><b>🧽</b>Eraser</button>
+  <button data-tool="hand"><b>✋</b>Move view</button>
+  <button id="tImage"><b>🖼️</b>Image</button>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ==========================================================================
+   VideoGen Animator – Stage 1: vector drawing with layers.
+   Everything is stored as editable objects (not pixels) so the next stage can
+   animate them with keyframes. Plain JavaScript, no libraries, no AI.
+   ========================================================================== */
+const $ = id => document.getElementById(id);
+const cv = $('cv'), ctx = cv.getContext('2d');
+const DPR = () => Math.min(window.devicePixelRatio || 1, 2);
+const uid = () => Math.random().toString(36).slice(2, 10);
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
+// ------------------------------------------------------------------ project model
+function newProject(w = 1280, h = 720){
+  return {app:'videogen-animator', version:1, width:w, height:h, background:'#ffffff',
+    layers:[{id:uid(), name:'Background', visible:true, locked:false, opacity:1, objects:[]},
+            {id:uid(), name:'Layer 2', visible:true, locked:false, opacity:1, objects:[]}]};
+}
+let P = null, curLayer = 1, selId = null, tool = 'brush';
+const style = {stroke:'#1e1e1e', fill:'#f0a830', noFill:false, width:6, opacity:1};
+let view = {zoom:1, ox:0, oy:0};
+
+// ------------------------------------------------------------------ undo / redo / autosave
+let undoStack = [], redoStack = [];
+const snap = () => JSON.stringify({P, curLayer});
+function pushUndo(){ undoStack.push(snap()); if(undoStack.length > 80) undoStack.shift(); redoStack = []; updUndo(); }
+function restore(s){ const o = JSON.parse(s); P = o.P; curLayer = Math.min(o.curLayer, P.layers.length - 1); if(!findObj(selId)) selId = null; refreshAll(); }
+function undo(){ if(!undoStack.length) return; redoStack.push(snap()); restore(undoStack.pop()); updUndo(); autosave(); }
+function redo(){ if(!redoStack.length) return; undoStack.push(snap()); restore(redoStack.pop()); updUndo(); autosave(); }
+function updUndo(){ $('bUndo').disabled = !undoStack.length; $('bRedo').disabled = !redoStack.length; }
+let saveTimer;
+function autosave(){ clearTimeout(saveTimer); saveTimer = setTimeout(() => {
+  try{ localStorage.setItem('videogen_animator', JSON.stringify(P)); }catch(e){ /* storage full (big images) – the Save button still works */ } }, 400); }
+
+// ------------------------------------------------------------------ geometry helpers
+function findObj(id){ for(const L of P.layers){ const o = L.objects.find(o => o.id === id); if(o) return {o, L}; } return null; }
+function toLocal(o, x, y){  // world -> object local
+  const r = -(o.rotation || 0) * Math.PI / 180, dx = x - o.x, dy = y - o.y;
+  const c = Math.cos(r), s = Math.sin(r);
+  return [(dx * c - dy * s) / (o.scaleX || 1), (dx * s + dy * c) / (o.scaleY || 1)];
+}
+function toWorld(o, lx, ly){
+  const r = (o.rotation || 0) * Math.PI / 180, c = Math.cos(r), s = Math.sin(r);
+  const sx = lx * (o.scaleX || 1), sy = ly * (o.scaleY || 1);
+  return [o.x + sx * c - sy * s, o.y + sx * s + sy * c];
+}
+function localBox(o){  // [x0,y0,x1,y1] in local coords
+  switch(o.type){
+    case 'path': { let a = Infinity, b = Infinity, c = -Infinity, d = -Infinity; for(const [x, y] of o.points){ a = Math.min(a, x); b = Math.min(b, y); c = Math.max(c, x); d = Math.max(d, y); }
+      const m = (o.width || 1) / 2; return [a - m, b - m, c + m, d + m]; }
+    case 'line': { const m = (o.width || 1) / 2; return [Math.min(o.x1, o.x2) - m, Math.min(o.y1, o.y2) - m, Math.max(o.x1, o.x2) + m, Math.max(o.y1, o.y2) + m]; }
+    case 'text': { measureText(o); return [-o._w / 2, -o._h / 2, o._w / 2, o._h / 2]; }
+    default: return [-o.w / 2, -o.h / 2, o.w / 2, o.h / 2];
+  }
+}
+function fontFor(o){ const te = /[ఀ-౿]/.test(o.text || ''); return `700 ${o.size}px ${te ? '"Noto Sans Telugu"' : '"Noto Sans"'}, sans-serif`; }
+function measureText(o){ ctx.save(); ctx.font = fontFor(o); const lines = String(o.text).split('\n');
+  o._w = Math.max(...lines.map(l => ctx.measureText(l).width), 10); o._h = lines.length * o.size * 1.3; ctx.restore(); }
+function smoothPath(pts, closed){
+  const p = new Path2D(); if(!pts.length) return p;
+  if(pts.length < 3){ p.moveTo(pts[0][0], pts[0][1]); for(const q of pts) p.lineTo(q[0], q[1]); if(pts.length === 1) p.lineTo(pts[0][0] + .1, pts[0][1]); return p; }
+  p.moveTo(pts[0][0], pts[0][1]);
+  for(let i = 1; i < pts.length - 1; i++){ const mx = (pts[i][0] + pts[i + 1][0]) / 2, my = (pts[i][1] + pts[i + 1][1]) / 2; p.quadraticCurveTo(pts[i][0], pts[i][1], mx, my); }
+  const l = pts[pts.length - 1]; p.lineTo(l[0], l[1]); if(closed) p.closePath(); return p;
+}
+function shapePath(o){
+  if(o._p && o._pk === o._v) return o._p;
+  let p;
+  switch(o.type){
+    case 'path': p = smoothPath(o.points, o.closed); break;
+    case 'line': p = new Path2D(); p.moveTo(o.x1, o.y1); p.lineTo(o.x2, o.y2); break;
+    case 'rect': p = new Path2D(); if(p.roundRect) p.roundRect(-o.w / 2, -o.h / 2, o.w, o.h, o.radius || 0); else p.rect(-o.w / 2, -o.h / 2, o.w, o.h); break;
+    case 'ellipse': p = new Path2D(); p.ellipse(0, 0, Math.abs(o.w / 2), Math.abs(o.h / 2), 0, 0, Math.PI * 2); break;
+    default: p = new Path2D(); const b = localBox(o); p.rect(b[0], b[1], b[2] - b[0], b[3] - b[1]);
+  }
+  Object.defineProperty(o, '_p', {value:p, writable:true, enumerable:false, configurable:true});
+  Object.defineProperty(o, '_pk', {value:o._v, writable:true, enumerable:false, configurable:true});
+  return p;
+}
+const touch = o => { Object.defineProperty(o, '_v', {value:Math.random(), writable:true, enumerable:false, configurable:true}); };
+// Ramer–Douglas–Peucker simplification keeps saved drawings small
+function simplify(pts, eps){
+  if(pts.length < 3) return pts;
+  const d = (p, a, b) => { const [x, y] = p, [x1, y1] = a, [x2, y2] = b, A = x - x1, B = y - y1, C = x2 - x1, D = y2 - y1, L = C * C + D * D;
+    let t = L ? (A * C + B * D) / L : 0; t = clamp(t, 0, 1); const ex = x1 + t * C - x, ey = y1 + t * D - y; return Math.sqrt(ex * ex + ey * ey); };
+  let max = 0, idx = 0; for(let i = 1; i < pts.length - 1; i++){ const v = d(pts[i], pts[0], pts[pts.length - 1]); if(v > max){ max = v; idx = i; } }
+  if(max > eps){ const a = simplify(pts.slice(0, idx + 1), eps), b = simplify(pts.slice(idx), eps); return a.slice(0, -1).concat(b); }
+  return [pts[0], pts[pts.length - 1]];
+}
+
+// ------------------------------------------------------------------ images cache
+const imgCache = {};
+function imgOf(o){ let im = imgCache[o.id]; if(!im || im._src !== o.src){ im = new Image(); im._src = o.src; im.onload = draw; im.src = o.src; imgCache[o.id] = im; } return im; }
+
+// ------------------------------------------------------------------ rendering
+function drawObj(c, o){
+  c.save();
+  c.translate(o.x, o.y); c.rotate((o.rotation || 0) * Math.PI / 180); c.scale(o.scaleX || 1, o.scaleY || 1);
+  c.globalAlpha *= (o.opacity ?? 1);
+  c.lineCap = 'round'; c.lineJoin = 'round';
+  if(o.type === 'text'){
+    c.font = fontFor(o); c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillStyle = o.fill || o.stroke || '#000';
+    const lines = String(o.text).split('\n'), lh = o.size * 1.3;
+    lines.forEach((l, i) => c.fillText(l, 0, (i - (lines.length - 1) / 2) * lh));
+  } else if(o.type === 'image'){
+    const im = imgOf(o); if(im.complete && im.naturalWidth) c.drawImage(im, -o.w / 2, -o.h / 2, o.w, o.h);
+  } else {
+    const p = shapePath(o);
+    if(o.fill && o.type !== 'line' && (o.type !== 'path' || o.closed)){ c.fillStyle = o.fill; c.fill(p); }
+    if(o.stroke && o.width > 0){ c.strokeStyle = o.stroke; c.lineWidth = o.width; c.stroke(p); }
+  }
+  c.restore();
+}
+function renderScene(c, opts = {}){
+  c.fillStyle = P.background; c.fillRect(0, 0, P.width, P.height);
+  for(const L of P.layers){ if(!L.visible) continue; c.save(); c.globalAlpha = L.opacity ?? 1; for(const o of L.objects) drawObj(c, o); c.restore(); }
+}
+let preview = null;   // object being drawn right now
+function draw(){
+  const W = cv.width, H = cv.height, d = DPR();
+  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = '#0d0f14'; ctx.fillRect(0, 0, W, H);
+  ctx.setTransform(d * view.zoom, 0, 0, d * view.zoom, d * view.ox, d * view.oy);
+  ctx.save(); ctx.shadowColor = '#000a'; ctx.shadowBlur = 30 / view.zoom; ctx.fillStyle = P.background; ctx.fillRect(0, 0, P.width, P.height); ctx.restore();
+  ctx.save(); ctx.beginPath(); ctx.rect(0, 0, P.width, P.height); ctx.clip();
+  renderScene(ctx);
+  if(preview){ const L = P.layers[curLayer]; ctx.globalAlpha = L.opacity ?? 1; drawObj(ctx, preview); ctx.globalAlpha = 1; }
+  ctx.restore();
+  // selection box and handles
+  const s = selId && findObj(selId);
+  if(s && tool === 'select'){
+    const o = s.o, b = localBox(o), corners = [[b[0], b[1]], [b[2], b[1]], [b[2], b[3]], [b[0], b[3]]].map(([x, y]) => toWorld(o, x, y));
+    const z = 1 / view.zoom;
+    ctx.strokeStyle = '#f0a830'; ctx.lineWidth = 1.5 * z; ctx.setLineDash([6 * z, 4 * z]);
+    ctx.beginPath(); corners.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); ctx.closePath(); ctx.stroke(); ctx.setLineDash([]);
+    const top = toWorld(o, (b[0] + b[2]) / 2, b[1]), rot = rotHandle(o);
+    ctx.beginPath(); ctx.moveTo(top[0], top[1]); ctx.lineTo(rot[0], rot[1]); ctx.stroke();
+    ctx.fillStyle = '#fff';
+    corners.forEach(([x, y]) => { ctx.beginPath(); ctx.rect(x - 7 * z, y - 7 * z, 14 * z, 14 * z); ctx.fill(); ctx.stroke(); });
+    ctx.beginPath(); ctx.arc(rot[0], rot[1], 9 * z, 0, 7); ctx.fillStyle = '#f0a830'; ctx.fill();
+  }
+}
+function rotHandle(o){ const b = localBox(o), sy = Math.abs(o.scaleY || 1); return toWorld(o, (b[0] + b[2]) / 2, b[1] - 36 / view.zoom / sy); }
+
+// ------------------------------------------------------------------ view (zoom / pan / resize)
+function resize(){
+  const r = $('stage').getBoundingClientRect(), d = DPR();
+  cv.width = Math.round(r.width * d); cv.height = Math.round(r.height * d); draw();
+}
+function fit(){
+  const r = $('stage').getBoundingClientRect(), m = 16;
+  view.zoom = Math.min((r.width - m * 2) / P.width, (r.height - m * 2) / P.height);
+  view.ox = (r.width - P.width * view.zoom) / 2; view.oy = (r.height - P.height * view.zoom) / 2; draw(); status();
+}
+function zoomAt(f, sx, sy){
+  const nz = clamp(view.zoom * f, 0.05, 20); const wx = (sx - view.ox) / view.zoom, wy = (sy - view.oy) / view.zoom;
+  view.zoom = nz; view.ox = sx - wx * nz; view.oy = sy - wy * nz; draw(); status();
+}
+const screenToWorld = (sx, sy) => [(sx - view.ox) / view.zoom, (sy - view.oy) / view.zoom];
+window.addEventListener('resize', () => { resize(); });
+$('zIn').onclick = () => { const r = $('stage').getBoundingClientRect(); zoomAt(1.25, r.width / 2, r.height / 2); };
+$('zOut').onclick = () => { const r = $('stage').getBoundingClientRect(); zoomAt(0.8, r.width / 2, r.height / 2); };
+$('zFit').onclick = fit;
+cv.addEventListener('wheel', e => { e.preventDefault(); const r = cv.getBoundingClientRect(); zoomAt(e.deltaY < 0 ? 1.1 : 0.9, e.clientX - r.left, e.clientY - r.top); }, {passive:false});
+
+// ------------------------------------------------------------------ hit testing
+function hitObj(o, wx, wy, tol){
+  const [lx, ly] = toLocal(o, wx, wy), sc = Math.max(Math.abs(o.scaleX || 1), Math.abs(o.scaleY || 1));
+  if(o.type === 'text' || o.type === 'image'){ const b = localBox(o); return lx >= b[0] && lx <= b[2] && ly >= b[1] && ly <= b[3]; }
+  const p = shapePath(o);
+  ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.lineWidth = (o.width || 1) + tol * 2 / sc; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  let hit = ctx.isPointInStroke(p, lx, ly);
+  if(!hit && o.fill && o.type !== 'line' && (o.type !== 'path' || o.closed)) hit = ctx.isPointInPath(p, lx, ly);
+  ctx.restore(); return hit;
+}
+function pick(wx, wy, onlyLayer, tolPx = 8){
+  const tol = tolPx / view.zoom;
+  for(let li = P.layers.length - 1; li >= 0; li--){
+    const L = P.layers[li]; if(!L.visible || L.locked) continue; if(onlyLayer !== undefined && li !== onlyLayer) continue;
+    for(let i = L.objects.length - 1; i >= 0; i--) if(hitObj(L.objects[i], wx, wy, tol)) return {o:L.objects[i], L, li};
+  }
+  return null;
+}
+
+// ------------------------------------------------------------------ pointer input
+const pointers = new Map(); let act = null, pinch = null;
+function evPos(e){ const r = cv.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; }
+cv.addEventListener('pointerdown', e => {
+  cv.setPointerCapture(e.pointerId); pointers.set(e.pointerId, evPos(e));
+  if(pointers.size === 2){  // two fingers = zoom & pan
+    if(act && act.cancel) act.cancel(); act = null; preview = null;
+    const [a, b] = [...pointers.values()]; pinch = {d:Math.hypot(a[0] - b[0], a[1] - b[1]), cx:(a[0] + b[0]) / 2, cy:(a[1] + b[1]) / 2, z:view.zoom, ox:view.ox, oy:view.oy}; draw(); return;
+  }
+  if(pointers.size > 2) return;
+  const [sx, sy] = evPos(e), [wx, wy] = screenToWorld(sx, sy);
+  start(e, sx, sy, wx, wy);
+});
+cv.addEventListener('pointermove', e => {
+  if(!pointers.has(e.pointerId)) return; pointers.set(e.pointerId, evPos(e));
+  if(pinch && pointers.size === 2){
+    const [a, b] = [...pointers.values()], d = Math.hypot(a[0] - b[0], a[1] - b[1]), cx = (a[0] + b[0]) / 2, cy = (a[1] + b[1]) / 2;
+    const nz = clamp(pinch.z * d / pinch.d, 0.05, 20), wx = (pinch.cx - pinch.ox) / pinch.z, wy = (pinch.cy - pinch.oy) / pinch.z;
+    view.zoom = nz; view.ox = cx - wx * nz; view.oy = cy - wy * nz; draw(); status(); return;
+  }
+  if(act && act.move){ const [sx, sy] = evPos(e), [wx, wy] = screenToWorld(sx, sy); act.move(sx, sy, wx, wy, e); }
+});
+function endPointer(e){
+  pointers.delete(e.pointerId);
+  if(pinch){ if(pointers.size === 0) pinch = null; return; }
+  if(act && act.end){ const a = act; act = null; a.end(); }
+}
+cv.addEventListener('pointerup', endPointer); cv.addEventListener('pointercancel', endPointer);
+
+function layerEditable(){ const L = P.layers[curLayer]; if(!L.visible){ toast('This layer is hidden. Tap 👁 to show it.', true); return false; }
+  if(L.locked){ toast('This layer is locked. Tap 🔒 to unlock it.', true); return false; } return true; }
+function addObj(o){ pushUndo(); P.layers[curLayer].objects.push(o); touch(o); autosave(); }
+function baseStyle(){ return {stroke:style.stroke, fill:style.noFill ? null : style.fill, width:style.width, opacity:style.opacity}; }
+
+function start(e, sx, sy, wx, wy){
+  if(tool === 'hand' || e.button === 1){ const o = {ox:view.ox, oy:view.oy, sx, sy};
+    act = {move:(x, y) => { view.ox = o.ox + x - o.sx; view.oy = o.oy + y - o.sy; draw(); }}; return; }
+
+  if(tool === 'select') return startSelect(sx, sy, wx, wy);
+
+  if(tool === 'eraser'){
+    if(!layerEditable()) return; let pushed = false;
+    const erase = (x, y) => { const h = pick(x, y, curLayer, 18); if(h){ if(!pushed){ pushUndo(); pushed = true; } h.L.objects.splice(h.L.objects.indexOf(h.o), 1); if(selId === h.o.id) selId = null; draw(); autosave(); } };
+    erase(wx, wy); act = {move:(a, b, x, y) => erase(x, y), end:() => refreshLayers()}; return;
+  }
+
+  if(tool === 'fill'){
+    const h = pick(wx, wy); if(!h) return toast('Tap on a shape to fill it');
+    pushUndo(); const o = h.o;
+    if(o.type === 'line' || (o.type === 'path' && !o.closed)) o.stroke = style.fill; else if(o.type === 'text') o.fill = style.fill; else o.fill = style.fill;
+    touch(o); draw(); autosave(); return;
+  }
+
+  if(tool === 'text'){
+    if(!layerEditable()) return;
+    const t = prompt('Type your text (Telugu or English). Use \\n for a new line:'); if(!t) return;
+    const o = {id:uid(), type:'text', x:wx, y:wy, rotation:0, scaleX:1, scaleY:1, text:t.replace(/\\n/g, '\n'), size:Math.max(16, style.width * 8), fill:style.stroke, opacity:style.opacity};
+    addObj(o); selId = o.id; setTool('select'); refreshAll(); return;
+  }
+
+  if(!layerEditable()) return;
+  const st = baseStyle();
+  if(tool === 'brush'){
+    const pts = [[wx, wy]];
+    preview = {id:uid(), type:'path', x:0, y:0, rotation:0, scaleX:1, scaleY:1, points:pts, closed:false, ...st, fill:null}; touch(preview);
+    act = {move:(a, b, x, y) => { const l = pts[pts.length - 1]; if(Math.hypot(x - l[0], y - l[1]) > 1.5 / view.zoom){ pts.push([x, y]); touch(preview); draw(); } },
+      end:() => { const o = preview; preview = null; finishPath(o); }, cancel:() => { preview = null; }};
+    draw(); return;
+  }
+  // line / rect / ellipse: drag from corner to corner
+  const x0 = wx, y0 = wy;
+  preview = tool === 'line' ? {id:uid(), type:'line', x:0, y:0, rotation:0, scaleX:1, scaleY:1, x1:x0, y1:y0, x2:x0, y2:y0, ...st}
+                            : {id:uid(), type:tool, x:x0, y:y0, rotation:0, scaleX:1, scaleY:1, w:1, h:1, ...st};
+  touch(preview);
+  act = {move:(a, b, x, y, ev) => {
+      if(tool === 'line'){ preview.x2 = x; preview.y2 = y; }
+      else { let w = x - x0, h = y - y0; if(ev && ev.shiftKey){ const m = Math.max(Math.abs(w), Math.abs(h)); w = Math.sign(w || 1) * m; h = Math.sign(h || 1) * m; }
+        preview.x = x0 + w / 2; preview.y = y0 + h / 2; preview.w = Math.abs(w); preview.h = Math.abs(h); }
+      touch(preview); draw(); },
+    end:() => { const o = preview; preview = null;
+      if(o.type === 'line'){ if(Math.hypot(o.x2 - o.x1, o.y2 - o.y1) < 3) return draw(); const cx = (o.x1 + o.x2) / 2, cy = (o.y1 + o.y2) / 2; o.x = cx; o.y = cy; o.x1 -= cx; o.x2 -= cx; o.y1 -= cy; o.y2 -= cy; }
+      else if(o.w < 3 && o.h < 3){ o.w = o.h = 80; }   // a tap makes a default-size shape
+      addObj(o); refreshLayers(); draw(); }, cancel:() => { preview = null; }};
+}
+function finishPath(o){
+  let pts = o.points; if(pts.length === 1) pts.push([pts[0][0] + 0.5, pts[0][1] + 0.5]);
+  pts = simplify(pts, 0.6 / view.zoom);
+  // close the shape automatically if the end is near the start
+  const a = pts[0], b = pts[pts.length - 1], len = pts.length;
+  if(len > 6 && Math.hypot(a[0] - b[0], a[1] - b[1]) < Math.max(14 / view.zoom, o.width * 1.5)){ o.closed = true; if(!style.noFill) o.fill = style.fill; }
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity; for(const [x, y] of pts){ x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }
+  const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+  o.x = cx; o.y = cy; o.points = pts.map(([x, y]) => [Math.round((x - cx) * 10) / 10, Math.round((y - cy) * 10) / 10]);
+  touch(o); addObj(o); refreshLayers(); draw();
+}
+
+function startSelect(sx, sy, wx, wy){
+  const s = selId && findObj(selId); const z = 1 / view.zoom;
+  if(s && !s.L.locked){
+    const o = s.o, b = localBox(o);
+    const rh = rotHandle(o);
+    if(Math.hypot(wx - rh[0], wy - rh[1]) < 16 * z){   // rotate
+      pushUndo(); const r0 = o.rotation || 0, a0 = Math.atan2(wy - o.y, wx - o.x);
+      act = {move:(a, c, x, y, ev) => { let r = r0 + (Math.atan2(y - o.y, x - o.x) - a0) * 180 / Math.PI; if(ev && ev.shiftKey) r = Math.round(r / 15) * 15; o.rotation = Math.round(r * 10) / 10; draw(); }, end:autosave}; return;
+    }
+    const corners = [[b[0], b[1]], [b[2], b[1]], [b[2], b[3]], [b[0], b[3]]];
+    for(const [lx, ly] of corners){ const [cx, cy] = toWorld(o, lx, ly);
+      if(Math.hypot(wx - cx, wy - cy) < 16 * z){   // scale (keeps proportions)
+        pushUndo(); const d0 = Math.hypot(wx - o.x, wy - o.y) || 1, sx0 = o.scaleX || 1, sy0 = o.scaleY || 1;
+        act = {move:(a, c, x, y) => { const f = Math.max(0.02, Math.hypot(x - o.x, y - o.y) / d0); o.scaleX = sx0 * f; o.scaleY = sy0 * f; draw(); }, end:autosave}; return; }
+    }
+  }
+  const h = pick(wx, wy);
+  if(!h){ selId = null; draw(); refreshLayers(); return; }
+  selId = h.o.id; if(curLayer !== h.li){ curLayer = h.li; } refreshLayers();
+  const o = h.o, ox = o.x, oy = o.y; let moved = false;
+  act = {move:(a, c, x, y) => { if(!moved){ pushUndo(); moved = true; } o.x = ox + x - wx; o.y = oy + y - wy; draw(); }, end:() => { if(moved) autosave(); }};
+  draw();
+}
+
+// ------------------------------------------------------------------ tools & style UI
+function setTool(t){
+  tool = t; document.querySelectorAll('#tools button[data-tool]').forEach(b => b.classList.toggle('on', b.dataset.tool === t));
+  cv.style.cursor = t === 'hand' ? 'grab' : t === 'select' ? 'default' : 'crosshair'; status(); draw();
+}
+const TOOLNAMES = {select:'Select: tap an object, drag to move, corners to resize, ● to rotate', brush:'Brush: draw freely (end near the start to make a filled shape)',
+  line:'Line: drag', rect:'Rectangle: drag, or tap for a square', ellipse:'Circle: drag, or tap', fill:'Fill: tap a shape to colour it',
+  text:'Text: tap where the text should go', eraser:'Eraser: tap or swipe over objects on this layer', hand:'Move view: drag. Use two fingers to zoom'};
+function status(){ const narrow = innerWidth < 820; const tip = TOOLNAMES[tool] || ''; $('status').textContent = `${narrow ? tip.split(':')[0] : tip}  ·  ${Math.round(view.zoom * 100)}%  ·  ${P.layers[curLayer]?.name || ''}`; }
+document.querySelectorAll('#tools button[data-tool]').forEach(b => b.onclick = () => setTool(b.dataset.tool));
+
+const SW = ['#1e1e1e','#ffffff','#7f8c8d','#c0392b','#e67e22','#f1c40f','#27ae60','#2980b9','#8e44ad','#9a6340','#f5cba7','#fadbd8','#a3e4d7','#aed6f1','#d2b4de','#6e4b2a','#2e7d32','#f0a830'];
+$('swatches').innerHTML = SW.map(c => `<i style="background:${c}" data-c="${c}" title="${c}"></i>`).join('');
+$('swatches').onclick = e => { const c = e.target.dataset.c; if(!c) return;
+  if(tool === 'fill' || (selId && findObj(selId) && ['rect', 'ellipse'].includes(findObj(selId).o.type))) setFill(c); else setStroke(c); };
+function applyToSel(fn){ const s = selId && findObj(selId); if(s && tool === 'select'){ pushUndo(); fn(s.o); touch(s.o); draw(); autosave(); } }
+function setStroke(c){ style.stroke = c; $('cStroke').value = c; applyToSel(o => { if(o.type === 'text') o.fill = c; else o.stroke = c; }); }
+function setFill(c){ style.fill = c; style.noFill = false; $('cFill').value = c; $('noFill').checked = false; applyToSel(o => { if(o.type !== 'line') o.fill = c; }); }
+$('cStroke').oninput = e => setStroke(e.target.value);
+$('cFill').oninput = e => setFill(e.target.value);
+$('noFill').onchange = e => { style.noFill = e.target.checked; applyToSel(o => { if(o.type !== 'text' && o.type !== 'image') o.fill = e.target.checked ? null : style.fill; }); };
+$('rWidth').oninput = e => { style.width = +e.target.value; const s = selId && findObj(selId);
+  if(s && tool === 'select'){ if(!$('rWidth')._p){ pushUndo(); $('rWidth')._p = 1; } if(s.o.type === 'text') s.o.size = style.width * 8; else s.o.width = style.width; touch(s.o); draw(); autosave(); } };
+$('rWidth').onchange = () => { $('rWidth')._p = 0; };
+$('rOpacity').oninput = e => { style.opacity = +e.target.value / 100; const s = selId && findObj(selId);
+  if(s && tool === 'select'){ if(!$('rOpacity')._p){ pushUndo(); $('rOpacity')._p = 1; } s.o.opacity = style.opacity; draw(); autosave(); } };
+$('rOpacity').onchange = () => { $('rOpacity')._p = 0; };
+
+// ------------------------------------------------------------------ selected-object actions
+function withSel(fn){ const s = selId && findObj(selId); if(!s) return toast('Select an object first (👆 Select tool)'); pushUndo(); fn(s.o, s.L); touch(s.o); refreshAll(); autosave(); }
+$('oDel').onclick = () => withSel((o, L) => { L.objects.splice(L.objects.indexOf(o), 1); selId = null; });
+$('oDup').onclick = () => withSel((o, L) => { const c = JSON.parse(JSON.stringify(o)); c.id = uid(); c.x += 30; c.y += 30; touch(c); L.objects.push(c); selId = c.id; });
+$('oUp').onclick = () => withSel((o, L) => { const i = L.objects.indexOf(o); if(i < L.objects.length - 1){ L.objects.splice(i, 1); L.objects.splice(i + 1, 0, o); } });
+$('oDown').onclick = () => withSel((o, L) => { const i = L.objects.indexOf(o); if(i > 0){ L.objects.splice(i, 1); L.objects.splice(i - 1, 0, o); } });
+$('oFlip').onclick = () => withSel(o => { o.scaleX = -(o.scaleX || 1); });
+$('oLayer').onclick = () => { const s = selId && findObj(selId); if(!s) return toast('Select an object first');
+  const names = P.layers.map((l, i) => `${i + 1}. ${l.name}`).join('\n'); const n = parseInt(prompt('Move to which layer?\n' + names), 10);
+  if(!n || n < 1 || n > P.layers.length) return; withSel((o, L) => { L.objects.splice(L.objects.indexOf(o), 1); P.layers[n - 1].objects.push(o); curLayer = n - 1; }); };
+
+// ------------------------------------------------------------------ layers UI
+function refreshLayers(){
+  const box = $('layers'); box.innerHTML = '';
+  for(let i = P.layers.length - 1; i >= 0; i--){
+    const L = P.layers[i], d = document.createElement('div'); d.className = 'layer' + (i === curLayer ? ' sel' : '');
+    d.innerHTML = `<button data-a="vis" title="Show / hide">${L.visible ? '👁' : '🚫'}</button><button data-a="lock" title="Lock">${L.locked ? '🔒' : '🔓'}</button>
+      <span class="nm">${L.name.replace(/</g, '&lt;')}</span><span class="hint">${L.objects.length}</span>`;
+    d.onclick = e => { const a = e.target.dataset.a;
+      if(a === 'vis'){ L.visible = !L.visible; if(!L.visible && selId && L.objects.some(o => o.id === selId)) selId = null; }
+      else if(a === 'lock'){ L.locked = !L.locked; }
+      curLayer = i; refreshLayers(); draw(); autosave(); };
+    box.appendChild(d);
+  }
+  $('lOpacity').value = Math.round((P.layers[curLayer].opacity ?? 1) * 100); status();
+}
+$('lAdd').onclick = () => { pushUndo(); P.layers.splice(curLayer + 1, 0, {id:uid(), name:'Layer ' + (P.layers.length + 1), visible:true, locked:false, opacity:1, objects:[]}); curLayer++; refreshAll(); autosave(); };
+$('lDup').onclick = () => { pushUndo(); const c = JSON.parse(JSON.stringify(P.layers[curLayer])); c.id = uid(); c.name += ' copy'; c.objects.forEach(o => o.id = uid()); P.layers.splice(curLayer + 1, 0, c); curLayer++; refreshAll(); autosave(); };
+$('lDel').onclick = () => { if(P.layers.length < 2) return toast('You need at least one layer', true);
+  if(P.layers[curLayer].objects.length && !confirm(`Delete layer "${P.layers[curLayer].name}" and everything on it?`)) return;
+  pushUndo(); P.layers.splice(curLayer, 1); curLayer = Math.max(0, curLayer - 1); selId = null; refreshAll(); autosave(); };
+$('lUp').onclick = () => { if(curLayer < P.layers.length - 1){ pushUndo(); const l = P.layers; [l[curLayer], l[curLayer + 1]] = [l[curLayer + 1], l[curLayer]]; curLayer++; refreshAll(); autosave(); } };
+$('lDown').onclick = () => { if(curLayer > 0){ pushUndo(); const l = P.layers; [l[curLayer], l[curLayer - 1]] = [l[curLayer - 1], l[curLayer]]; curLayer--; refreshAll(); autosave(); } };
+$('lRen').onclick = () => { const n = prompt('Layer name:', P.layers[curLayer].name); if(n){ pushUndo(); P.layers[curLayer].name = n.trim().slice(0, 40); refreshLayers(); autosave(); } };
+$('lOpacity').oninput = e => { if(!$('lOpacity')._p){ pushUndo(); $('lOpacity')._p = 1; } P.layers[curLayer].opacity = +e.target.value / 100; draw(); autosave(); };
+$('lOpacity').onchange = () => { $('lOpacity')._p = 0; };
+
+// ------------------------------------------------------------------ canvas settings
+$('cBg').oninput = e => { P.background = e.target.value; draw(); autosave(); };
+$('sSize').onchange = e => { const [w, h] = e.target.value.split('x').map(Number);
+  if(!confirm(`Change the canvas to ${w}×${h}? Your drawing stays, at the same position.`)){ e.target.value = P.width + 'x' + P.height; return; }
+  pushUndo(); P.width = w; P.height = h; fit(); autosave(); };
+
+// ------------------------------------------------------------------ images
+$('tImage').onclick = () => { if(layerEditable()) $('fImg').click(); };
+$('fImg').onchange = e => { const f = e.target.files[0]; e.target.value = ''; if(!f) return;
+  const rd = new FileReader(); rd.onload = () => { const im = new Image(); im.onload = () => {
+    const max = 1600, k = Math.min(1, max / Math.max(im.width, im.height)), c = document.createElement('canvas');
+    c.width = Math.round(im.width * k); c.height = Math.round(im.height * k); c.getContext('2d').drawImage(im, 0, 0, c.width, c.height);
+    const src = c.toDataURL(f.type === 'image/png' ? 'image/png' : 'image/jpeg', 0.88);
+    const fitK = Math.min(1, P.width * 0.6 / c.width, P.height * 0.6 / c.height);
+    const o = {id:uid(), type:'image', x:P.width / 2, y:P.height / 2, rotation:0, scaleX:1, scaleY:1, w:c.width * fitK, h:c.height * fitK, src, opacity:1};
+    addObj(o); selId = o.id; setTool('select'); refreshAll(); }; im.src = rd.result; }; rd.readAsDataURL(f); };
+
+// ------------------------------------------------------------------ files
+function download(name, blob){ const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); }
+$('bSave').onclick = () => { const n = (prompt('Project name:', P.name || 'my_animation') || '').trim(); if(!n) return; P.name = n; autosave();
+  download(n.replace(/[^\wఀ-౿ -]+/g, '_') + '.anim.json', new Blob([JSON.stringify(P)], {type:'application/json'})); toast('Saved'); };
+$('bOpen').onclick = () => $('fOpen').click();
+$('fOpen').onchange = e => { const f = e.target.files[0]; e.target.value = ''; if(!f) return;
+  f.text().then(t => { try{ const o = JSON.parse(t); if(!o.layers) throw new Error('Not an animator project');
+    pushUndo(); P = o; curLayer = Math.min(1, P.layers.length - 1); selId = null; P.layers.forEach(L => L.objects.forEach(touch)); syncCanvasUI(); fit(); refreshAll(); autosave(); toast('Opened ' + f.name); }
+    catch(err){ toast('Could not open: ' + err.message, true); } }); };
+$('bNew').onclick = () => { if(!confirm('Start a new drawing? (You can undo this.)')) return; pushUndo(); const w = P.width, h = P.height; P = newProject(w, h); curLayer = 1; selId = null; syncCanvasUI(); refreshAll(); autosave(); };
+$('bPng').onclick = () => { const c = document.createElement('canvas'); c.width = P.width; c.height = P.height; renderScene(c.getContext('2d'));
+  c.toBlob(b => download((P.name || 'drawing') + '.png', b), 'image/png'); };
+['New','Open','Save','Png'].forEach(n => { $('m' + n).onclick = () => { $('side').classList.remove('open'); $('b' + n).onclick(); }; });
+$('bUndo').onclick = undo; $('bRedo').onclick = redo;
+$('panelBtn').onclick = () => $('side').classList.toggle('open');
+$('stage').addEventListener('pointerdown', () => $('side').classList.remove('open'));
+
+window.addEventListener('keydown', e => {
+  if(e.target.matches('input,select,textarea')) return;
+  const k = e.key.toLowerCase();
+  if((e.ctrlKey || e.metaKey) && k === 'z'){ e.preventDefault(); e.shiftKey ? redo() : undo(); return; }
+  if((e.ctrlKey || e.metaKey) && k === 'y'){ e.preventDefault(); redo(); return; }
+  if((e.ctrlKey || e.metaKey) && k === 'd'){ e.preventDefault(); $('oDup').onclick(); return; }
+  if(k === 'delete' || k === 'backspace'){ if(selId){ e.preventDefault(); $('oDel').onclick(); } return; }
+  const map = {v:'select', b:'brush', l:'line', r:'rect', o:'ellipse', f:'fill', t:'text', e:'eraser', h:'hand'}; if(map[k] && !e.ctrlKey && !e.metaKey) setTool(map[k]);
+  if(selId && ['arrowleft','arrowright','arrowup','arrowdown'].includes(k)){ e.preventDefault(); const s = findObj(selId), st = e.shiftKey ? 10 : 1;
+    pushUndo(); if(k === 'arrowleft') s.o.x -= st; if(k === 'arrowright') s.o.x += st; if(k === 'arrowup') s.o.y -= st; if(k === 'arrowdown') s.o.y += st; draw(); autosave(); }
+});
+
+function syncCanvasUI(){ $('cBg').value = P.background; const v = P.width + 'x' + P.height; if([...$('sSize').options].some(o => o.value === v)) $('sSize').value = v; }
+function refreshAll(){ refreshLayers(); draw(); updUndo(); }
+function toast(msg, bad){ const el = $('toast'); el.textContent = msg; el.style.background = bad ? '#e5534b' : ''; el.classList.add('show'); clearTimeout(toast.h); toast.h = setTimeout(() => el.classList.remove('show'), 2400); }
+
+// ------------------------------------------------------------------ start
+try{ const s = localStorage.getItem('videogen_animator'); if(s) P = JSON.parse(s); }catch(e){}
+if(!P || !P.layers) P = newProject();
+P.layers.forEach(L => L.objects.forEach(touch));
+curLayer = Math.min(1, P.layers.length - 1);
+syncCanvasUI(); resize(); fit(); refreshAll(); setTool('brush');
+document.fonts && Promise.all(['700 40px "Noto Sans Telugu"', '700 40px "Noto Sans"'].map(f => document.fonts.load(f))).then(draw).catch(() => {});
+</script>
+</body>
+</html>

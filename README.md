@@ -51,6 +51,19 @@ and night, and supports **Telugu and English titles**. Everything is drawn with 
 Only the scene you changed is rendered. Changing the engine re-renders every scene.
 You can also render by hand: **Actions → Render videos → Run workflow**.
 
+## ✏️ VideoGen Animator (draw anything)
+
+Open `https://<your-username>.github.io/videogen/animate/`. It is a drawing app for your own characters and scenes.
+
+**Stage 1 (now):** brush, line, rectangle, circle, fill, text (Telugu and English), eraser, image import,
+select / move / resize / rotate, layers (show, hide, lock, reorder, opacity), undo / redo, pinch zoom,
+save and open projects (`.anim.json`), and PNG export. Everything is stored as editable shapes, ready to animate.
+
+**Coming next:** Stage 2 timeline and keyframes, Stage 3 MP4 export, Stage 4 sound, Stage 5 character library and bones.
+
+Shortcuts on a computer: V select, B brush, L line, R rectangle, O circle, F fill, T text, E eraser, H move view,
+Ctrl+Z undo, Ctrl+D duplicate, Delete removes, arrow keys nudge.
+
 ## 3. Run on your own computer (optional)
 
 Install Python 3.10 or newer and FFmpeg (`ffmpeg` must work in the terminal), then run:
