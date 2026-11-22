@@ -139,6 +139,7 @@ Open `https://<your-name>.github.io/videogen/studio/`. It works like a small Gar
 - **Tracks**: one instrument or rhythm per track, with mute, solo, volume, left/right and hall echo.
 - **Piano roll** with **raga mode** (shows only the raga's notes, with Sa Ri Ga names).
 - **Rhythm grid** with Teentaal, Keherwa, Dadra, Rupak, Adi, Rupaka, Misra chapu, folk dholak, bhajan, dhol, rock, pop, latin, waltz, march, cinematic.
+- **✨ One-tap song**: choose a mood (spiritual, devotional, Carnatic, Hindustani, calm, happy, cinematic, sad, motivational, folk, romantic, orchestra) and the video length in seconds. You get intro, verse, chorus and ending, exactly that long.
 - **✨ Auto-fill** (rules and dice, no AI): melody, chords, bass, arpeggio, drone.
 - Repeat, metronome, undo, My songs, example songs, project files.
 - Download **WAV** or **M4A**, or send the music straight into the **Animator**.

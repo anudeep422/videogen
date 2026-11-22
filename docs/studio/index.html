@@ -78,7 +78,7 @@
   <button id="metroBtn" title="Metronome click">🥁</button>
   <span id="pos">Bar 1 · 1</span>
   <span class="sp"></span>
-  <label title="Beats per minute">Speed ♩</label><input id="bpm" type="number" min="30" max="240" value="90" style="width:58px">
+  <label title="Speed (beats per minute)">♩</label><input id="bpm" type="number" min="30" max="240" value="90" style="width:58px">
 </div>
 <div class="bar">
   <label>Key (Sa)</label><select id="key"></select>
@@ -86,6 +86,7 @@
   <label>Bars</label><input id="bars" type="number" min="1" max="200" value="8" style="width:56px">
   <select id="meter"><option value="4">4/4</option><option value="3">3/4</option><option value="2">2/4</option><option value="6">6/8</option><option value="7">7 beats</option></select>
 </div>
+<div style="padding:8px 8px 0"><button id="oneTap" style="width:100%;padding:11px;font-size:15px;font-weight:700;background:linear-gradient(90deg,#f0a830,#e5534b);border:0;color:#1a0d00">✨ Make a full song in one tap</button></div>
 <div id="tracks"></div>
 <div id="edWrap">
   <div id="edTools"></div>
@@ -136,7 +137,7 @@ $('key').onchange = () => { pushUndo(); const d = S.KEYS[$('key').value] - S.KEY
   if(confirm('Move the notes to the new key too?')) song.tracks.forEach(t => t.type === 'inst' && t.notes.forEach(n => n.m += d));
   song.key = $('key').value; changed(); };
 $('scale').onchange = () => { pushUndo(); song.scale = $('scale').value; changed(); };
-$('bars').onchange = () => { pushUndo(); song.bars = Math.max(1, Math.min(200, +$('bars').value || 8)); changed(); };
+$('bars').onchange = () => { pushUndo(); song.bars = Math.max(1, Math.min(200, +$('bars').value || 8)); delete song.sections; changed(); };
 $('meter').onchange = () => { pushUndo(); song.meter = +$('meter').value; changed(); };
 $('undo').onclick = () => { if(!undoStack.length) return; redoStack.push(snapshot()); song = JSON.parse(undoStack.pop()); player.G = null; if(!song.tracks.find(t => t.id === selId)) selId = song.tracks[0]?.id; changed(); };
 $('redo').onclick = () => { if(!redoStack.length) return; undoStack.push(snapshot()); song = JSON.parse(redoStack.pop()); player.G = null; changed(); };
@@ -157,7 +158,8 @@ $('metroBtn').onclick = () => { player.metro = !player.metro; $('metroBtn').clas
 player.onend = () => { syncPlay(); drawAllPlayheads(); };
 document.addEventListener('keydown', e => { if(e.code === 'Space' && !/INPUT|SELECT|TEXTAREA/.test(e.target.tagName)){ e.preventDefault(); togglePlay(); }
   if((e.ctrlKey || e.metaKey) && e.key === 'z'){ e.preventDefault(); (e.shiftKey ? $('redo') : $('undo')).onclick(); } });
-function posText(sec){ const b = sec / S.spb(song), bpb = S.beatsPerBar(song); return `Bar ${Math.floor(b / bpb) + 1} · ${Math.floor(b % bpb) + 1}`; }
+const mmss = x => Math.floor(x / 60) + ':' + String(Math.floor(x % 60)).padStart(2, '0');
+function posText(sec){ const b = sec / S.spb(song), bpb = S.beatsPerBar(song); return `Bar ${Math.floor(b / bpb) + 1} · ${mmss(sec)} / ${mmss(S.songSeconds(song))}`; }
 function frame(){ drawAllPlayheads(); if(player.playing) requestAnimationFrame(frame); }
 function drawAllPlayheads(){ const p = player.position(); $('pos').textContent = posText(p); drawMinis(); followRoll(p); drawRoll(); markGrid(p); }
 
@@ -353,6 +355,8 @@ function drawRoll(){
   // ruler
   c.fillStyle = '#211d33'; c.fillRect(0, 0, W, RUL); c.fillStyle = '#a29cbd'; c.font = '11px "Noto Sans",sans-serif';
   for(let b = b0 - (b0 % bpb); b <= b1; b += bpb){ const x = x0 + b * bw; if(x >= KEYW - 2){ c.fillText(String(b / bpb + 1), x + 3, RUL / 2); c.fillRect(x, 12, 1, RUL - 12); } }
+  if(song.sections){ const SN = {intro:'Intro', A:'Verse', B:'Chorus', C:'Bridge', outro:'Ending'}; c.font = '10px "Noto Sans",sans-serif';
+    for(const sc of song.sections){ const x = x0 + sc.b0 * bpb * bw; if(x + 20 < KEYW || x > W) continue; c.fillStyle = sc.type === 'B' ? '#f0a830' : '#7fd1a8'; c.fillText(SN[sc.type] || '', Math.max(KEYW + 2, x + 16), RUL / 2); } c.font = '11px "Noto Sans",sans-serif'; }
   if(player.loop){ const a = (player.loopA || 0) / S.spb(song), b = (player.loopB ?? S.songSeconds(song)) / S.spb(song); c.fillStyle = '#f0a830'; c.fillRect(Math.max(KEYW, x0 + a * bw), RUL - 4, Math.max(0, x0 + b * bw - Math.max(KEYW, x0 + a * bw)), 4); }
   if(ph >= KEYW){ c.fillStyle = '#fff'; c.beginPath(); c.moveTo(ph - 5, 0); c.lineTo(ph + 6, 0); c.lineTo(ph + 0.5, 8); c.fill(); }
   c.fillStyle = '#1b1829'; c.fillRect(0, 0, KEYW, RUL); c.fillStyle = '#a29cbd'; c.fillText('Bar', 6, RUL / 2);
@@ -433,6 +437,7 @@ $('menuBtn').onclick = () => {
     <button data-m="save">💾 Save to My songs</button>
     <button data-m="rename">✏️ Rename song</button>
     <button data-m="new">📄 New empty song</button>
+    <button data-m="onetap">✨ Make a full song in one tap</button>
     <button data-m="demo">🎵 Example songs</button>
     <button data-m="wav">⬇️ Download WAV (best quality)</button>
     <button data-m="m4a">⬇️ Download M4A (small file)</button>
@@ -452,6 +457,7 @@ async function menu(m){
   if(m === 'rename'){ const n = prompt('Song name', song.name); if(n){ song.name = n.trim(); syncTop(); save(); } closeSheet(); }
   if(m === 'new'){ if(!confirm('Start a new song? (Save this one first if you want to keep it.)')) return; closeSheet(); undoStack = []; loadSong(newSong()); }
   if(m === 'demo') demoSheet();
+  if(m === 'onetap') oneTapSheet();
   if(m === 'wav' || m === 'm4a' || m === 'anim'){
     closeSheet(); player.stop(); syncPlay();
     try{
@@ -478,6 +484,36 @@ async function menu(m){
 }
 function idb(){ return new Promise((res, rej) => { const r = indexedDB.open('videogen_audio', 1); r.onupgradeneeded = () => r.result.createObjectStore('blobs'); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }); }
 async function idbPut(id, blob){ const db = await idb(); return new Promise((res, rej) => { const tx = db.transaction('blobs', 'readwrite'); tx.objectStore('blobs').put(blob, id); tx.oncomplete = res; tx.onerror = () => rej(tx.error); }); }
+
+// ------------------------------------------------------------ one-tap song
+const OT = (() => { try{ return JSON.parse(localStorage.getItem('vg_studio_onetap') || 'null') || {}; }catch(e){ return {}; } })();
+OT.mood = OT.mood || 'spiritual'; OT.seconds = OT.seconds || 60; OT.key = OT.key || ''; OT.seed = OT.seed || 1;
+function oneTapSheet(){
+  sheet('✨ Make a full song', `<p class="hint" style="margin-top:0">Choose a mood and the length of your video. The song gets an intro, verse, chorus and ending, with real instruments. No AI — music rules and dice.</p>
+    <h4>1 · Mood</h4><div class="opts" id="otMood">${Object.entries(S.MOODS).map(([k, m]) => `<button data-mood="${k}" class="${k === OT.mood ? 'on' : ''}">${esc(m.name)}</button>`).join('')}</div>
+    <h4>2 · Length (seconds)</h4><div class="opts" id="otLen">${[30, 45, 60, 90, 120, 180, 300].map(n => `<button data-len="${n}" class="${n === OT.seconds ? 'on' : ''}">${n < 60 ? n + ' s' : (n / 60) + ' min'}</button>`).join('')}
+      <input id="otSec" type="number" min="8" max="900" value="${OT.seconds}" style="width:80px" title="Exact seconds"></div>
+    <h4>3 · Key (Sa)</h4><select id="otKey"><option value="">Automatic</option>${Object.keys(S.KEYS).map(k => `<option${k === OT.key ? ' selected' : ''}>${k}</option>`).join('')}</select>
+    <h4>4 · Tune number</h4><div class="opts"><input id="otSeed" type="number" min="1" max="99999" value="${OT.seed}" style="width:90px"><button id="otDice">🎲 Another tune</button></div>
+    <button id="otGo" class="on" style="width:100%;margin-top:16px;padding:12px;font-size:16px">✨ Make song</button>
+    <p class="hint">Your current song will be replaced. Same mood + same tune number = same song again.</p>`, box => {
+    box.querySelectorAll('[data-mood]').forEach(b => b.onclick = () => { OT.mood = b.dataset.mood; box.querySelectorAll('[data-mood]').forEach(x => x.classList.toggle('on', x === b)); });
+    box.querySelectorAll('[data-len]').forEach(b => b.onclick = () => { OT.seconds = +b.dataset.len; $('otSec').value = OT.seconds; box.querySelectorAll('[data-len]').forEach(x => x.classList.toggle('on', x === b)); });
+    $('otSec').onchange = () => { OT.seconds = Math.max(8, Math.min(900, +$('otSec').value || 60)); box.querySelectorAll('[data-len]').forEach(x => x.classList.toggle('on', +x.dataset.len === OT.seconds)); };
+    $('otDice').onclick = () => { $('otSeed').value = OT.seed = (+$('otSeed').value || 1) + 1; makeOneTap(); };
+    $('otGo').onclick = () => makeOneTap();
+  });
+}
+async function makeOneTap(){
+  OT.key = $('otKey') ? $('otKey').value : OT.key; OT.seed = $('otSeed') ? +$('otSeed').value || 1 : OT.seed; if($('otSec')) OT.seconds = Math.max(8, Math.min(900, +$('otSec').value || 60));
+  try{ localStorage.setItem('vg_studio_onetap', JSON.stringify(OT)); }catch(e){}
+  closeSheet(); pushUndo();
+  const s = S.compose({mood:OT.mood, seconds:OT.seconds, key:OT.key || null, seed:OT.seed});
+  loadSong(s); PR.sx = 0; PR.sy = -1; renderEditor();
+  await togglePlay();
+  toast(`${S.MOODS[OT.mood].name} · ${OT.seconds}s · tune ${OT.seed}`);
+}
+$('oneTap').onclick = oneTapSheet;
 
 // ------------------------------------------------------------ example songs
 const DEMOS = {
@@ -518,7 +554,7 @@ function renderAll(){ syncTop(); renderTracks(); renderEditor(); }
   const q = new URLSearchParams(location.search).get('demo');
   if(q && DEMOS[q]) s = DEMOS[q].make();
   loadSong(s && s.tracks ? s : DEMOS.bhajan.make());
-  if(!s) toast('Example song loaded — press ▶');
+  if(!s) setTimeout(oneTapSheet, 400);
 })();
 </script>
 </body>
