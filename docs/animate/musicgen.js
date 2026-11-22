@@ -28,6 +28,8 @@ const STYLES = {
   happy:     {name:'Happy: marimba + drums', mel:'marimba', pad:'strings', rhythm:'pop', tempo:120, raga:'shankarabharanam'},
   epic:      {name:'Epic: horns + war drums', mel:'french_horn', pad:'slow_strings', rhythm:'epic', tempo:86, raga:'kharaharapriya'},
 };
+// synthesised Indian-instrument styles (synth.js + synthmusic.js) join the list; they work offline too
+if(window.VG_SYNTHMUSIC) for(const [k, v] of Object.entries(window.VG_SYNTHMUSIC.STYLES)) STYLES[k] = {...v, engine:'synth'};
 const RHYTHMS = {
   tabla_soft:[[0, 'low_conga', 70], [2, 'mute_conga', 45], [3, 'hi_bongo', 40], [4, 'low_conga', 60], [6, 'hi_conga', 50], [7, 'mute_conga', 35]],
   tabla:[[0, 'low_conga', 90], [1, 'hi_bongo', 50], [2, 'mute_conga', 60], [3, 'hi_bongo', 55], [4, 'low_conga', 80], [5, 'hi_conga', 55], [6, 'mute_conga', 60], [7, 'low_bongo', 50]],
@@ -96,6 +98,7 @@ function impulse(ctx, secs, decay){ const len = Math.floor(secs * ctx.sampleRate
 
 const cache = {};
 async function render(o){
+  if(STYLES[o.style] && STYLES[o.style].engine === 'synth') return window.VG_SYNTHMUSIC.render(o);
   const key = JSON.stringify([o.style, o.raga, o.seconds, o.key, o.tempo, o.seed]); if(cache[key]) return cache[key];
   return cache[key] = (async () => {
     const song = compose(o), m = await loadInstruments(song), total = Math.min(o.seconds + 0.5, song.length);

@@ -160,6 +160,7 @@
 
     <h2 id="soundSec">Sound</h2>
     <button id="aGen" style="width:100%;background:var(--acc);color:#1a1300;border-color:var(--acc);font-weight:600;margin-bottom:4px">🎼 Generate music (real instruments)</button>
+    <a href="../music/" style="display:block;text-align:center;color:var(--acc);font-size:12px;margin:2px 0 6px">🎼 Open the full Music Studio (more choices, download MP3/WAV)</a>
     <div class="row"><button id="aMusic">🎵 Simple music</button><button id="aSfx">🔊 Effect</button><button id="aRec">🎙️ Record voice</button><button id="aUpload">📁 Upload</button></div>
     <input id="fAudio" type="file" accept="audio/*,.mp3,.m4a,.wav,.ogg,.aac" hidden>
     <div id="clips" class="layers" style="margin-top:6px"></div>
@@ -276,6 +277,8 @@
 <script src="effects.js"></script>
 <script src="templates.js"></script>
 <script src="sound.js"></script>
+<script src="synth.js"></script>
+<script src="synthmusic.js"></script>
 <script src="musicgen.js"></script>
 <script>
 /* ==========================================================================
@@ -1040,14 +1043,15 @@ function previewClip(c){ stopAudio(); loadClip(c).then(b => { if(!b) return toas
 async function addClip(c){ pushUndo(); c.id = c.id || uid(); c.volume = c.volume ?? 1; P.audio.push(c); renderClips(); await loadClip(c); renderClips(); drawTrack(); autosave(); return c; }
 const KIND = {music:'🎵', sfx:'🔊', voice:'🎙️', file:'📁'};
 // ---- music generator dialog
-const SYNTH_FOR = {spiritual:'flute', meditation:'drone', devotional:'flute', festival:'festival', corporate:'corporate', happy:'happy', epic:'epic'};
+const SYNTH_FOR = {spiritual:'flute', meditation:'drone', devotional:'flute', festival:'festival', corporate:'corporate', happy:'happy', epic:'epic', carnatic:'flute', hindustani:'flute', bansuri:'flute', santoor:'flute', dance:'festival', bhajan:'festival', folk:'festival', kids:'happy', acoustic:'corporate'};
 function genParams(){ const st = $('gStyle').value, G = VG_MUSICGEN, tm = $('gTempo').value;
   return {style:st, raga:$('gRaga').value || G.STYLES[st].raga, seconds:Math.max(5, Math.min(600, +$('gLen').value || P.duration)), key:$('gKey').value,
           tempo:tm ? Math.round(G.STYLES[st].tempo * +tm) : null, seed:Math.max(1, +$('gSeed').value || 1)}; }
 function openGen(){
   const G = window.VG_MUSICGEN; if(!G) return toast('Music generator did not load', true);
   if(!$('gStyle').options.length){
-    $('gStyle').innerHTML = Object.entries(G.STYLES).map(([k, v]) => `<option value="${k}">${v.name}</option>`).join('');
+    const grp = (lbl, f) => `<optgroup label="${lbl}">` + Object.entries(G.STYLES).filter(([, v]) => f(v)).map(([k, v]) => `<option value="${k}">${v.name}</option>`).join('') + '</optgroup>';
+    $('gStyle').innerHTML = grp('Synthesised Indian instruments (works offline)', v => v.engine === 'synth') + grp('Recorded instrument samples', v => v.engine !== 'synth');
     $('gRaga').innerHTML = '<option value="">Best for this style</option>' + Object.entries(G.RAGAS).map(([k, v]) => `<option value="${k}">${v.name}</option>`).join('');
     $('gKey').innerHTML = Object.keys(G.KEYS).map(k => `<option ${k === 'D' ? 'selected' : ''}>${k}</option>`).join('');
   }
@@ -1389,6 +1393,10 @@ upgrade(P);
 P.layers.forEach(L => L.objects.forEach(touch));
 curLayer = Math.min(1, P.layers.length - 1);
 syncCanvasUI(); resize(); fit(); refreshAll(); setTool('brush'); ensureAudio().then(() => { renderClips(); drawTrack(); });
+// music sent from the Music Studio page
+try{ const pm = JSON.parse(localStorage.getItem('videogen_pending_music') || 'null'); if(pm){ localStorage.removeItem('videogen_pending_music');
+  const S = VG_MUSICGEN.STYLES[pm.style] || {name:pm.style}; pm.seconds = P.duration;
+  addClip({name:`🎼 ${S.name.split(':')[0]} · ${pm.raga} · tune ${pm.seed}`, kind:'music', gen:pm, synth:SYNTH_FOR[pm.style] || 'flute', start:0, len:P.duration, volume:0.85}).then(() => toast('Music from the Music Studio added to your video')); } }catch(e){}
 document.fonts && Promise.all(['700 40px "Noto Sans Telugu"', '700 40px "Noto Sans"'].map(f => document.fonts.load(f))).then(draw).catch(() => {});
 </script>
 </body>

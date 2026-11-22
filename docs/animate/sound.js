@@ -19,6 +19,10 @@ const SFX = [
   {id:'bell', name:'Temple bell', len:4.5}, {id:'conch', name:'Conch (shankha)', len:3.2}, {id:'drum', name:'Drum hit', len:1.2},
   {id:'sword', name:'Sword clash', len:1.0}, {id:'explosion', name:'Explosion', len:2.6}, {id:'gallop', name:'Horse gallop', len:2.4},
   {id:'applause', name:'Applause', len:3.2}, {id:'birds', name:'Birds chirping', len:3.0}, {id:'sparkle', name:'Magic sparkle', len:1.4},
+  {id:'gajjalu_step', name:'Gajjalu (ankle bells) steps', len:3, syn:true}, {id:'gajjalu_shake', name:'Gajjalu shake', len:3, syn:true},
+  {id:'manjira', name:'Manjira (small cymbals)', len:3, syn:true}, {id:'templebell', name:'Temple bell (rich)', len:6.5, syn:true},
+  {id:'cowbells', name:'Cow / bullock bells', len:3, syn:true}, {id:'windchimes', name:'Wind chimes', len:4.5, syn:true},
+  {id:'bowl', name:'Singing bowl', len:9, syn:true}, {id:'tabla_roll', name:'Tabla roll', len:2, syn:true}, {id:'mridangam_tihai', name:'Mridangam tihai', len:3, syn:true},
   {id:'bonk', name:'Cartoon bonk', len:0.6}, {id:'boing', name:'Cartoon boing', len:0.9}, {id:'slide', name:'Slide whistle', len:1.1},
 ];
 
@@ -120,6 +124,8 @@ const cache = {};
 async function render(id, seconds){
   const fx = SFX.find(s => s.id === id), len = fx ? fx.len : Math.max(1, Math.min(600, seconds || 10));
   const key = id + '|' + len.toFixed(2); if(cache[key]) return cache[key];
+  if(fx && fx.syn && window.VG_SYNTH){ const x = window.VG_SYNTH.sfx(id); let pk = 0; for(const v of x) pk = Math.max(pk, Math.abs(v));
+    const b = new AudioBuffer({length:x.length, numberOfChannels:2, sampleRate:44100}), y = Float32Array.from(x, v => v / (pk || 1) * 0.85); b.copyToChannel(y, 0); b.copyToChannel(y, 1); return cache[key] = b; }
   const ctx = new OfflineAudioContext(2, Math.ceil(len * SR), SR);
   const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -14; comp.ratio.value = 4; comp.connect(ctx.destination);
   const master = ctx.createGain(); master.gain.value = fx ? 0.9 : 0.8; master.connect(comp);

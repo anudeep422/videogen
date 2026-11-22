@@ -108,6 +108,23 @@ Colour filters: day to night, warm sunset, old film, black and white, and dark c
 **Scenes:** ✂️ New scene here ends the current scene with a fade, and new things belong to the next scene.
 **Text animation:** typewriter, word by word, letters bounce in, wave and glow (Telugu letters stay whole).
 
+## 🎼 Music Studio (separate page)
+
+Open `https://<your-username>.github.io/videogen/music/`. Choose a style, raga, key, speed, length and tune number,
+tap **Make music**, listen, then download **WAV** or **M4A**, share it, keep it in "My tunes", or send it to the Animator.
+
+**Synthesised Indian instruments (physical models, no recordings, work offline):** veena, sitar (with sympathetic
+strings), tanpura (with jawari buzz), santoor, bansuri (with breath), harmonium, organ, guitar, harp, marimba, xylophone,
+glockenspiel, kalimba, vibraphone; tabla bols (dha, dhin, na, tin, tun, te, ge, ke), mridangam strokes (tha, dhi, nam,
+chapu, thom, ki, dheem), ghatam, kanjira, dholak, dhol; gajjalu (ankle bells), manjira, taalam, temple bell, cow bells,
+wind chimes and singing bowl.
+
+**Styles:** Carnatic (veena, mridangam, ghatam), Hindustani (sitar, tabla Teentaal), Bansuri (tabla Keherwa), Santoor
+(tabla Dadra), Dance (veena, mridangam, gajjalu, taalam), Bhajan (harmonium, dholak, manjira, temple bell),
+Village folk, Meditation (singing bowls, chimes), Kids, and Acoustic, plus the recorded-sample styles.
+Music follows real structure: alap intro, tala cycles with fills, gamakas and meend, climax, and a tihai ending on Sa.
+The engine lives in `docs/animate/synth.js` (instruments) and `synthmusic.js` (composer).
+
 **Coming next:** more library elements and templates, crowds for battle scenes, phone install and a Windows app.
 
 Shortcuts on a computer: V select, B brush, L line, R rectangle, O circle, F fill, T text, E eraser, H move view,
