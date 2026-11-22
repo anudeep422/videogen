@@ -59,6 +59,15 @@ Open `https://<your-username>.github.io/videogen/animate/`. It is a drawing app 
 select / move / resize / rotate, layers (show, hide, lock, reorder, opacity), undo / redo, pinch zoom,
 save and open projects (`.anim.json`), and PNG export. Everything is stored as editable shapes, ready to animate.
 
+**📚 Library (86 ready-made elements, all editable):** People (rishi, guru and disciple, village woman with pot,
+farmer, grandfather, family, office person, insurance advisor…), Spiritual (Om, diya, lotus, temple, kalasham, Shiva lingam,
+conch, rudraksha, trishul, peacock feather…), Nature (trees, palm, banyan, mountains, river, moon, stars, cow, deer, peacock…),
+Places (hut, ashram, house, school, city, office, hospital), Things (books, palm-leaf manuscript, bullock cart, car, phone,
+money, shield, umbrella, family protection…), Backgrounds (morning, noon, evening and night skies, fields, forest, sunset sea,
+gradients), Motion graphics (title bar, lower third, arrow, badge, speech bubble, subscribe button, quote card…) and
+Effects (glow, sparkles, light rays, smoke, rain, petals, confetti, fire). Use **Fill** to recolour any part, and
+**Ungroup** to edit the pieces. Add your own in `docs/animate/library.js`.
+
 **Stage 2 (now):** timeline with play, scrub and loop. Keyframes: go to a time and move, resize, rotate or fade an object,
 and **Auto-key** records it. Drag the diamonds to retime. Easing (smooth, linear, ease in/out, overshoot, bounce, hold),
 "show from / to" times, a motion path display, and 12 quick animations (fade, pop, slide in, spin, pulse, shake, bounce).
