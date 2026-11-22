@@ -122,6 +122,7 @@ const FX = {
 
 const cache = {};
 async function render(id, seconds){
+  if(id && id.startsWith('amb:')){ if(!window.VG_AMB) throw new Error('ambience.js not loaded'); return window.VG_AMB.render(id.slice(4), seconds); }
   const fx = SFX.find(s => s.id === id), len = fx ? fx.len : Math.max(1, Math.min(600, seconds || 10));
   const key = id + '|' + len.toFixed(2); if(cache[key]) return cache[key];
   if(fx && fx.syn && window.VG_SYNTH){ const x = window.VG_SYNTH.sfx(id); let pk = 0; for(const v of x) pk = Math.max(pk, Math.abs(v));

@@ -54,6 +54,9 @@ function Builder(ratio, duration){
     fx(kind, t0, t1, opts = {}){ const o = window.VG_FX.make(kind, W, H); o.id = id(); o.name = window.VG_FX.KINDS[kind][0]; o.show = [t0, t1]; Object.assign(o, opts);
       p.layers[2].objects.push(o); return o; },
     scene(list, a, b){ list.forEach(o => { o.show = [a, b]; }); },
+    // nature / place sound (ambience.js) from t0 to t1
+    amb(sid, t0 = 0, t1 = duration, vol = 0.7){ const a = window.VG_AMB && window.VG_AMB.LIST.find(x => x.id === sid); p.audio.push({id:aid(), name:a ? a.icon + ' ' + a.name : sid, kind:'sfx', synth:'amb:' + sid, start:t0, len:+(t1 - t0).toFixed(2), volume:vol, fadeIn:1, fadeOut:1.5}); },
+    quiet(m, vol = 0.4){ p.audio.unshift({...musicClip(m, duration), volume:vol}); },
     gen(style, raga, vol = 0.5){ p.audio.unshift({id:aid(), name:'🎼 ' + style + ' · ' + raga, kind:'music', gen:{style, raga, seconds:duration, key:'D', seed:3}, synth:'flute', start:0, len:duration, volume:vol}); }
   };
 }
@@ -88,6 +91,69 @@ function anim(o, kind, t0, d = 1, W = 1280, H = 720){
   return o;
 }
 const fly = (o, x0, x1, t0, t1) => { key(o, 'x', t0, x0, 'linear'); key(o, 'x', t1, x1); return o; };
+
+// ================================================================= SCENES (places with their sounds)
+const walkAcross = (o, x0, x1, t0, t1) => { key(o, 'x', t0, x0, 'linear'); key(o, 'x', t1, x1); return o; };
+tpl('Scenes', 'City morning walk', '16:9', () => { const b = Builder('16:9', 10), W = b.W, H = b.H;
+  b.bg('City (day)'); b.amb('city', 0, 10, 0.6); b.quiet('corporate', 0.35);
+  walkAcross(b.char('office', 120, 540, 1.1, [['walk', 0, 6.5], ['wave', 6.5, 8], ['idle', 8, 10]]), 120, 760, 0, 6.5);
+  b.box(640, 110, 760, 110, '#FFFFFF', {op:.85, r:20}); anim(b.text('నగరంలో ఒక ఉదయం', 640, 110, 54, '#1B4F72'), 'down', 0.5, 1, W, H); return b.p; });
+tpl('Scenes', 'City at night', '16:9', () => { const b = Builder('16:9', 10), W = b.W, H = b.H;
+  b.bg('City (night)'); b.amb('city', 0, 10, 0.4); b.amb('night', 0, 10, 0.35); b.quiet('drone', 0.3);
+  walkAcross(b.char('woman', 1180, 535, 0.95, [['walk', 0, 7]]), 1180, 420, 0, 7).scaleX = -0.95;
+  anim(b.text('రాత్రి నగరం', 640, 120, 60, '#FFE08A', {anim:'glow', at:0.5, dur:2}), 'fadein', 0.3, 1, W, H); return b.p; });
+tpl('Scenes', 'Beach and waves', '16:9', () => { const b = Builder('16:9', 10), W = b.W, H = b.H;
+  b.bg('Beach (day)'); b.amb('sea', 0, 10, 0.8); b.quiet('happy', 0.3); b.fx('birds', 0, 10);
+  walkAcross(b.char('boy', 300, 640, 1.05, [['run', 0, 6], ['jump', 6, 7], ['wave', 7, 10]]), 300, 900, 0, 6);
+  walkAcross(b.char('girl', 200, 650, 1.05, [['run', 0.4, 6.4], ['clap', 6.4, 10]]), 200, 780, 0.4, 6.4);
+  anim(b.text('సముద్ర తీరం', 640, 90, 60, '#0B4F6C'), 'down', 0.4, 1, W, H); return b.p; });
+tpl('Scenes', 'Into the jungle', '16:9', () => { const b = Builder('16:9', 10), W = b.W, H = b.H;
+  b.bg('Jungle'); b.amb('forest', 0, 10, 0.8); b.quiet('drone', 0.25); b.fx('leaves', 0, 10, {density:0.5});
+  walkAcross(b.char('archer', 100, 660, 1.15, [['walk', 0, 6], ['shoot', 6, 8], ['idle', 8, 10]]), 100, 560, 0, 6);
+  anim(b.text('అడవిలోకి ప్రయాణం', 640, 90, 56, '#FFFFFF', {anim:'words', at:0.5, dur:1.5}), 'fadein', 0.3, 0.8, W, H); return b.p; });
+tpl('Scenes', 'Temple morning prayer', '16:9', () => { const b = Builder('16:9', 10), W = b.W, H = b.H;
+  b.bg('Temple courtyard'); b.amb('temple', 0, 10, 0.7); b.amb('morning', 0, 10, 0.4); b.gen('bansuri', 'mohanam', 0.35);
+  b.char('woman', 520, 640, 1.1, [['walk', 0, 2], ['namaste', 2, 10]]); b.char('elder', 760, 645, 1.1, [['idle', 0, 3], ['namaste', 3, 10]]);
+  b.sfx('templebell', 2.2, 0.6);
+  anim(b.text('శుభోదయం\nదేవాలయ దర్శనం', 230, 110, 42, '#7B241C'), 'down', 0.8, 1, W, H); return b.p; });
+tpl('Scenes', 'River ghat at sunrise', '16:9', () => { const b = Builder('16:9', 10), W = b.W, H = b.H;
+  b.bg('River ghat'); b.amb('river', 0, 10, 0.7); b.amb('morning', 0, 10, 0.35); b.gen('bansuri', 'hindolam', 0.35);
+  anim(b.el('Rishi meditating', 300, 560, 220), 'fadein', 0.5, 1.5, W, H); anim(b.el('Diya lamp', 470, 610, 70), 'pop', 2, 0.8, W, H);
+  b.sfx('bell', 2.5, 0.5);
+  anim(b.text('గంగా తీరంలో సూర్యోదయం', 820, 640, 46, '#FFF3D6', {anim:'words', at:1.5, dur:2}), 'fadein', 1.2, 1, W, H); return b.p; });
+tpl('Scenes', 'Rishi in the Himalayas', '16:9', () => { const b = Builder('16:9', 10), W = b.W, H = b.H;
+  b.bg('Himalaya snow peaks'); b.amb('wind', 0, 10, 0.6); b.music('drone'); b.fx('snow', 0, 10, {density:0.5});
+  anim(b.el('Rishi meditating', 640, 560, 260), 'up', 0.4, 1.4, W, H); anim(b.el('Glow', 640, 520, 300, {op:.6}), 'fadein', 1.5, 1.5, W, H);
+  anim(b.text('హిమాలయాలలో తపస్సు', 640, 110, 58, '#1B2631', {anim:'words', at:1, dur:2}), 'fadein', 0.8, 1, W, H); return b.p; });
+tpl('Scenes', 'Rainy day (family protection)', '16:9', () => { const b = Builder('16:9', 10), W = b.W, H = b.H;
+  b.bg('Rainy sky (dark clouds)'); b.fx('rain', 0, 10, {density:1.2}); b.fx('lightning', 3, 4.2); b.amb('storm', 0, 10, 0.75); b.quiet('corporate', 0.3);
+  anim(b.el('Umbrella (protection)', 640, 420, 420), 'down', 1, 1.2, W, H); anim(b.el('Family', 640, 560, 260), 'fadein', 1.8, 1, W, H);
+  b.box(640, 100, 1000, 120, '#FFFFFF', {op:.88, r:20});
+  anim(b.text('వర్షం వచ్చినా, తుఫాను వచ్చినా —\nమీ కుటుంబానికి రక్షణ', 640, 100, 40, '#1B4F72'), 'down', 2.6, 1, W, H); return b.p; });
+tpl('Scenes', 'Creation of the universe', '16:9', () => { const b = Builder('16:9', 10), W = b.W, H = b.H;
+  b.bg('Space (cosmos)'); b.amb('cosmic', 0, 10, 0.8); b.music('drone'); b.fx('stars', 0, null);
+  anim(b.el('Glow', 640, 330, 380), 'fadein', 1, 2, W, H); anim(anim(b.el('Om symbol', 640, 330, 200), 'zoomout', 1.5, 2, W, H), 'pulse', 5, 2, W, H);
+  b.sfx('conch', 1.2, 0.6);
+  anim(b.text('సృష్టికి ముందు — ఓం', 640, 600, 54, '#FFE9B0', {anim:'glow', at:3, dur:2}), 'fadein', 3, 1, W, H); return b.p; });
+tpl('Scenes', 'Cave meditation', '16:9', () => { const b = Builder('16:9', 10), W = b.W, H = b.H;
+  b.bg('Cave (meditation)'); b.amb('cave', 0, 10, 0.8); b.music('drone');
+  anim(b.el('Rishi meditating', 640, 520, 240), 'fadein', 0.5, 2, W, H); anim(b.el('Diya lamp', 470, 590, 70), 'pop', 2.2, 0.8, W, H);
+  anim(b.text('మౌనం — ధ్యానం', 640, 90, 56, '#FFE0A8', {anim:'words', at:2, dur:2}), 'fadein', 2, 1, W, H); return b.p; });
+tpl('Scenes', 'Family at home', '16:9', () => { const b = Builder('16:9', 8), W = b.W, H = b.H;
+  b.bg('Home (living room)'); b.quiet('happy', 0.4);
+  anim(b.el('Family', 760, 500, 300), 'up', 0.4, 1, W, H);
+  b.box(330, 140, 560, 120, '#FFFFFF', {op:.9, r:20}); anim(b.text('మీ కుటుంబం,\nమీ బలం', 330, 140, 44, '#7B241C'), 'left', 1, 1, W, H); return b.p; });
+tpl('Scenes', 'Office meeting', '16:9', () => { const b = Builder('16:9', 8), W = b.W, H = b.H;
+  b.bg('Office'); b.amb('crowd', 0, 8, 0.15); b.quiet('corporate', 0.4);
+  b.char('advisor', 400, 700, 1.55, [['talk', 0.5, 5], ['point', 5, 8]]); b.char('office', 900, 700, 1.55, [['idle', 0, 5], ['clap', 5, 8]]).scaleX = -1.55;
+  anim(b.text('మీ భవిష్యత్తు ప్రణాళిక', 640, 90, 52, '#1B4F72'), 'down', 0.6, 1, W, H); return b.p; });
+tpl('Scenes', 'Desert journey', '16:9', () => { const b = Builder('16:9', 10), W = b.W, H = b.H;
+  b.bg('Desert'); b.amb('wind', 0, 10, 0.7); b.gen('bansuri', 'hindolam', 0.35); b.fx('dust', 6, 9);
+  walkAcross(b.char('warrior', 120, 650, 1.1, [['walk', 0, 8], ['idle', 8, 10]]), 120, 820, 0, 8);
+  anim(b.text('ఎడారి ప్రయాణం', 640, 100, 58, '#7E4A12'), 'down', 0.5, 1, W, H); return b.p; });
+tpl('Scenes', 'Waterfall in the forest', '16:9', () => { const b = Builder('16:9', 10), W = b.W, H = b.H;
+  b.bg('Waterfall'); b.amb('waterfall', 0, 10, 0.6); b.amb('forest', 0, 10, 0.5); b.quiet('happy', 0.25); b.fx('birds', 0, 10);
+  anim(b.text('జలపాతం', 640, 650, 60, '#FFFFFF', {anim:'bounce', at:0.8, dur:1.5}), 'fadein', 0.6, 1, W, H); return b.p; });
 
 // ================================================================= SPIRITUAL
 tpl('Spiritual', 'Upanishad intro', '16:9', () => { const b = Builder('16:9', 8), W = b.W, H = b.H;

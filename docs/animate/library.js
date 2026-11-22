@@ -267,6 +267,188 @@ add('Backgrounds', 'Blue gradient', (W, H) => BG(W, H, ['#1A2980', '#26D0CE']), 
 add('Backgrounds', 'Purple gradient', (W, H) => BG(W, H, ['#41295A', '#2F0743', '#8E2DE2']), {bg:true});
 add('Backgrounds', 'Clean white', (W, H) => BG(W, H, ['#FFFFFF', '#ECF0F1']), {bg:true});
 
+// ---------------------------------------------------------------- scene backgrounds (full places)
+function cityScene(W, H, night){
+  const ch = [], gY = H * .2;   // gY = top of footpath (ground line)
+  // far skyline
+  for(let i = 0; i < 22; i++){ const w = W / 18 * (0.7 + R(i, 2) * .8), x = -W / 2 + i * W / 20, h = H * (.12 + R(i, 5) * .25);
+    ch.push(rect(x, gY - h / 2, w, h, night ? '#1C2541' : '#A9C3D6')); }
+  // near buildings with windows
+  const cols = night ? ['#2B2F45', '#33384F', '#262A3D', '#3A3550'] : ['#5D7389', '#7B8FA1', '#8E7F74', '#6C7A89', '#A0816C'];
+  let x = -W / 2 - 20, i = 0;
+  while(x < W / 2 + 40){ const w = W * (.07 + R(i, 7) * .08), h = H * (.22 + R(i, 9) * .38), cx = x + w / 2, top = gY - h;
+    ch.push(rect(cx, gY - h / 2, w, h, cols[i % cols.length]));
+    ch.push(rect(cx, top - 4, w + 6, 8, night ? '#1E2133' : '#4A5866'));
+    const nx = Math.max(2, Math.floor(w / 26)), ny = Math.max(3, Math.floor(h / 34)), gw = w / nx, gh = h / ny;
+    for(let a = 0; a < nx; a++) for(let b = 0; b < ny - 1; b++){ const lit = night ? R(i * 31 + a, b) > .45 : false;
+      ch.push(rect(x + gw * (a + .5), top + gh * (b + .7), gw * .55, gh * .5, night ? (lit ? '#FFD86B' : '#1A1D2B') : (R(i + a, b) > .8 ? '#E8F4FB' : '#BFD9EA'), {op:night && lit ? .95 : 1})); }
+    x += w + W * .008; i++; }
+  // footpath, road and markings
+  ch.push(rect(0, gY + H * .03, W, H * .06, night ? '#4A4A52' : '#B0ADA8'), rect(0, gY + H * .062, W, H * .008, night ? '#2E2E33' : '#8A8781'));
+  ch.push(rect(0, gY + H * .2, W, H * .28, night ? '#1E1F24' : '#3F4248'));
+  for(let k = 0; k < 9; k++) ch.push(rect(-W / 2 + (k + .5) * W / 9, gY + H * .2, W * .05, 6, night ? '#C9B458' : '#F4F1E8'));
+  ch.push(rect(0, gY + H * .345, W, H * .02, night ? '#3A3A40' : '#8F8C86'));
+  // street lamps and trees
+  for(let k = 0; k < 4; k++){ const lx = -W / 2 + (k + .5) * W / 4;
+    ch.push(rect(lx, gY - H * .12, 6, H * .3, '#2C3E50'), line([[lx, gY - H * .27], [lx + 34, gY - H * .27]], '#2C3E50', 5), ell(lx + 34, gY - H * .26, 12, 6, night ? '#FFF3B0' : '#D5D8DC'));
+    if(night) ch.push(ell(lx + 34, gY - H * .24, 90, 70, rad('#FFE9A0aa', '#FFE9A000')), poly([[lx + 22, gY - H * .25], [lx + 46, gY - H * .25], [lx + 110, gY + H * .1], [lx - 40, gY + H * .1]], '#FFE9A0', {op:.08}));
+    const tx = lx + W / 8; ch.push(rect(tx, gY - 30, 10, 60, '#5D4037'), ell(tx, gY - 80, 42, 46, night ? '#1F3B2B' : '#3E8E41'), ell(tx - 22, gY - 64, 28, 26, night ? '#1A3324' : '#4CAF50')); }
+  const sky = night ? ['#060A1F', '#1B2552', '#3A3F6B'] : ['#6CB8EA', '#CFE8F7', '#F4FAFD'];
+  const extra = night ? [ell(W * .32, -H * .33, H * .05, H * .05, '#FFF8D6'), ell(W * .32, -H * .33, H * .12, H * .12, '#FFF8D622'),
+    ...Array.from({length:40}, (_, k) => ell((R(k, 11) - .5) * W, -H / 2 + R(k, 12) * H * .3, 1.4, 1.4, '#FFFFFF', {op:.6}))] :
+    [ell(-W * .3, -H * .32, H * .06, H * .06, '#FFF9E0'), ...[[-.1, -.36], [.25, -.3]].map(([a, b]) => grp([ell(-40, 0, 40, 22, '#FFFFFF'), ell(0, -10, 44, 30, '#FFFFFF'), ell(40, 0, 36, 22, '#FFFFFF')], {x:W * a, y:H * b}))];
+  return BG(W, H, sky, [...extra, ...ch]);
+}
+add('Backgrounds', 'City (day)', (W, H) => cityScene(W, H, false), {bg:true});
+add('Backgrounds', 'City (night)', (W, H) => cityScene(W, H, true), {bg:true});
+add('Backgrounds', 'Beach (day)', (W, H) => { const sea = H * .02, ch = [];
+  ch.push(ell(W * .28, -H * .28, H * .07, H * .07, '#FFF6D5'), ell(W * .28, -H * .28, H * .15, H * .15, '#FFF6D533'));
+  ch.push(rect(0, sea + H * .12, W, H * .28, lin('#1B6CA8', '#3FA3D8', '#7FD0EA')));
+  for(let k = 0; k < 7; k++){ const y = sea + H * (.02 + k * .03); ch.push(curve(Array.from({length:9}, (_, j) => [-W / 2 + j * W / 8 + (k % 2) * 40, y + (j % 2 ? 3 : -3)]), '#FFFFFF', 2, {op:.25 + k * .05})); }
+  ch.push(grp([poly([[-50, 0], [50, 0], [36, 16], [-36, 16]], '#8D5524'), line([[0, 0], [0, -70]], '#5D4037', 3), poly([[3, -68], [3, -6], [44, -6]], '#FDFEFE'), poly([[-3, -60], [-3, -6], [-34, -6]], '#F5B041')], {x:-W * .18, y:sea + H * .07}));
+  ch.push(rect(0, H * .38, W, H * .26, '#EDCF9A'), blob([[-W * .62, H * .2], [-W * .25, H * .17], [0, H * .2], [W * .25, H * .16], [W * .62, H * .19], [W * .62, H * .62], [-W * .62, H * .62]], lin('#F7E3B5', '#E9C98F')));
+  ch.push(blob([[-W * .6, H * .19], [-W * .2, H * .155], [W * .1, H * .185], [W * .35, H * .15], [W * .6, H * .175], [W * .6, H * .2], [-W * .6, H * .21]], '#FFFFFF', {op:.75}));
+  for(let k = 0; k < 14; k++) ch.push(ell((R(k, 4) - .5) * W, H * (.28 + R(k, 6) * .2), 4, 2, '#D4AC6E'));
+  // palm tree
+  const px = -W * .38, py = H * .32; ch.push(curve([[px, py], [px + 20, py - 120], [px + 60, py - 260]], '#7B5B3A', 22));
+  for(let k = 0; k < 6; k++){ const a = (-160 + k * 34) * D2R, ex = px + 60 + Math.cos(a) * 150, ey = py - 260 + Math.sin(a) * 70 + 40;
+    ch.push(blob([[px + 60, py - 262], [(px + 60 + ex) / 2, Math.min(py - 300, ey - 50)], [ex, ey], [(px + 60 + ex) / 2 + 10, (py - 262 + ey) / 2]], k % 2 ? '#2E8B57' : '#3CB371')); }
+  ch.push(ell(px + 58, py - 255, 12, 12, '#6D4C41'), ell(px + 72, py - 250, 11, 11, '#5D4037'));
+  for(let k = 0; k < 4; k++){ const bx = W * (.0 + k * .07), by = -H * (.25 + R(k, 3) * .08); ch.push(curve([[bx - 14, by], [bx - 6, by - 7], [bx, by]], '#2B2B33', 2.5), curve([[bx, by], [bx + 6, by - 7], [bx + 14, by]], '#2B2B33', 2.5)); }
+  return BG(W, H, ['#4FA3DE', '#BFE3F7', '#F2FAFE'], ch); }, {bg:true});
+add('Backgrounds', 'Jungle', (W, H) => { const ch = [];
+  ch.push(rect(0, 0, W, H, lin('#9CC9A0', '#4E8A5C', '#24452F')));
+  for(let k = 0; k < 14; k++){ const x = -W / 2 + (k + .5) * W / 14, h = H * (.5 + R(k, 1) * .3); ch.push(blob([[x - 70, H * .15], [x - 60, H * .15 - h * .6], [x, H * .15 - h], [x + 60, H * .15 - h * .6], [x + 70, H * .15]], '#3F7A52', {op:.55})); }
+  for(let k = 0; k < 5; k++) ch.push(poly([[-W * .1 + k * W * .08, -H / 2], [-W * .02 + k * W * .08, -H / 2], [W * .1 + k * W * .1, H * .3], [-W * .05 + k * W * .1, H * .3]], '#FFF9D6', {op:.07}));
+  for(let k = 0; k < 6; k++){ const x = -W / 2 + (k + .3) * W / 5.5 + R(k, 2) * 60, w = 40 + R(k, 3) * 40; ch.push(rect(x, 0, w, H, lin('#4E3B2A', '#2F241A')), rect(x - w * .2, 0, w * .25, H, '#5E4A36', {op:.6}));
+    ch.push(blob([[x - 160, -H * .38], [x - 60, -H * .52], [x + 80, -H * .5], [x + 170, -H * .36], [x + 40, -H * .28], [x - 90, -H * .28]], k % 2 ? '#1F5A33' : '#2A6E3F')); }
+  for(let k = 0; k < 10; k++){ const x = -W / 2 + R(k, 8) * W; ch.push(curve([[x, -H / 2], [x + 20, -H * .25], [x - 10, -H * .05], [x + 8, H * .05]], '#2E5E2E', 4)); ch.push(ell(x + 8, H * .05, 6, 9, '#3E7E3E')); }
+  ch.push(blob([[-W * .15, H / 2], [-W * .05, H * .2], [W * .05, H * .2], [W * .2, H / 2]], '#8D6E4A', {op:.85}), rect(0, H * .35, W, H * .3, '#1E3D24', {op:.6}));
+  for(let k = 0; k < 18; k++){ const x = -W / 2 + k * W / 17, y = H * (.38 + R(k, 9) * .1), c = k % 3 ? '#2F7D3A' : '#3D9447';
+    for(let j = -2; j <= 2; j++) ch.push(blob([[x, y], [x + j * 28, y - 70 - Math.abs(j) * -8], [x + j * 34, y - 40], [x + j * 6, y]], c)); }
+  return grp(ch); }, {bg:true});
+add('Backgrounds', 'Temple courtyard', (W, H) => { const ch = [], st = '#D9A86C', sh = '#B9844E', gY = H * .22;
+  ch.push(ell(W * .3, -H * .3, H * .07, H * .07, '#FFF2CC'));
+  // gopuram: stacked tiers
+  const tiers = 7; let tw = W * .3, y = gY - H * .12;
+  ch.push(rect(0, gY - H * .06, tw * 1.08, H * .12, st), rect(0, gY - H * .04, tw * .22, H * .1, '#5A2A16', {r:6}));
+  for(let k = 0; k < tiers; k++){ const th = H * .065, w2 = tw * .86; ch.push(poly([[-tw / 2, y], [tw / 2, y], [w2 / 2, y - th], [-w2 / 2, y - th]], k % 2 ? st : '#E2B47A'));
+    for(let j = 0; j < 5; j++) ch.push(rect(-tw * .36 + j * tw * .18, y - th * .5, tw * .06, th * .6, sh, {r:3}));
+    ch.push(rect(0, y - th - 3, w2 + 8, 6, sh)); tw = w2; y -= th + 6; }
+  ch.push(blob([[-tw * .6, y], [-tw * .5, y - 40], [0, y - 60], [tw * .5, y - 40], [tw * .6, y]], '#C8925A'));
+  for(let k = -1; k <= 1; k++) ch.push(poly([[k * 22 - 7, y - 50], [k * 22 + 7, y - 50], [k * 22, y - 85]], '#E8B923'), ell(k * 22, y - 50, 8, 6, '#D4A017'));
+  // walls left/right
+  ch.push(rect(-W * .34, gY - H * .07, W * .32, H * .14, st), rect(W * .34, gY - H * .07, W * .32, H * .14, st));
+  for(let k = 0; k < 12; k++) ch.push(rect(-W / 2 + (k + .5) * W / 12, gY - H * .14, W / 12 * .6, 10, sh));
+  for(let k = 0; k < 2; k++) for(let j = 0; j < 9; j++) ch.push(rect((k ? 1 : -1) * W * (.2 + j * .035), gY - H * .07, 6, H * .12, k ? '#C9944F' : '#CC9752'), rect((k ? 1 : -1) * W * (.2 + j * .035), gY - H * .03, 18, 6, '#B33A2B', {op:.0}));
+  // stone floor with lines
+  ch.push(rect(0, gY + H * .14, W, H * .28, lin('#CDB38B', '#A68A63')));
+  for(let k = 0; k < 6; k++) ch.push(line([[-W / 2, gY + H * (.02 + k * k * .012)], [W / 2, gY + H * (.02 + k * k * .012)]], '#8F7552', 1.5, {op:.6}));
+  for(let k = -6; k <= 6; k++) ch.push(line([[k * W * .03, gY], [k * W * .16, H / 2]], '#8F7552', 1.5, {op:.5}));
+  // dhwajastambham and diyas
+  ch.push(rect(-W * .3, gY - H * .05, 14, H * .42, lin('#F4D03F', '#B7950B')), rect(-W * .3, gY + H * .16, 50, 20, '#B7950B'));
+  for(let k = 0; k < 3; k++) ch.push(rect(-W * .3, gY - H * (.2 - k * .08), 30, 6, '#D4AC0D'));
+  for(let k = 0; k < 6; k++){ const dx = W * (.12 + k * .055), dy = gY + H * .22; ch.push(ell(dx, dy, 14, 6, '#A0522D'), poly([[dx - 3, dy - 4], [dx + 3, dy - 4], [dx, dy - 20]], '#FFB300'), ell(dx, dy - 12, 14, 14, rad('#FFE08299', '#FFE08200'))); }
+  return BG(W, H, ['#F6B26B', '#FBD9A6', '#FFF4E0'], ch); }, {bg:true});
+add('Backgrounds', 'River ghat', (W, H) => { const ch = [], wl = -H * .02;
+  ch.push(ell(W * .18, -H * .18, H * .07, H * .07, '#FFD27A'), ell(W * .18, -H * .18, H * .16, H * .16, '#FFD27A33'));
+  ch.push(blob([[-W / 2, wl], [-W * .3, wl - H * .04], [0, wl - H * .02], [W * .25, wl - H * .05], [W / 2, wl - H * .03], [W / 2, wl], [-W / 2, wl + 4]], '#6B5B73'));
+  for(let k = 0; k < 9; k++){ const x = -W * .45 + k * W * .11; ch.push(rect(x, wl - H * .05, 24, 30 + R(k) * 20, '#5A4A63')); }
+  ch.push(rect(0, wl + H * .26, W, H * .52, lin('#E59A6A', '#9A6F7A', '#4E5C7A')));
+  for(let k = 0; k < 7; k++) ch.push(rect(W * .18, wl + H * (.03 + k * .04), H * (.18 - k * .02), 4, '#FFD27A', {op:.6 - k * .06}));
+  for(let k = 0; k < 10; k++) ch.push(line([[(R(k, 3) - .5) * W, wl + H * (.05 + R(k, 4) * .25)], [(R(k, 3) - .5) * W + 60, wl + H * (.05 + R(k, 4) * .25)]], '#FFFFFF', 2, {op:.25}));
+  // ghat steps bottom-left
+  for(let k = 0; k < 8; k++){ const y = H * (.2 + k * .04), w = W * (.55 + k * .03); ch.push(rect(-W / 2 + w / 2, y, w, H * .042, k % 2 ? '#C9A27A' : '#B38D66')); }
+  ch.push(grp([rect(0, 30, 110, 60, '#D9B38C'), poly([[-60, 0], [60, 0], [0, -70]], '#C77D4F'), rect(0, 40, 26, 40, '#5A2A16'), line([[0, -70], [0, -100]], '#8B4513', 2), poly([[0, -100], [26, -92], [0, -84]], '#FF8C00')], {x:-W * .33, y:H * .1}));
+  ch.push(grp([rect(0, 30, 80, 50, '#E0C097'), ell(0, 0, 40, 30, '#D69E6A'), rect(0, 38, 18, 30, '#5A2A16')], {x:-W * .15, y:H * .12}));
+  // boats
+  for(let k = 0; k < 2; k++){ const bx = W * (.05 + k * .25), by = wl + H * (.12 + k * .08); ch.push(blob([[bx - 70, by], [bx + 70, by], [bx + 50, by + 16], [bx - 50, by + 16]], '#5D4037'), rect(bx, by - 2, 120, 4, '#8D6E63'));
+    ch.push(ell(bx - 20, by - 6, 5, 5, '#FFB300'), ell(bx - 20, by - 6, 14, 14, rad('#FFE08299', '#FFE08200'))); }
+  return BG(W, H, ['#F28C5A', '#F7B47A', '#FCE0B8'], ch); }, {bg:true});
+add('Backgrounds', 'Waterfall', (W, H) => { const ch = [];
+  ch.push(blob([[-W / 2, -H * .2], [-W * .25, -H * .32], [-W * .08, -H * .22], [-W * .08, H * .2], [-W / 2, H * .25]], '#6E6259'), blob([[W * .08, -H * .24], [W * .3, -H * .34], [W / 2, -H * .25], [W / 2, H * .25], [W * .08, H * .2]], '#62574F'));
+  ch.push(rect(0, -H * .02, W * .17, H * .42, lin('#E8F6FB', '#BFE5F2', '#E8F6FB')));
+  for(let k = 0; k < 9; k++) ch.push(line([[-W * .075 + k * W * .019, -H * .23], [-W * .075 + k * W * .019 + (k % 2 ? 4 : -4), H * .18]], '#FFFFFF', 3, {op:.6}));
+  ch.push(ell(0, H * .26, W * .45, H * .12, lin('#4FA3C7', '#2F7FA0')), ell(0, H * .2, W * .14, H * .06, '#FFFFFF', {op:.75}), ell(0, H * .16, W * .2, H * .08, '#FFFFFF', {op:.3}));
+  for(const sgn of [-1, 1]) for(let k = 0; k < 7; k++) ch.push(ell(sgn * W * (.18 + k * .05), -H * (.28 - (k % 3) * .02) + k * 6, 60, 40, k % 2 ? '#2E7D32' : '#388E3C'));
+  ch.push(rect(0, H * .43, W, H * .14, '#3B6E3B'));
+  for(let k = 0; k < 16; k++) ch.push(ell(-W / 2 + k * W / 15, H * .38, 50, 26, k % 2 ? '#2E6B2E' : '#3F8A3F'));
+  for(let k = 0; k < 5; k++) ch.push(ell(W * (-.35 + k * .17), H * .33, 28, 16, '#7D7368'));
+  return BG(W, H, ['#8FD3F4', '#D5F0FA'], ch); }, {bg:true});
+add('Backgrounds', 'Himalaya snow peaks', (W, H) => { const ch = [];
+  ch.push(poly([[-W / 2, H * .05], [-W * .35, -H * .25], [-W * .2, -H * .05], [-W * .02, -H * .38], [W * .18, -H * .08], [W * .32, -H * .3], [W / 2, -H * .02], [W / 2, H * .1], [-W / 2, H * .1]], '#7C8FA6'));
+  for(const [x, y, s] of [[-W * .35, -H * .25, .7], [-W * .02, -H * .38, 1], [W * .32, -H * .3, .8]]) ch.push(poly([[x - 70 * s, y + 60 * s], [x, y], [x + 80 * s, y + 70 * s], [x + 40 * s, y + 55 * s], [x + 10 * s, y + 75 * s], [x - 30 * s, y + 50 * s]], '#FFFFFF'));
+  ch.push(poly([[-W / 2, H * .15], [-W * .3, -H * .06], [-W * .1, H * .08], [W * .12, -H * .04], [W * .35, H * .1], [W / 2, H * .02], [W / 2, H * .2], [-W / 2, H * .2]], '#5E7C6B'));
+  for(let k = 0; k < 26; k++){ const x = -W / 2 + k * W / 25 + R(k) * 20, y = H * (.2 + R(k, 2) * .06), h = 60 + R(k, 3) * 50; for(let j = 0; j < 3; j++) ch.push(poly([[x - 26 + j * 5, y - j * h * .28], [x, y - h - j * h * .1], [x + 26 - j * 5, y - j * h * .28]], '#1F4D3A')); }
+  ch.push(rect(0, H * .37, W, H * .3, lin('#7CB46B', '#5C9450')));
+  for(let k = 0; k < 20; k++) ch.push(ell((R(k, 5) - .5) * W, H * (.3 + R(k, 6) * .18), 4, 4, ['#FFFFFF', '#F7DC6F', '#E59866'][k % 3]));
+  return BG(W, H, ['#3F7FC4', '#A9CDEB', '#E8F2FA'], ch); }, {bg:true});
+add('Backgrounds', 'Desert', (W, H) => { const ch = [ell(W * .25, -H * .2, H * .1, H * .1, '#FFF1C1'), ell(W * .25, -H * .2, H * .22, H * .22, '#FFF1C133')];
+  ch.push(blob([[-W / 2, H * .05], [-W * .2, -H * .06], [W * .1, H * .04], [W * .4, -H * .05], [W / 2, 0], [W / 2, H / 2], [-W / 2, H / 2]], '#E8B977'));
+  ch.push(blob([[-W / 2, H * .2], [-W * .25, H * .08], [W * .05, H * .2], [W * .3, H * .1], [W / 2, H * .18], [W / 2, H / 2], [-W / 2, H / 2]], '#D9A35F'));
+  ch.push(blob([[-W / 2, H * .38], [-W * .1, H * .26], [W * .2, H * .36], [W / 2, H * .3], [W / 2, H / 2], [-W / 2, H / 2]], '#C98E4C'));
+  for(let k = 0; k < 4; k++){ const x = -W * .2 + k * 70, y = -H * .02 + k * 3; ch.push(grp([ell(0, -26, 26, 14, '#5A3E2B'), ell(6, -40, 9, 9, '#5A3E2B'), rect(30, -40, 6, 22, '#5A3E2B'), ell(34, -50, 9, 6, '#5A3E2B'),
+    line([[-16, -16], [-18, 8]], '#5A3E2B', 4), line([[-6, -16], [-6, 8]], '#5A3E2B', 4), line([[10, -16], [12, 8]], '#5A3E2B', 4), line([[18, -16], [20, 8]], '#5A3E2B', 4)], {x, y, s:.8})); }
+  for(let k = 0; k < 6; k++){ const x = (R(k, 9) - .5) * W, y = H * (.3 + R(k, 8) * .15); ch.push(ell(x, y, 22, 10, '#8A7A3A'), ell(x + 10, y - 6, 14, 8, '#9C8C48')); }
+  return BG(W, H, ['#F6C58B', '#FBE3B8', '#FFF5E1'], ch); }, {bg:true});
+add('Backgrounds', 'Cave (meditation)', (W, H) => { const ch = [rect(0, 0, W, H, lin('#2A211B', '#15100C'))];
+  ch.push(blob([[-W * .2, H * .15], [-W * .24, -H * .1], [-W * .12, -H * .32], [W * .05, -H * .36], [W * .2, -H * .24], [W * .24, H * .02], [W * .18, H * .15]], lin('#FFE7B0', '#F6B26B', '#9C6B3E')));
+  for(let k = 0; k < 4; k++) ch.push(poly([[-W * .1 + k * W * .06, -H * .3], [-W * .06 + k * W * .06, -H * .3], [W * (-.05 + k * .12), H * .45], [W * (-.2 + k * .1), H * .45]], '#FFE9B8', {op:.07}));
+  ch.push(blob([[-W / 2, -H / 2], [W / 2, -H / 2], [W / 2, H * .1], [W * .35, -H * .05], [W * .28, -H * .3], [W * .1, -H * .42], [-W * .15, -H * .4], [-W * .3, -H * .2], [-W * .32, H * .05], [-W / 2, H * .15]], '#2B211A'));
+  for(let k = 0; k < 9; k++){ const x = -W * .25 + k * W * .06; ch.push(poly([[x - 12, -H * .38 + R(k) * 20], [x + 12, -H * .38 + R(k) * 20], [x + 2, -H * .25 + R(k, 2) * 40]], '#3A2C22')); }
+  ch.push(ell(0, H * .4, W * .6, H * .16, '#3B2E24'), ell(0, H * .32, W * .3, H * .06, '#4D3C2E'));
+  for(let k = 0; k < 6; k++) ch.push(ell((R(k, 4) - .5) * W * .9, H * (.35 + R(k, 5) * .1), 30 + R(k) * 30, 16, '#2E241C'));
+  return grp(ch); }, {bg:true});
+add('Backgrounds', 'Space (cosmos)', (W, H) => { const ch = [rect(0, 0, W, H, lin('#02030C', '#0B0F2E', '#1A1040'))];
+  for(const [x, y, rx, c] of [[-.25, -.1, .35, '#6A2C91'], [.2, .15, .3, '#1B4F8A'], [.05, -.25, .25, '#9C2F5C']]) ch.push(ell(W * x, H * y, W * rx, H * rx * .9, rad(c + '88', c + '00')));
+  for(let k = 0; k < 160; k++) ch.push(ell((R(k, 21) - .5) * W, (R(k, 22) - .5) * H, k % 9 ? 1.2 : 2.4, k % 9 ? 1.2 : 2.4, ['#FFFFFF', '#CFE3FF', '#FFE9C4'][k % 3], {op:.4 + R(k, 23) * .6}));
+  ch.push(grp(Array.from({length:60}, (_, k) => { const a = k * .35, r2 = 6 + k * 3.2; return ell(Math.cos(a) * r2, Math.sin(a) * r2 * .45, 3 + k * .05, 2, '#F5E9FF', {op:.5 - k * .006}); }).concat([ell(0, 0, 26, 14, rad('#FFFFFF', '#E0C8FF00'))]), {x:W * .28, y:-H * .25, rot:-20}));
+  ch.push(ell(-W * .3, H * .22, 70, 70, lin('#F0B27A', '#A0522D')), ell(-W * .3, H * .22, 120, 24, null, {stroke:'#F5CBA7', lw:6, rot:-15}), ell(-W * .3, H * .22, 70, 70, rad('#00000000', '#00000066')));
+  ch.push(ell(W * .35, H * .3, 26, 26, lin('#85C1E9', '#2E86C1')));
+  return grp(ch); }, {bg:true});
+add('Backgrounds', 'Heaven (golden clouds)', (W, H) => { const ch = [];
+  for(let k = 0; k < 12; k++){ const a = (-90 + (k - 5.5) * 13) * D2R; ch.push(poly([[0, -H * .55], [Math.cos(a - .04) * W, -H * .55 + Math.sin(a - .04) * -W], [Math.cos(a + .04) * W, -H * .55 + Math.sin(a + .04) * -W]].map(([x, y]) => [x, -y - H * 1.1]), '#FFFFFF', {op:.0})); }
+  for(let k = 0; k < 10; k++){ const a = ((k - 4.5) * 12) * D2R; ch.push(poly([[0, -H * .5], [Math.sin(a - .05) * W, H * .6], [Math.sin(a + .05) * W, H * .6]], '#FFFBEA', {op:.12})); }
+  ch.push(ell(0, -H * .5, W * .2, H * .2, rad('#FFFFFF', '#FFF5D600')));
+  for(let row = 0; row < 3; row++) for(let k = 0; k < 7; k++){ const x = -W / 2 + k * W / 6 + (row % 2) * 80, y = H * (.1 + row * .14), c = row === 2 ? '#FFFFFF' : row ? '#FFF3DC' : '#FCE4C0';
+    ch.push(grp([ell(-70, 0, 80, 46, c), ell(0, -26, 90, 60, c), ell(80, 0, 76, 44, c), ell(10, 14, 120, 34, c)], {x, y})); }
+  return BG(W, H, ['#F9C96B', '#FCE2A8', '#FFF6E0'], ch); }, {bg:true});
+add('Backgrounds', 'Rainy sky (dark clouds)', (W, H) => { const ch = [];
+  for(let row = 0; row < 3; row++) for(let k = 0; k < 7; k++){ const x = -W / 2 + k * W / 6 + (row % 2) * 70, y = -H * (.42 - row * .1), c = ['#5D6670', '#6E7782', '#808994'][row];
+    ch.push(grp([ell(-60, 0, 70, 40, c), ell(0, -20, 80, 52, c), ell(70, 0, 66, 38, c)], {x, y})); }
+  ch.push(poly([[-W / 2, H * .12], [-W * .2, H * .02], [W * .1, H * .1], [W * .4, H * .0], [W / 2, H * .06], [W / 2, H * .2], [-W / 2, H * .2]], '#4E6352', {smooth:true}));
+  ch.push(rect(0, H * .35, W, H * .3, lin('#5F7F4C', '#3F5F35')));
+  for(let k = 0; k < 6; k++) ch.push(ell((R(k, 7) - .5) * W, H * (.33 + R(k, 8) * .12), 70, 10, '#8FA6B8', {op:.5}));
+  return BG(W, H, ['#4A525C', '#7A848F', '#A5AEB8'], ch); }, {bg:true});
+add('Backgrounds', 'Home (living room)', (W, H) => { const ch = [], fY = H * .22;
+  ch.push(rect(0, -H * .14, W, H * .72, lin('#F3E5D0', '#E8D3B6')), rect(0, fY + H * .14, W, H * .28, lin('#B07B4F', '#8E5E3A')));
+  for(let k = 0; k < 10; k++) ch.push(line([[-W / 2 + k * W / 9, fY], [-W / 2 + k * W / 9 - 60, H / 2]], '#7A4E2E', 1.5, {op:.5}));
+  ch.push(rect(0, fY, W, 10, '#C9A27A'));
+  // window
+  ch.push(rect(-W * .28, -H * .12, W * .22, H * .34, '#8B6B4A', {r:4}), rect(-W * .28, -H * .12, W * .2, H * .31, lin('#9FD3F2', '#DDF1FB')), rect(-W * .28, -H * .12, 6, H * .31, '#8B6B4A'), rect(-W * .28, -H * .12, W * .2, 6, '#8B6B4A'));
+  ch.push(rect(-W * .41, -H * .1, W * .05, H * .4, '#C0392B', {op:.85}), rect(-W * .15, -H * .1, W * .05, H * .4, '#C0392B', {op:.85}));
+  // sofa
+  ch.push(rect(W * .1, fY - H * .02, W * .38, H * .16, '#5D6D7E', {r:18}), rect(W * .1, fY - H * .12, W * .36, H * .1, '#6C7A89', {r:16}), rect(W * -.08, fY - H * .03, W * .04, H * .17, '#4D5B69', {r:12}), rect(W * .28, fY - H * .03, W * .04, H * .17, '#4D5B69', {r:12}));
+  ch.push(rect(W * .02, fY - H * .08, W * .06, H * .06, '#F5B041', {r:10, rot:-8}), rect(W * .2, fY - H * .08, W * .06, H * .06, '#48C9B0', {r:10, rot:8}));
+  // frame, lamp, plant
+  ch.push(rect(W * .1, -H * .26, W * .16, H * .14, '#7B5B3A'), rect(W * .1, -H * .26, W * .14, H * .12, lin('#F6C58B', '#E59866')), ell(W * .07, -H * .27, 14, 14, '#FFF1C1'));
+  ch.push(rect(W * .4, fY - H * .14, 6, H * .28, '#2C3E50'), poly([[W * .4 - 34, fY - H * .3], [W * .4 + 34, fY - H * .3], [W * .4 + 24, fY - H * .38], [W * .4 - 24, fY - H * .38]], '#F9E79F'));
+  ch.push(rect(-W * .44, fY + H * .02, 46, 56, '#B9770E', {r:6}), ...[-1, 0, 1].map(j => blob([[-W * .44, fY - 2], [-W * .44 + j * 40, fY - H * .14], [-W * .44 + j * 12, fY - 10]], '#27AE60')));
+  ch.push(ell(W * .1, fY + H * .2, W * .2, H * .05, '#A93226', {op:.5}));
+  return grp(ch); }, {bg:true});
+add('Backgrounds', 'Office', (W, H) => { const ch = [], fY = H * .22;
+  ch.push(rect(0, -H * .14, W, H * .72, lin('#E9EEF2', '#D5DDE3')), rect(0, fY + H * .14, W, H * .28, lin('#9AA5AE', '#7F8A93')), rect(0, fY, W, 8, '#B5BEC6'));
+  ch.push(rect(-W * .25, -H * .12, W * .34, H * .36, '#5D6D7E', {r:4}), rect(-W * .25, -H * .12, W * .32, H * .33, lin('#A9D3F0', '#E3F2FB')));
+  for(let k = 0; k < 10; k++) ch.push(rect(-W * .25, -H * .27 + k * H * .033, W * .32, 5, '#FFFFFF', {op:.55}));
+  ch.push(rect(W * .32, -H * .05, W * .2, H * .5, '#8E6E53'), ...[0, 1, 2, 3].map(k => rect(W * .32, -H * .24 + k * H * .12, W * .19, 6, '#6E5440')));
+  for(let k = 0; k < 4; k++) for(let j = 0; j < 7; j++) ch.push(rect(W * .25 + j * W * .022, -H * .27 + k * H * .12, W * .016, H * .08 - (j % 3) * 6, ['#C0392B', '#2980B9', '#27AE60', '#F39C12', '#8E44AD'][(k + j) % 5]));
+  ch.push(rect(0, fY - H * .02, W * .44, 16, '#6E4B33', {r:4}), rect(-W * .19, fY + H * .08, 14, H * .2, '#4E3524'), rect(W * .19, fY + H * .08, 14, H * .2, '#4E3524'));
+  ch.push(rect(0, fY - H * .14, W * .16, H * .14, '#2C3E50', {r:6}), rect(0, fY - H * .14, W * .148, H * .12, lin('#3498DB', '#1B4F72')), rect(0, fY - H * .045, 10, H * .04, '#2C3E50'), rect(0, fY - H * .03, 60, 6, '#2C3E50'));
+  ch.push(rect(-W * .14, fY - H * .045, 60, 10, '#ECF0F1', {r:3}), ell(W * .14, fY - H * .045, 16, 10, '#FDFEFE'), rect(W * .14, fY - H * .07, 20, 26, '#A04000', {r:4}));
+  ch.push(rect(-W * .42, fY + H * .02, 50, 64, '#7F8C8D', {r:6}), ...[-1, 0, 1].map(j => blob([[-W * .42, fY - 4], [-W * .42 + j * 46, fY - H * .2], [-W * .42 + j * 14, fY - 14]], '#229954')));
+  ch.push(rect(W * -.42, -H * .3, 70, 70, '#FFFFFF', {r:35}), ell(W * -.42, -H * .3, 31, 31, '#FDFEFE', {stroke:'#2C3E50', lw:3}), line([[W * -.42, -H * .3], [W * -.42, -H * .33]], '#2C3E50', 3), line([[W * -.42, -H * .3], [W * -.4, -H * .3]], '#2C3E50', 3));
+  return grp(ch); }, {bg:true});
+
 // ---------------------------------------------------------------- motion graphics
 add('Motion graphics', 'Title bar', () => grp([rect(0, 0, 560, 90, lin('#F39C12', '#E67E22'), {r:14}), rect(-262, 0, 14, 70, '#FFFFFF', {r:4}), txt('Your Title Here', 10, 0, 44, '#FFFFFF')]));
 add('Motion graphics', 'Lower third (name strip)', () => grp([rect(0, 0, 520, 80, '#1B2631', {r:6}), rect(-245, 0, 30, 80, '#F39C12'), txt('Your Name', -10, -14, 32, '#FFFFFF'), txt('Phone number / title', -10, 22, 20, '#F9E79F')]));

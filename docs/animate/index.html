@@ -161,7 +161,7 @@
     <h2 id="soundSec">Sound</h2>
     <button id="aGen" style="width:100%;background:var(--acc);color:#1a1300;border-color:var(--acc);font-weight:600;margin-bottom:4px">🎼 Generate music (real instruments)</button>
     <a href="../studio/" style="display:block;text-align:center;color:var(--acc);font-size:12px;margin:2px 0 6px">🎹 Instrument Studio — compose with real instruments</a>
-    <div class="row"><button id="aMusic">🎵 Simple music</button><button id="aSfx">🔊 Effect</button><button id="aRec">🎙️ Record voice</button><button id="aUpload">📁 Upload</button></div>
+    <div class="row"><button id="aMusic">🎵 Simple music</button><button id="aSfx">🔊 Effect</button><button id="aAmb">🌧️ Nature & places</button><button id="aRec">🎙️ Record voice</button><button id="aUpload">📁 Upload</button></div>
     <input id="fAudio" type="file" accept="audio/*,.mp3,.m4a,.wav,.ogg,.aac" hidden>
     <div id="clips" class="layers" style="margin-top:6px"></div>
     <div class="hint" style="margin-top:4px">Effects, voice and uploads start at the current time, so move the time slider first. Voice recording plays your animation while you speak.</div>
@@ -277,6 +277,7 @@
 <script src="effects.js"></script>
 <script src="templates.js"></script>
 <script src="sound.js"></script>
+<script src="ambience.js"></script>
 <script src="synth.js"></script>
 <script src="synthmusic.js"></script>
 <script src="musicgen.js"></script>
@@ -1088,18 +1089,20 @@ function renderClips(){
 function openSoundPicker(type){
   const S = window.VG_SOUND; if(!S) return toast('Sound did not load', true);
   $('sndTitle').textContent = type === 'music' ? '🎵 Background music' : '🔊 Sound effects';
-  const items = type === 'music' ? S.MUSIC : S.SFX;
-  $('sndList').innerHTML = items.map(it => `<div class="layer"><span>${it.icon || '🔊'}</span><span class="nm">${it.name}</span><span class="hint">${it.len ? it.len + 's' : 'full length'}</span>
+  const items = type === 'music' ? S.MUSIC : type === 'amb' ? (window.VG_AMB ? VG_AMB.LIST.map(a => ({...a, id:'amb:' + a.id})) : []) : S.SFX;
+  if(type === 'amb') $('sndTitle').textContent = '🌧️ Nature & place sounds';
+  $('sndList').innerHTML = items.map(it => `<div class="layer"><span>${it.icon || '🔊'}</span><span class="nm">${it.name}</span><span class="hint">${it.len ? it.len + 's' : type === 'amb' ? 'from here to end' : 'full length'}</span>
     <button data-p="${it.id}">▶ Listen</button><button data-add="${it.id}" style="background:var(--acc);color:#1a1300;border-color:var(--acc)">＋ Add</button></div>`).join('');
-  $('sndList').querySelectorAll('[data-p]').forEach(b => b.onclick = async () => { stopAudio(); b.textContent = '…'; const buf = await S.render(b.dataset.p, type === 'music' ? Math.min(12, P.duration) : 0);
+  $('sndList').querySelectorAll('[data-p]').forEach(b => b.onclick = async () => { stopAudio(); b.textContent = '…'; const buf = await S.render(b.dataset.p, type === 'music' ? Math.min(12, P.duration) : type === 'amb' ? 10 : 0);
     const ctx = AC(), src = ctx.createBufferSource(); src.buffer = buf; src.connect(ctx.destination); src.start(); src.stop(ctx.currentTime + Math.min(buf.duration, 8)); playingSrc.push(src); b.textContent = '▶ Listen'; });
   $('sndList').querySelectorAll('[data-add]').forEach(b => b.onclick = async () => { const it = items.find(x => x.id === b.dataset.add);
     if(type === 'music') await addClip({name:it.name, kind:'music', synth:it.id, start:0, len:P.duration, volume:0.8, fadeIn:1.5, fadeOut:2});
+    else if(type === 'amb'){ const st = +T.toFixed(2); await addClip({name:(it.icon || '') + ' ' + it.name, kind:'sfx', synth:it.id, start:st, len:+Math.max(2, P.duration - st).toFixed(2), volume:0.7, fadeIn:1, fadeOut:1.5}); }
     else await addClip({name:it.name, kind:'sfx', synth:it.id, start:+T.toFixed(2), volume:1});
     $('sndModal').style.display = 'none'; toast(`Added ${it.name}${type === 'music' ? '' : ' at ' + T.toFixed(1) + 's'}`); });
   $('sndModal').style.display = 'flex';
 }
-$('aMusic').onclick = () => openSoundPicker('music'); $('aSfx').onclick = () => openSoundPicker('sfx');
+$('aMusic').onclick = () => openSoundPicker('music'); $('aSfx').onclick = () => openSoundPicker('sfx'); $('aAmb').onclick = () => openSoundPicker('amb');
 $('sndClose').onclick = () => { stopAudio(); $('sndModal').style.display = 'none'; };
 $('tSound').onclick = () => { $('side').classList.add('open'); setTimeout(() => $('soundSec').scrollIntoView({behavior:'smooth', block:'start'}), 50); };
 $('aUpload').onclick = () => $('fAudio').click();
@@ -1298,7 +1301,13 @@ function addFx(kind){
   const d = K[3]; o.show = VG_FX.isTransition(kind) ? [Math.max(0, +(T - d / 2).toFixed(2)), +(T + d / 2).toFixed(2)] : [+T.toFixed(2), Math.min(P.duration, +(T + d).toFixed(2))];
   if(['night', 'warm', 'oldfilm', 'bw', 'vignette', 'stars'].includes(kind)) o.show[1] = null;   // colour filters stay on
   touch(o); pushUndo(); const top = P.layers[P.layers.length - 1]; top.objects.push(o); curLayer = P.layers.length - 1;
-  selId = o.id; setTool('select'); refreshAll(); autosave(); return o;
+  selId = o.id; setTool('select'); refreshAll(); autosave();
+  // weather and nature effects bring their sound along (remove it in the Sound panel if not wanted)
+  const AMB_FOR = {rain:'rain_light', lightning:'thunder', fire:'fire', fireflies:'night', birds:'forest'};
+  if(AMB_FOR[kind] && window.VG_AMB && P.audio){ const a = VG_AMB.LIST.find(x => x.id === AMB_FOR[kind]), st = o.show[0], en = o.show[1] ?? P.duration;
+    addClip({name:`${a.icon} ${a.name}`, kind:'sfx', synth:'amb:' + a.id, start:st, len:+Math.max(2, en - st + (kind === 'lightning' ? 4 : 0.5)).toFixed(2), volume:0.7, fadeIn:0.8, fadeOut:1.2})
+      .then(() => toast(`${K[0]} added, with its sound (see 🔊 Sound)`)).catch(() => {}); }
+  return o;
 }
 function fxAction(id){
   if(id.startsWith('cam:')) return camAction(id.slice(4));

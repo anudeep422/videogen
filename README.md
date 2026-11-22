@@ -97,6 +97,14 @@ Colour filters: day to night, warm sunset, old film, black and white, and dark c
 **Scenes:** ✂️ New scene here ends the current scene with a fade, and new things belong to the next scene.
 **Text animation:** typewriter, word by word, letters bounce in, wave and glow (Telugu letters stay whole).
 
+**Scenes (new):** City day and night, Beach, Jungle, Temple courtyard (gopuram), River ghat, Waterfall, Himalaya snow peaks,
+Desert, Cave, Space (cosmos), Heaven (golden clouds), Rainy sky, Home (living room) and Office, each also as a ready template.
+
+**Nature & place sounds (new, `docs/animate/ambience.js`):** light and heavy rain, thunderstorm, thunder, wind, river, sea waves,
+waterfall, forest, morning birds with koel, village morning (rooster, cows, bells), night (crickets, frogs, owl), fire/homam,
+city traffic, crowd, temple, cave drops and cosmic hum. All made with code, any length. Sound panel → 🌧️ Nature & places.
+Adding the Rain, Lightning, Fire, Fireflies or Birds effect adds its sound automatically.
+
 ## 🎼 Built-in music engine (used by the Animator's Sound panel and the Instrument Studio)
 
 **Synthesised Indian instruments (physical models, no recordings, work offline):** veena, sitar (with sympathetic
