@@ -1,6 +1,13 @@
-# Renders every scene file in scenes/ whenever you push a change,
-# or on demand from the Actions tab ("Run workflow"). No AI involved.
-# Download the MP4s from the run page -> Artifacts -> videos.
+# Renders scene files from scenes/ into MP4 videos. No AI involved.
+#
+# - Push (or save from the editor's "Render on GitHub" button) a scene file:
+#   only the scene files that changed are rendered.
+# - Change the engine (videogen/, render.py): every scene is rendered again.
+# - Actions tab -> Render videos -> Run workflow: render one file or all.
+#
+# Finished videos are published as direct download links on the
+# "videos" release (repo page -> Releases -> Rendered videos), and also
+# kept as a zip under the run's Artifacts for 30 days.
 name: Render videos
 
 on:
@@ -9,7 +16,7 @@ on:
   workflow_dispatch:
     inputs:
       scene:
-        description: 'Scene file to render (leave empty for all)'
+        description: 'Scene file to render, e.g. scenes/village.yaml (leave empty for all)'
         required: false
         default: ''
       hd:
@@ -17,35 +24,79 @@ on:
         type: boolean
         default: false
 
+permissions:
+  contents: write
+
+concurrency:
+  group: render-videos
+  cancel-in-progress: false
+
 jobs:
   render:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Decide what to render
+        id: pick
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            if [ -n "${{ inputs.scene }}" ]; then echo "files=${{ inputs.scene }}" >> "$GITHUB_OUTPUT"
+            else echo "files=ALL" >> "$GITHUB_OUTPUT"; fi
+            exit 0
+          fi
+          BEFORE="${{ github.event.before }}"
+          if [ -z "$BEFORE" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ] || ! git cat-file -e "$BEFORE" 2>/dev/null; then
+            echo "files=ALL" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          CHANGED=$(git diff --name-only "$BEFORE" "${{ github.sha }}")
+          if echo "$CHANGED" | grep -qE '^(videogen/|render.py|assets/)'; then
+            echo "files=ALL" >> "$GITHUB_OUTPUT"; exit 0
+          fi
+          SCENES=$(echo "$CHANGED" | grep -E '^scenes/.*\.ya?ml$' | while read f; do [ -f "$f" ] && echo "$f"; done | tr '\n' ' ')
+          echo "files=${SCENES}" >> "$GITHUB_OUTPUT"
+          echo "Will render: ${SCENES:-nothing}"
 
       - name: Install system packages
+        if: steps.pick.outputs.files != ''
         run: sudo apt-get update && sudo apt-get install -y ffmpeg libcairo2-dev pkg-config
 
       - uses: actions/setup-python@v5
+        if: steps.pick.outputs.files != ''
         with:
           python-version: '3.12'
           cache: pip
 
       - name: Install Python packages
+        if: steps.pick.outputs.files != ''
         run: pip install -r requirements.txt
 
       - name: Render
+        if: steps.pick.outputs.files != ''
         run: |
           EXTRA=""
           if [ "${{ inputs.hd }}" = "true" ]; then EXTRA="--hd"; fi
-          if [ -n "${{ inputs.scene }}" ]; then
-            python render.py "${{ inputs.scene }}" $EXTRA
-          else
+          if [ "${{ steps.pick.outputs.files }}" = "ALL" ]; then
             python render.py --all $EXTRA
+          else
+            for f in ${{ steps.pick.outputs.files }}; do python render.py "$f" $EXTRA; done
           fi
 
+      - name: Publish videos as download links
+        if: steps.pick.outputs.files != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view videos >/dev/null 2>&1 || \
+            gh release create videos --title "Rendered videos" --latest=false \
+              --notes "Videos made by VideoGen. Each file is replaced when its scene is rendered again."
+          gh release upload videos output/*.mp4 --clobber
+
       - uses: actions/upload-artifact@v4
+        if: steps.pick.outputs.files != ''
         with:
           name: videos
           path: output/*.mp4

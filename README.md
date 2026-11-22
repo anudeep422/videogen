@@ -35,15 +35,21 @@ and night, and supports **Telugu and English titles**. Everything is drawn with 
 3. Go to **Settings → Pages → Source: GitHub Actions**. The editor goes live at
    `https://<your-username>.github.io/videogen/`.
 
-## 2. Make a video (no installation needed)
+## 2. Make a video (works on a phone, no installation)
 
-1. Open the editor link, press **Load example** or **New**, then add and drag elements and press **Play**.
-2. Press **Download scene .yaml**.
-3. Upload that file into the repo's `scenes/` folder on GitHub.
-4. GitHub renders it automatically. Open the **Actions** tab, then the latest *Render videos* run.
-   Under **Artifacts → videos**, download your MP4.
+1. Open the editor: `https://<your-username>.github.io/videogen/`
+2. Press **Load example** or **New**, then add and drag elements and press **Play** to preview.
+3. Press **🚀 Render on GitHub**. The first time, it asks for a GitHub key:
+   - Open github.com/settings/personal-access-tokens/new
+   - Repository access: **Only select repositories → videogen**
+   - Permissions: **Contents: Read and write**, **Actions: Read-only**
+   - Generate it, paste it into the editor, and press **Test & save**. It is stored only in your browser.
+4. Give the video a name. The editor saves the scene to `scenes/`, GitHub renders it in 1 to 3 minutes,
+   and a **Play / Download** button appears.
+5. All your videos are under **🎞️ My videos**, and on the repo page under **Releases → Rendered videos**.
 
-You can also render on demand: **Actions → Render videos → Run workflow**, enter a scene file, and tick HD if you want it.
+Only the scene you changed is rendered. Changing the engine re-renders every scene.
+You can also render by hand: **Actions → Render videos → Run workflow**.
 
 ## 3. Run on your own computer (optional)
 
