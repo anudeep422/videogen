@@ -81,7 +81,13 @@ YouTube & social (channel intro, subscribe end screen, Top 5 Shorts, square quot
 birthday, good morning Reel). Open one, select a text, tap **✏️ Edit text**, then **🎬 Export video**.
 Add your own in `docs/animate/templates.js`.
 
-**Coming next:** Stage 4 sound, Stage 5 motion-graphics effects, Stage 6 bones,
+**🎵 Stage 4 (now): Sound.** Six background music styles made by code (calm flute, tanpura drone, happy, corporate,
+epic war drums, festival dhol and shehnai) and 15 sound effects (whoosh, pop, ding, temple bell, conch, drum, sword clash,
+explosion, horse gallop, applause, birds, sparkle, cartoon bonk, boing, slide whistle). All are royalty free and no AI.
+**Record your voice** while the animation plays, or **upload** your own MP3. Each clip has start time, volume and fade.
+Everything is mixed into the exported MP4 (AAC, or Opus where AAC is not available). Templates come with music.
+
+**Coming next:** Stage 5 Stage 5 motion-graphics effects, Stage 6 bones,
 Stage 7 library and templates, Stage 8 phone install and Windows app.
 
 Shortcuts on a computer: V select, B brush, L line, R rectangle, O circle, F fill, T text, E eraser, H move view,

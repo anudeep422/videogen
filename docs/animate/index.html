@@ -32,7 +32,7 @@
   #timeline .tr button{padding:4px 9px}
   #timeline input[type=range]{flex:1;min-width:60px}
   #tTime{font-variant-numeric:tabular-nums;font-size:12px;color:var(--dim);min-width:86px;text-align:right}
-  #track{width:100%;height:30px;display:block;margin-top:4px;border-radius:6px;background:#12141a;touch-action:none;cursor:pointer}
+  #track{width:100%;height:42px;display:block;margin-top:4px;border-radius:6px;background:#12141a;touch-action:none;cursor:pointer}
   #bAuto.on{background:#c0392b;border-color:#c0392b;color:#fff}
   .presets{display:grid;grid-template-columns:repeat(4,1fr);gap:4px}
   .presets button{padding:5px 2px;font-size:11px}
@@ -130,6 +130,12 @@
       <button data-pre="spin">Spin</button><button data-pre="pulse">Pulse</button><button data-pre="shake">Shake</button><button data-pre="bounce">Bounce</button>
     </div>
 
+    <h2 id="soundSec">Sound</h2>
+    <div class="row"><button id="aMusic">🎵 Music</button><button id="aSfx">🔊 Effect</button><button id="aRec">🎙️ Record voice</button><button id="aUpload">📁 Upload</button></div>
+    <input id="fAudio" type="file" accept="audio/*,.mp3,.m4a,.wav,.ogg,.aac" hidden>
+    <div id="clips" class="layers" style="margin-top:6px"></div>
+    <div class="hint" style="margin-top:4px">Effects, voice and uploads start at the current time, so move the time slider first. Voice recording plays your animation while you speak.</div>
+
     <h2>Layers <span class="hint" style="text-transform:none;letter-spacing:0">(top is in front)</span></h2>
     <div id="layers" class="layers"></div>
     <div class="row">
@@ -171,6 +177,7 @@
   <button data-tool="text"><b>🔤</b>Text</button>
   <button data-tool="eraser"><b>🧽</b>Eraser</button>
   <button data-tool="hand"><b>✋</b>Move view</button>
+  <button id="tSound"><b>🎵</b>Sound</button>
   <button id="tImage"><b>🖼️</b>Image</button>
 </div>
 <div id="libModal" style="position:fixed;inset:0;background:#000a;display:none;z-index:10;align-items:center;justify-content:center;padding:10px">
@@ -201,11 +208,19 @@
     <div id="tplGrid" style="flex:1;overflow:auto;padding:8px 10px 14px;display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;align-content:start"></div>
   </div>
 </div>
+<div id="sndModal" style="position:fixed;inset:0;background:#000a;display:none;z-index:12;align-items:center;justify-content:center;padding:10px">
+  <div style="background:var(--panel);border:1px solid var(--line);border-radius:12px;width:min(520px,100%);max-height:88vh;display:flex;flex-direction:column;overflow:hidden">
+    <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--line)"><b id="sndTitle" style="font-size:16px">🎵 Music</b><span style="flex:1"></span><button id="sndClose">Close</button></div>
+    <div id="sndList" class="layers" style="overflow:auto;padding:10px"></div>
+    <div class="hint" style="padding:0 12px 10px">All sounds are made by code on your device. Royalty free, no AI.</div>
+  </div>
+</div>
 <div class="toast" id="toast"></div>
 
 <script src="../lib/mp4-muxer.js"></script>
 <script src="library.js"></script>
 <script src="templates.js"></script>
+<script src="sound.js"></script>
 <script>
 /* ==========================================================================
    VideoGen Animator – Stage 1: vector drawing with layers.
@@ -220,7 +235,7 @@ const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
 // ------------------------------------------------------------------ project model
 function newProject(w = 1280, h = 720){
-  return {app:'videogen-animator', version:2, width:w, height:h, background:'#ffffff', duration:10, fps:30, loop:true,
+  return {app:'videogen-animator', version:3, audio:[], width:w, height:h, background:'#ffffff', duration:10, fps:30, loop:true,
     layers:[{id:uid(), name:'Background', visible:true, locked:false, opacity:1, objects:[]},
             {id:uid(), name:'Layer 2', visible:true, locked:false, opacity:1, objects:[]}]};
 }
@@ -694,14 +709,16 @@ $('fImg').onchange = e => { const f = e.target.files[0]; e.target.value = ''; if
 
 // ------------------------------------------------------------------ files
 function download(name, blob){ const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 2000); }
-$('bSave').onclick = () => { const n = (prompt('Project name:', P.name || 'my_animation') || '').trim(); if(!n) return; P.name = n; autosave();
-  download(n.replace(/[^\wఀ-౿ -]+/g, '_') + '.anim.json', new Blob([JSON.stringify(P)], {type:'application/json'})); toast('Saved'); };
+$('bSave').onclick = async () => { const n = (prompt('Project name:', P.name || 'my_animation') || '').trim(); if(!n) return; P.name = n; autosave();
+  const out = JSON.parse(JSON.stringify(P));
+  for(const c of out.audio || []){ if(c.kind === 'voice' || c.kind === 'file'){ const b = await idbGet(c.id); if(b) c.data = await new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.readAsDataURL(b); }); } }
+  download(n.replace(/[^\wఀ-౿ -]+/g, '_') + '.anim.json', new Blob([JSON.stringify(out)], {type:'application/json'})); toast('Saved'); };
 $('bOpen').onclick = () => $('fOpen').click();
 $('fOpen').onchange = e => { const f = e.target.files[0]; e.target.value = ''; if(!f) return;
   f.text().then(t => { try{ const o = JSON.parse(t); if(!o.layers) throw new Error('Not an animator project');
-    pushUndo(); P = o; upgrade(P); curLayer = Math.min(1, P.layers.length - 1); selId = null; P.layers.forEach(L => L.objects.forEach(touch)); syncCanvasUI(); fit(); refreshAll(); autosave(); toast('Opened ' + f.name); }
+    pushUndo(); P = o; upgrade(P); curLayer = Math.min(1, P.layers.length - 1); selId = null; P.layers.forEach(L => L.objects.forEach(touch)); syncCanvasUI(); fit(); refreshAll(); toast('Opened ' + f.name); importAudio().then(() => { autosave(); renderClips(); drawTrack(); }); }
     catch(err){ toast('Could not open: ' + err.message, true); } }); };
-$('bNew').onclick = () => { if(!confirm('Start a new drawing? (You can undo this.)')) return; pushUndo(); const w = P.width, h = P.height; P = newProject(w, h); curLayer = 1; selId = null; syncCanvasUI(); refreshAll(); autosave(); };
+$('bNew').onclick = () => { if(!confirm('Start a new drawing? (You can undo this.)')) return; pushUndo(); const w = P.width, h = P.height; P = newProject(w, h); curLayer = 1; selId = null; syncCanvasUI(); refreshAll(); renderClips(); autosave(); };
 $('bPng').onclick = () => { const c = document.createElement('canvas'); c.width = P.width; c.height = P.height; renderScene(c.getContext('2d'));
   c.toBlob(b => download((P.name || 'drawing') + '.png', b), 'image/png'); };
 ['New','Open','Save','Png'].forEach(n => { $('m' + n).onclick = () => { $('side').classList.remove('open'); $('b' + n).onclick(); }; });
@@ -724,9 +741,9 @@ window.addEventListener('keydown', e => {
     pushUndo(); const e = E(s.o); if(k === 'arrowleft') setProp(s.o, 'x', e.x - st); if(k === 'arrowright') setProp(s.o, 'x', e.x + st); if(k === 'arrowup') setProp(s.o, 'y', e.y - st); if(k === 'arrowdown') setProp(s.o, 'y', e.y + st); draw(); afterEdit(); }
 });
 
-function upgrade(p){ p.duration = p.duration || 10; p.fps = p.fps || 30; if(p.loop === undefined) p.loop = true; p.version = 2; }
+function upgrade(p){ p.duration = p.duration || 10; p.fps = p.fps || 30; if(p.loop === undefined) p.loop = true; p.audio = p.audio || []; p.version = 3; }
 function syncCanvasUI(){ $('nDur').value = P.duration; $('cLoop').checked = !!P.loop; $('cBg').value = P.background; const v = P.width + 'x' + P.height; if([...$('sSize').options].some(o => o.value === v)) $('sSize').value = v; }
-function refreshAll(){ refreshLayers(); draw(); updUndo(); syncTimeUI(); drawTrack(); syncAnimUI(); }
+function refreshAll(){ refreshLayers(); draw(); updUndo(); syncTimeUI(); drawTrack(); syncAnimUI(); if(typeof renderClips === 'function') renderClips(); }
 function toast(msg, bad){ const el = $('toast'); el.textContent = msg; el.style.background = bad ? '#e5534b' : ''; el.classList.add('show'); clearTimeout(toast.h); toast.h = setTimeout(() => el.classList.remove('show'), 2400); }
 
 // ------------------------------------------------------------------ timeline & playback
@@ -734,11 +751,11 @@ function setTime(t, fromSlider){ T = clamp(t, 0, P.duration); syncTimeUI(fromSli
 function syncTimeUI(fromSlider){ const sl = $('tSlider'); sl.max = P.duration; sl.step = frameT(); if(!fromSlider) sl.value = T;
   $('tTime').textContent = `${T.toFixed(2)} / ${(+P.duration).toFixed(1)}s`; $('bPlay').textContent = playing ? '⏸' : '▶'; }
 let rafId = 0, lastTs = 0;
-function play(){ if(playing) return; if(T >= P.duration - 1e-3) T = 0; playing = true; lastTs = performance.now(); syncTimeUI(); rafId = requestAnimationFrame(tick); }
-function pause(){ playing = false; cancelAnimationFrame(rafId); T = snapT(T); syncTimeUI(); draw(); drawTrack(); syncAnimUI(); status(); }
+function play(){ if(playing) return; if(T >= P.duration - 1e-3) T = 0; playing = true; lastTs = performance.now(); syncTimeUI(); startAudio(); rafId = requestAnimationFrame(tick); }
+function pause(){ playing = false; stopAudio(); cancelAnimationFrame(rafId); T = snapT(T); syncTimeUI(); draw(); drawTrack(); syncAnimUI(); status(); }
 function togglePlay(){ playing ? pause() : play(); }
 function tick(ts){ if(!playing) return; T += (ts - lastTs) / 1000; lastTs = ts;
-  if(T >= P.duration){ if(P.loop) T = T % P.duration; else { T = P.duration; pause(); return; } }
+  if(T >= P.duration){ if(P.loop && !recState){ T = T % P.duration; stopAudio(); startAudio(); } else { T = P.duration; pause(); if(recState) stopRecording(); return; } }
   syncTimeUI(); draw(); drawTrack(); rafId = requestAnimationFrame(tick); }
 $('bPlay').onclick = togglePlay;
 $('bStart').onclick = () => { if(playing) pause(); setTime(0); };
@@ -770,6 +787,9 @@ function drawTrack(){
     for(const t of keyTimes(s.o)){ const x = trackX(t); tctx.save(); tctx.translate(x, 22); tctx.rotate(Math.PI / 4);
       tctx.fillStyle = Math.abs(t - T) < frameT() / 2 ? '#f0a830' : '#e8e9ee'; tctx.fillRect(-4.5, -4.5, 9, 9); tctx.restore(); }
   } else { tctx.fillStyle = '#9aa0b4'; tctx.textAlign = 'left'; tctx.fillText('Select an object to see its keyframes', 12, 25); }
+  const KC = {music:'#8E44AD', sfx:'#2E86C1', voice:'#27AE60', file:'#D35400'};
+  (P.audio || []).forEach((c, i) => { const len = clipLen(c); const x0 = trackX(c.start), x1 = trackX(Math.min(P.duration, c.start + len));
+    tctx.fillStyle = KC[c.kind] || '#888'; tctx.globalAlpha = .85; tctx.fillRect(x0, 31 + (i % 2) * 5, Math.max(3, x1 - x0), 4); tctx.globalAlpha = 1; });
   const px = trackX(T); tctx.fillStyle = '#e5534b'; tctx.fillRect(px - 1, 0, 2, h);
 }
 let tdrag = null;
@@ -871,6 +891,118 @@ function insertLib(item){
 $('tLib').onclick = openLibrary; $('libClose').onclick = () => $('libModal').style.display = 'none';
 $('libModal').addEventListener('pointerdown', e => { if(e.target.id === 'libModal') $('libModal').style.display = 'none'; });
 
+// ------------------------------------------------------------------ sound: clips, playback, voice, uploads
+// a clip: {id, name, kind:'music'|'sfx'|'voice'|'file', synth?, start, volume, fadeIn, fadeOut, len?}
+let actx = null, playingSrc = [], recState = null; const abuf = {};
+const AC = () => { if(!actx) actx = new (window.AudioContext || window.webkitAudioContext)(); if(actx.state === 'suspended') actx.resume(); return actx; };
+// a gentle limiter so several sounds together never distort
+function limiter(ctx){ const c = ctx.createDynamicsCompressor(); c.threshold.value = -8; c.knee.value = 6; c.ratio.value = 12; c.attack.value = 0.003; c.release.value = 0.2;
+  const g = ctx.createGain(); g.gain.value = 0.92; c.connect(g); g.connect(ctx.destination); return c; }
+let liveOut = null; const out = () => { const ctx = AC(); if(!liveOut || liveOut.context !== ctx) liveOut = limiter(ctx); return liveOut; };
+// uploaded / recorded audio is kept in the browser's database (too big for normal storage)
+function idb(){ return new Promise((res, rej) => { const r = indexedDB.open('videogen_audio', 1); r.onupgradeneeded = () => r.result.createObjectStore('blobs'); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }); }
+async function idbPut(id, blob){ const db = await idb(); return new Promise((res, rej) => { const tx = db.transaction('blobs', 'readwrite'); tx.objectStore('blobs').put(blob, id); tx.oncomplete = res; tx.onerror = () => rej(tx.error); }); }
+async function idbGet(id){ try{ const db = await idb(); return await new Promise(res => { const rq = db.transaction('blobs').objectStore('blobs').get(id); rq.onsuccess = () => res(rq.result || null); rq.onerror = () => res(null); }); }catch(e){ return null; } }
+function clipLen(c){ const b = abuf[c.id]; return b ? b.duration : (c.len || 1); }
+async function loadClip(c){
+  if(abuf[c.id] && (!c.synth || abuf[c.id]._len === c.len)) return abuf[c.id];
+  try{
+    if(c.synth){ const b = await VG_SOUND.render(c.synth, c.len || P.duration); b._len = c.len; abuf[c.id] = b; }
+    else { const blob = await idbGet(c.id); if(!blob) return null; abuf[c.id] = await AC().decodeAudioData(await blob.arrayBuffer()); }
+  }catch(e){ console.warn('audio', e); return null; }
+  return abuf[c.id];
+}
+const ensureAudio = () => Promise.all((P.audio || []).map(loadClip));
+async function importAudio(){ for(const c of P.audio || []){ if(c.data){ const blob = await (await fetch(c.data)).blob(); await idbPut(c.id, blob); delete c.data; } } await ensureAudio(); }
+function clipGain(ctx, c, when, from, playEnd){   // gain node with volume + fades, for a clip starting at `when`, playing from offset `from`
+  const g = ctx.createGain(), v = c.volume ?? 1, L = Math.min(clipLen(c), playEnd - c.start), fi = c.fadeIn || 0, fo = c.fadeOut || 0;
+  const at = tl => when + (tl - from);   // clip-local time -> context time
+  g.gain.setValueAtTime(fi > 0 && from < fi ? v * from / fi : v, when);
+  if(fi > 0 && from < fi) g.gain.linearRampToValueAtTime(v, at(fi));
+  if(fo > 0 && L - fo > from){ g.gain.setValueAtTime(v, at(L - fo)); g.gain.linearRampToValueAtTime(0.0001, at(L)); }
+  return g;
+}
+function startAudio(){
+  stopAudio(); if(!(P.audio || []).length) return; const ctx = AC(), now = ctx.currentTime + 0.04;
+  for(const c of P.audio){ const b = abuf[c.id]; if(!b) continue; const rel = T - c.start; if(rel >= Math.min(b.duration, P.duration - c.start)) continue;
+    const src = ctx.createBufferSource(); src.buffer = b; const from = Math.max(0, rel), when = now + Math.max(0, -rel);
+    const g = clipGain(ctx, c, when, from, P.duration); src.connect(g); g.connect(out());
+    src.start(when, from); src.stop(now + (P.duration - T)); playingSrc.push(src); }
+}
+function stopAudio(){ playingSrc.forEach(s => { try{ s.stop(); }catch(e){} }); playingSrc = []; }
+function previewClip(c){ stopAudio(); loadClip(c).then(b => { if(!b) return toast('Sound not available', true); const ctx = AC(), src = ctx.createBufferSource(); src.buffer = b;
+  const g = ctx.createGain(); g.gain.value = c.volume ?? 1; src.connect(g); g.connect(ctx.destination); src.start(); src.stop(ctx.currentTime + Math.min(b.duration, 8)); playingSrc.push(src); }); }
+async function addClip(c){ pushUndo(); c.id = c.id || uid(); c.volume = c.volume ?? 1; P.audio.push(c); renderClips(); await loadClip(c); renderClips(); drawTrack(); autosave(); return c; }
+const KIND = {music:'🎵', sfx:'🔊', voice:'🎙️', file:'📁'};
+function renderClips(){
+  const box = $('clips'); if(!box) return; box.innerHTML = '';
+  if(!(P.audio || []).length){ box.innerHTML = '<span class="hint">No sound yet. Add music, an effect, or record your voice.</span>'; return; }
+  P.audio.forEach((c, i) => { const d = document.createElement('div'); d.className = 'layer'; d.style.flexWrap = 'wrap';
+    d.innerHTML = `<span>${KIND[c.kind] || '🎵'}</span><span class="nm" title="${c.name}">${c.name}</span><span class="hint">${clipLen(c).toFixed(1)}s</span>
+      <button data-a="play" title="Listen">▶</button><button data-a="del" title="Remove">✕</button>
+      <div style="display:flex;gap:6px;align-items:center;width:100%;font-size:11px;color:var(--dim)">start <input data-a="start" type="number" step="0.1" min="0" value="${(+c.start).toFixed(1)}" style="width:56px;background:#12141a;border:1px solid var(--line);border-radius:5px;padding:2px 4px">
+      <button data-a="now" title="Start at current time" style="font-size:11px">⏱ now</button> vol <input data-a="vol" type="range" min="0" max="150" value="${Math.round((c.volume ?? 1) * 100)}" style="flex:1;min-width:50px">
+      <label><input data-a="fade" type="checkbox" ${c.fadeIn || c.fadeOut ? 'checked' : ''}> fade</label></div>`;
+    d.querySelector('[data-a=play]').onclick = () => previewClip(c);
+    d.querySelector('[data-a=del]').onclick = () => { pushUndo(); P.audio.splice(i, 1); renderClips(); drawTrack(); autosave(); };
+    d.querySelector('[data-a=now]').onclick = () => { pushUndo(); c.start = +T.toFixed(2); renderClips(); drawTrack(); autosave(); };
+    d.querySelector('[data-a=start]').onchange = e => { pushUndo(); c.start = Math.max(0, +e.target.value || 0); drawTrack(); autosave(); };
+    d.querySelector('[data-a=vol]').oninput = e => { c.volume = +e.target.value / 100; autosave(); };
+    d.querySelector('[data-a=fade]').onchange = e => { c.fadeIn = e.target.checked ? (c.kind === 'music' ? 1.5 : 0.3) : 0; c.fadeOut = e.target.checked ? (c.kind === 'music' ? 2 : 0.3) : 0; autosave(); };
+    box.appendChild(d); });
+}
+function openSoundPicker(type){
+  const S = window.VG_SOUND; if(!S) return toast('Sound did not load', true);
+  $('sndTitle').textContent = type === 'music' ? '🎵 Background music' : '🔊 Sound effects';
+  const items = type === 'music' ? S.MUSIC : S.SFX;
+  $('sndList').innerHTML = items.map(it => `<div class="layer"><span>${it.icon || '🔊'}</span><span class="nm">${it.name}</span><span class="hint">${it.len ? it.len + 's' : 'full length'}</span>
+    <button data-p="${it.id}">▶ Listen</button><button data-add="${it.id}" style="background:var(--acc);color:#1a1300;border-color:var(--acc)">＋ Add</button></div>`).join('');
+  $('sndList').querySelectorAll('[data-p]').forEach(b => b.onclick = async () => { stopAudio(); b.textContent = '…'; const buf = await S.render(b.dataset.p, type === 'music' ? Math.min(12, P.duration) : 0);
+    const ctx = AC(), src = ctx.createBufferSource(); src.buffer = buf; src.connect(ctx.destination); src.start(); src.stop(ctx.currentTime + Math.min(buf.duration, 8)); playingSrc.push(src); b.textContent = '▶ Listen'; });
+  $('sndList').querySelectorAll('[data-add]').forEach(b => b.onclick = async () => { const it = items.find(x => x.id === b.dataset.add);
+    if(type === 'music') await addClip({name:it.name, kind:'music', synth:it.id, start:0, len:P.duration, volume:0.8, fadeIn:1.5, fadeOut:2});
+    else await addClip({name:it.name, kind:'sfx', synth:it.id, start:+T.toFixed(2), volume:1});
+    $('sndModal').style.display = 'none'; toast(`Added ${it.name}${type === 'music' ? '' : ' at ' + T.toFixed(1) + 's'}`); });
+  $('sndModal').style.display = 'flex';
+}
+$('aMusic').onclick = () => openSoundPicker('music'); $('aSfx').onclick = () => openSoundPicker('sfx');
+$('sndClose').onclick = () => { stopAudio(); $('sndModal').style.display = 'none'; };
+$('tSound').onclick = () => { $('side').classList.add('open'); setTimeout(() => $('soundSec').scrollIntoView({behavior:'smooth', block:'start'}), 50); };
+$('aUpload').onclick = () => $('fAudio').click();
+$('fAudio').onchange = async e => { const f = e.target.files[0]; e.target.value = ''; if(!f) return;
+  const id = uid(); try{ await idbPut(id, f); }catch(err){ return toast('Could not store the file: ' + err.message, true); }
+  const c = await addClip({id, name:f.name.replace(/\.[^.]+$/, ''), kind:'file', start:+T.toFixed(2), volume:1});
+  if(!abuf[c.id]){ P.audio.splice(P.audio.indexOf(c), 1); renderClips(); return toast('This audio file could not be read', true); }
+  toast(`Added ${c.name} (${abuf[c.id].duration.toFixed(1)}s)`); };
+async function startRecording(){
+  if(!navigator.mediaDevices || !window.MediaRecorder) return toast('Recording is not supported in this browser', true);
+  let stream; try{ stream = await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true, noiseSuppression:true}}); }
+  catch(e){ return toast('Microphone permission was not given', true); }
+  const type = ['audio/webm;codecs=opus', 'audio/mp4', 'audio/webm', 'audio/ogg'].find(t => MediaRecorder.isTypeSupported(t)) || '';
+  const rec = new MediaRecorder(stream, type ? {mimeType:type} : {}), parts = [], startT = +T.toFixed(2);
+  rec.ondataavailable = e => e.data.size && parts.push(e.data);
+  rec.onstop = async () => { stream.getTracks().forEach(t => t.stop()); const blob = new Blob(parts, {type:rec.mimeType || 'audio/webm'}); const id = uid();
+    await idbPut(id, blob); const n = P.audio.filter(c => c.kind === 'voice').length + 1;
+    const c = await addClip({id, name:'Voice ' + n, kind:'voice', start:startT, volume:1.2});
+    toast(abuf[c.id] ? `Voice recorded (${abuf[c.id].duration.toFixed(1)}s)` : 'Recording failed', !abuf[c.id]); };
+  recState = {rec, startT}; rec.start(200); $('aRec').textContent = '⏹ Stop recording'; $('aRec').style.background = '#c0392b';
+  $('side').classList.remove('open'); toast('Recording… speak now. Tap ⏹ (or ▶) to stop'); play();
+}
+function stopRecording(){ if(!recState) return; const r = recState; recState = null; try{ r.rec.stop(); }catch(e){} $('aRec').textContent = '🎙️ Record voice'; $('aRec').style.background = ''; if(playing) pause(); }
+$('aRec').onclick = () => recState ? stopRecording() : startRecording();
+// stopping playback while recording also stops the recording
+const _togglePlay = togglePlay; togglePlay = function(){ if(recState){ stopRecording(); return; } _togglePlay(); };
+$('bPlay').onclick = togglePlay;
+
+// mix every clip into one track (used by export)
+async function mixAudio(sr = 48000){
+  await ensureAudio(); const clips = (P.audio || []).filter(c => abuf[c.id]); if(!clips.length) return null;
+  const ctx = new OfflineAudioContext(2, Math.ceil(P.duration * sr), sr), lim = limiter(ctx);
+  for(const c of clips){ const b = abuf[c.id]; if(c.start >= P.duration) continue; const src = ctx.createBufferSource(); src.buffer = b;
+    const g = clipGain(ctx, c, c.start, 0, P.duration); src.connect(g); g.connect(lim); src.start(c.start); }
+  return ctx.startRendering();
+}
+
 // ------------------------------------------------------------------ export video (MP4, made in the browser)
 let expStop = false, expBlobUrl = null;
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -881,7 +1013,7 @@ function renderFrame(g, t, W, H){ g.setTransform(W / P.width, 0, 0, H / P.height
 function openExport(){
   if(playing) pause();
   const W = P.width, H = P.height, n = Math.round(P.duration * (P.fps || 30));
-  $('expInfo').innerHTML = `Size <b>${W}×${H}</b> · Length <b>${(+P.duration).toFixed(1)} s</b> · ${n} frames at ${P.fps || 30} fps.<br>The video is made on your device. Nothing is uploaded. No sound yet (coming in Stage 4).`;
+  $('expInfo').innerHTML = `Size <b>${W}×${H}</b> · Length <b>${(+P.duration).toFixed(1)} s</b> · ${n} frames at ${P.fps || 30} fps.<br>The video is made on your device. Nothing is uploaded.<br>Sound: <b>${(P.audio || []).length ? P.audio.length + ' clip(s)' : 'none (add music in 🎵 Sound)'}</b>`;
   $('expMsg').textContent = ''; $('expBarBox').style.display = 'none'; $('expBar').style.width = '0';
   if(!expBlobUrl) $('expOut').innerHTML = ''; $('expModal').style.display = 'flex';
 }
@@ -904,7 +1036,19 @@ async function runExport(){
     let blob = null, ext = 'mp4';
     const cfg = await pickEncoder(W, H, fps, bitrate);
     if(cfg){
-      const muxer = new Mp4Muxer.Muxer({target:new Mp4Muxer.ArrayBufferTarget(), video:{codec:'avc', width:W, height:H, frameRate:fps}, fastStart:'in-memory'});
+      // sound: mix all clips, then pick AAC (best for WhatsApp / YouTube) or Opus
+      $('expMsg').textContent = 'Mixing sound…'; const mix = (P.audio || []).length ? await mixAudio(48000) : null; let acfg = null;
+      if(mix && window.AudioEncoder){ for(const codec of ['mp4a.40.2', 'opus']){ const tc = {codec, sampleRate:48000, numberOfChannels:2, bitrate:160000};
+        try{ if((await AudioEncoder.isConfigSupported(tc)).supported){ acfg = tc; break; } }catch(e){} } }
+      if(mix && !acfg) toast('This browser cannot add sound to MP4. Exporting without sound', true);
+      const muxer = new Mp4Muxer.Muxer({target:new Mp4Muxer.ArrayBufferTarget(), video:{codec:'avc', width:W, height:H, frameRate:fps},
+        ...(acfg ? {audio:{codec:acfg.codec === 'opus' ? 'opus' : 'aac', sampleRate:48000, numberOfChannels:2}} : {}), fastStart:'in-memory'});
+      if(acfg){ let aerr = null; const aenc = new AudioEncoder({output:(chunk, meta) => muxer.addAudioChunk(chunk, meta), error:e => { aerr = e; }}); aenc.configure(acfg);
+        const L = mix.getChannelData(0), R = mix.getChannelData(1), N = 1024;
+        for(let i = 0; i < mix.length; i += N){ const n = Math.min(N, mix.length - i), data = new Float32Array(n * 2); data.set(L.subarray(i, i + n), 0); data.set(R.subarray(i, i + n), n);
+          const ad = new AudioData({format:'f32-planar', sampleRate:48000, numberOfFrames:n, numberOfChannels:2, timestamp:Math.round(i / 48000 * 1e6), data}); aenc.encode(ad); ad.close();
+          if(aenc.encodeQueueSize > 20) await sleep(1); }
+        await aenc.flush(); if(aerr) throw aerr; }
       let err = null; const enc = new VideoEncoder({output:(chunk, meta) => muxer.addVideoChunk(chunk, meta), error:e => { err = e; }});
       enc.configure(cfg);
       const t0 = performance.now();
@@ -926,9 +1070,12 @@ async function runExport(){
       const type = window.MediaRecorder && types.find(t => MediaRecorder.isTypeSupported(t));
       if(!type) throw new Error('This browser cannot make videos. Please use Chrome.');
       ext = type.includes('mp4') ? 'mp4' : 'webm';
-      const stream = c.captureStream(fps), rec = new MediaRecorder(stream, {mimeType:type, videoBitsPerSecond:bitrate}), parts = [];
+      const vstream = c.captureStream(fps), mix = (P.audio || []).length ? await mixAudio(48000) : null; let asrc = null;
+      const stream = new MediaStream(vstream.getVideoTracks());
+      if(mix){ const ac = AC(), dest = ac.createMediaStreamDestination(); asrc = ac.createBufferSource(); asrc.buffer = mix; asrc.connect(dest); dest.stream.getAudioTracks().forEach(t => stream.addTrack(t)); }
+      const rec = new MediaRecorder(stream, {mimeType:type, videoBitsPerSecond:bitrate}), parts = [];
       rec.ondataavailable = e => e.data.size && parts.push(e.data);
-      const done = new Promise(r => rec.onstop = r); rec.start(250);
+      const done = new Promise(r => rec.onstop = r); rec.start(250); if(asrc) asrc.start();
       const start = performance.now();
       while(true){ if(expStop){ rec.stop(); throw new Error('stopped'); } const t = (performance.now() - start) / 1000; if(t >= P.duration) break;
         renderFrame(g, t, W, H); setP(Math.round(t * fps), 'Recording (real time):'); await new Promise(r => requestAnimationFrame(r)); }
@@ -975,7 +1122,7 @@ function useTemplate(t){
   if(hasWork && !confirm(`Open "${t.name}"? It replaces your current drawing. (You can undo, or Save first.)`)) return;
   pushUndo(); P = t.build(); P.name = t.name.replace(/[^\w]+/g, '_').toLowerCase(); upgrade(P);
   P.layers.forEach(L => L.objects.forEach(touch)); curLayer = Math.min(2, P.layers.length - 1); selId = null;
-  $('tplModal').style.display = 'none'; syncCanvasUI(); fit(); setTime(0); refreshAll(); autosave(); setTool('select');
+  $('tplModal').style.display = 'none'; syncCanvasUI(); fit(); setTime(0); refreshAll(); autosave(); setTool('select'); ensureAudio().then(() => { if(playing){ stopAudio(); startAudio(); } drawTrack(); });
   toast('Template opened. Select a text and tap ✏️ Edit text to change the words'); play();
 }
 $('tTpl').onclick = openTemplates; $('tplClose').onclick = () => $('tplModal').style.display = 'none';
@@ -987,7 +1134,7 @@ if(!P || !P.layers) P = newProject();
 upgrade(P);
 P.layers.forEach(L => L.objects.forEach(touch));
 curLayer = Math.min(1, P.layers.length - 1);
-syncCanvasUI(); resize(); fit(); refreshAll(); setTool('brush');
+syncCanvasUI(); resize(); fit(); refreshAll(); setTool('brush'); ensureAudio().then(() => { renderClips(); drawTrack(); });
 document.fonts && Promise.all(['700 40px "Noto Sans Telugu"', '700 40px "Noto Sans"'].map(f => document.fonts.load(f))).then(draw).catch(() => {});
 </script>
 </body>

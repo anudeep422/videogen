@@ -6,7 +6,13 @@
    ========================================================================== */
 (function(){
 const TPL = [];
-const tpl = (cat, name, ratio, build) => TPL.push({cat, name, ratio, build});
+// default background music per category (made by code in sound.js); a template can choose its own with b.music()
+const MUSIC_FOR = {'Spiritual':'flute', 'Insurance & business':'corporate', 'YouTube & social':'happy', 'Greetings':'festival'};
+const MUSIC_NAME = {flute:'Calm flute (spiritual)', drone:'Tanpura drone (meditation)', happy:'Happy (kids, greetings)', corporate:'Corporate (business, insurance)', epic:'Epic war drums', festival:'Festival dhol & shehnai'};
+const tpl = (cat, name, ratio, build) => TPL.push({cat, name, ratio, build:() => { const p = build();
+  if(!p.audio.some(c => c.kind === 'music')){ const m = MUSIC_FOR[cat] || 'flute'; p.audio.unshift(musicClip(m, p.duration)); } return p; }});
+const aid = () => Math.random().toString(36).slice(2, 10);
+const musicClip = (m, d) => ({id:aid(), name:MUSIC_NAME[m] || m, kind:'music', synth:m, start:0, len:d, volume:0.8, fadeIn:1.5, fadeOut:2});
 const SIZE = {'16:9':[1280, 720], '9:16':[1080, 1920], '1:1':[1080, 1080]};
 
 // ---------------------------------------------------------------- builder
@@ -14,12 +20,14 @@ function Builder(ratio, duration){
   const [W, H] = SIZE[ratio];
   const id = () => Math.random().toString(36).slice(2, 10);
   const layer = name => ({id:id(), name, visible:true, locked:false, opacity:1, objects:[]});
-  const p = {app:'videogen-animator', version:2, width:W, height:H, background:'#ffffff', duration, fps:30, loop:true,
+  const p = {app:'videogen-animator', version:3, width:W, height:H, background:'#ffffff', duration, fps:30, loop:true, audio:[],
              layers:[layer('Background'), layer('Elements'), layer('Text')]};
   const lib = name => { const it = (window.VG_LIBRARY || []).find(i => i.name === name); if(!it) throw new Error('Missing library element: ' + name); return it; };
   const wrap = o => (o.scaleX || 1) !== 1 || (o.scaleY || 1) !== 1 ? {type:'group', x:0, y:0, rotation:0, scaleX:1, scaleY:1, opacity:1, children:[o]} : o;
   return {
     W, H, p,
+    music(m){ p.audio.unshift(musicClip(m, duration)); },
+    sfx(id, t, vol = 1){ const f = window.VG_SOUND && window.VG_SOUND.SFX.find(x => x.id === id); p.audio.push({id:aid(), name:f ? f.name : id, kind:'sfx', synth:id, start:t, volume:vol}); },
     bg(name){ const o = lib(name).make(W, H); o.id = id(); o.name = name; o.x = W / 2; o.y = H / 2; p.layers[0].objects.push(o); return o; },
     // add a library element centred at (x, y) with height h
     el(name, x, y, h, opts = {}){
@@ -77,6 +85,7 @@ tpl('Spiritual', 'Upanishad intro', '16:9', () => { const b = Builder('16:9', 8)
   anim(b.el('Glow', 330, 380, 460), 'fadein', 0.2, 1.2, W, H);
   anim(b.el('Rishi meditating', 330, 430, 400), 'up', 0.4, 1.2, W, H);
   anim(b.el('Om symbol', 930, 190, 190), 'pop', 1.0, 0.9, W, H);
+  b.sfx('bell', 1.0, 0.8); b.sfx('conch', 0.1, 0.5);
   anim(b.text('ఈశావాస్య ఉపనిషత్తు', 930, 410, 62, '#7B241C'), 'right', 1.6, 1, W, H);
   anim(b.text('మంత్రం 1', 930, 500, 42, '#A04000'), 'fadein', 2.4, 0.8, W, H);
   anim(b.el('Sparkles', 930, 190, 260), 'pulse', 3.2, 1.2, W, H);
@@ -97,6 +106,7 @@ tpl('Spiritual', 'Temple good morning', '9:16', () => { const b = Builder('9:16'
   b.el('Grass & flowers', 540, 1820, 180);
   fly(b.el('Birds', -200, 720, 140), -200, 1300, 0.5, 6.5);
   anim(b.text('శుభోదయం', 540, 360, 130, '#B03A2E'), 'pop', 1.0, 1, W, H);
+  b.sfx('birds', 0.5, 0.8); b.sfx('bell', 1.0, 0.6);
   anim(b.text('Good Morning', 540, 500, 58, '#5D4037'), 'fadein', 1.7, 0.8, W, H);
   return b.p; });
 tpl('Spiritual', 'Shloka of the day', '16:9', () => { const b = Builder('16:9', 9), W = b.W, H = b.H;
@@ -106,6 +116,7 @@ tpl('Spiritual', 'Shloka of the day', '16:9', () => { const b = Builder('16:9', 
   anim(b.el('Diya lamp', 1100, 560, 200), 'up', 0.5, 1, W, H);
   anim(b.text('ఈ రోజు శ్లోకం', 640, 150, 56, '#7B241C'), 'down', 0.6, 0.9, W, H);
   anim(b.text('ఓం సహనావవతు\nసహనౌ భునక్తు', 640, 350, 64, '#4A2C0A'), 'fadein', 1.4, 1.2, W, H);
+  b.music('drone'); b.sfx('bell', 1.4, 0.7);
   anim(b.text('Your meaning here', 640, 530, 34, '#A04000'), 'fadein', 2.6, 1, W, H);
   return b.p; });
 
@@ -114,6 +125,7 @@ tpl('Insurance & business', '3 reasons to protect your family', '16:9', () => { 
   b.bg('Clean white');
   anim(setText(b.el('Title bar', 640, 90, 84), 'Protect your family'), 'down', 0.2, 0.8, W, H);
   anim(b.el('Family protection', 1000, 430, 420), 'pop', 0.8, 1, W, H);
+  b.sfx('pop', 0.8); [1.8, 2.8, 3.8].forEach(t => b.sfx('ding', t, 0.6));
   ['Income protection', "Children's education", 'Peace of mind'].forEach((t, i) => anim(setText(b.el('Tick list item', 400, 290 + i * 120, 70), t), 'left', 1.8 + i, 0.8, W, H));
   anim(b.el('Shield (protection)', 1180, 610, 120), 'pop', 4.8, 0.8, W, H);
   anim(b.text('Talk to your advisor today', 400, 660, 36, '#1B4F72'), 'fadein', 5.6, 1, W, H);
@@ -121,6 +133,7 @@ tpl('Insurance & business', '3 reasons to protect your family', '16:9', () => { 
 tpl('Insurance & business', 'Advisor introduction', '16:9', () => { const b = Builder('16:9', 8), W = b.W, H = b.H;
   b.bg('Blue gradient');
   anim(b.el('Insurance advisor', 300, 420, 480), 'left', 0.3, 1, W, H);
+  b.sfx('whoosh', 0.3, 0.7); b.sfx('whoosh', 2.0, 0.6);
   anim(b.text('Your trusted insurance advisor', 820, 230, 50, '#FFFFFF'), 'right', 0.9, 0.9, W, H);
   anim(b.text('Life · Health · Family protection', 820, 310, 32, '#D6EAF8'), 'fadein', 1.5, 0.8, W, H);
   anim(b.el('Lower third (name strip)', 820, 500, 100), 'left', 2.0, 0.9, W, H);
@@ -130,6 +143,7 @@ tpl('Insurance & business', 'Special offer (Reel)', '9:16', () => { const b = Bu
   b.bg('Saffron glow');
   anim(anim(b.el('Badge "NEW"', 800, 320, 260), 'pop', 0.3, 0.8, W, H), 'pulse', 3.5, 1, W, H);
   anim(b.text('SPECIAL PLAN', 540, 620, 112, '#7B241C'), 'zoomout', 0.8, 0.9, W, H);
+  b.sfx('pop', 0.3); b.sfx('whoosh', 0.8, 0.7); b.sfx('boing', 2.6, 0.6);
   anim(b.text("Secure your family's future", 540, 790, 54, '#4A2C0A'), 'fadein', 1.4, 0.8, W, H);
   anim(b.el('Money', 540, 1130, 360), 'up', 1.8, 1, W, H);
   anim(b.el('Arrow', 540, 1440, 130, {rot:90}), 'bounce', 2.6, 1, W, H);
@@ -139,6 +153,7 @@ tpl('Insurance & business', 'Thank you message', '16:9', () => { const b = Build
   b.bg('Saffron glow');
   anim(anim(anim(b.el('Heart', 640, 290, 250), 'pop', 0.3, 0.9, W, H), 'pulse', 2.0, 0.8, W, H), 'pulse', 3.4, 0.8, W, H);
   anim(b.text('Thank you for your trust!', 640, 510, 64, '#7B241C'), 'up', 0.9, 0.9, W, H);
+  b.sfx('pop', 0.3); b.sfx('sparkle', 1.2, 0.7);
   anim(b.text('ధన్యవాదాలు', 640, 600, 48, '#A04000'), 'fadein', 1.6, 0.8, W, H);
   anim(b.el('Confetti', 640, 360, 720, {layer:2}), 'fadein', 1.2, 1, W, H);
   return b.p; });
@@ -149,12 +164,14 @@ tpl('YouTube & social', 'Channel intro', '16:9', () => { const b = Builder('16:9
   anim(b.el('Light rays', 640, 360, 720), 'fadein', 0, 1.2, W, H);
   anim(b.el('Glow', 640, 330, 520), 'pop', 0.2, 1, W, H);
   anim(b.text('Your Channel', 640, 330, 110, '#FFFFFF'), 'zoomout', 0.6, 0.9, W, H);
+  b.sfx('whoosh', 0.5); b.sfx('sparkle', 1.0, 0.8);
   anim(b.text('Subscribe for more', 640, 450, 40, '#F9E79F'), 'fadein', 1.4, 0.8, W, H);
   anim(anim(b.el('Sparkles', 640, 170, 220), 'pop', 1.0, 0.8, W, H), 'spin', 2.0, 3, W, H);
   return b.p; });
 tpl('YouTube & social', 'Subscribe end screen', '16:9', () => { const b = Builder('16:9', 6), W = b.W, H = b.H;
   b.bg('Blue gradient');
   anim(b.text('Thanks for watching!', 640, 190, 72, '#FFFFFF'), 'down', 0.2, 0.9, W, H);
+  b.sfx('ding', 0.8, 0.7);
   anim(anim(anim(b.el('Subscribe button', 640, 390, 110), 'pop', 0.8, 0.8, W, H), 'pulse', 2.0, 0.8, W, H), 'pulse', 3.6, 0.8, W, H);
   anim(b.el('Highlight circle', 640, 390, 330), 'fadein', 1.4, 0.8, W, H);
   anim(b.text('New videos every week', 640, 560, 36, '#D6EAF8'), 'fadein', 1.8, 0.8, W, H);
@@ -165,7 +182,7 @@ tpl('YouTube & social', 'Top 5 list (Shorts)', '9:16', () => { const b = Builder
   anim(b.text('tips for your topic', 540, 360, 54, '#FFFFFF'), 'fadein', 0.8, 0.8, W, H);
   for(let i = 0; i < 5; i++){ const y = 600 + i * 250, t = 1.4 + i * 1.3;
     anim(setText(b.el('Number badge', 190, y, 140), String(i + 1)), 'left', t, 0.7, W, H);
-    anim(b.text('Point ' + (i + 1), 620, y, 66, '#FFFFFF'), 'right', t + 0.15, 0.7, W, H); }
+    anim(b.text('Point ' + (i + 1), 620, y, 66, '#FFFFFF'), 'right', t + 0.15, 0.7, W, H); b.sfx('pop', t, 0.7); }
   return b.p; });
 tpl('YouTube & social', 'Quote post (square)', '1:1', () => { const b = Builder('1:1', 6), W = b.W, H = b.H;
   b.bg('Saffron glow');
@@ -178,6 +195,7 @@ tpl('Greetings', 'Diwali greeting', '16:9', () => { const b = Builder('16:9', 7)
   b.bg('Night sky');
   [170, 405, 640, 875, 1110].forEach((x, i) => anim(b.el('Diya lamp', x, 600, 150), 'pop', 0.3 + i * 0.3, 0.7, W, H));
   anim(b.text('దీపావళి శుభాకాంక్షలు', 640, 250, 84, '#FFD54F'), 'zoomout', 1.9, 1, W, H);
+  b.sfx('sparkle', 1.9, 0.8); b.sfx('applause', 3.2, 0.5);
   anim(b.text('Happy Diwali', 640, 360, 46, '#FFFFFF'), 'fadein', 2.7, 0.8, W, H);
   anim(b.el('Sparkles', 640, 110, 170), 'pulse', 3.0, 1.2, W, H);
   anim(b.el('Confetti', 640, 360, 720, {layer:2}), 'fadein', 3.2, 1, W, H);
@@ -191,10 +209,12 @@ tpl('Greetings', 'Sankranti greeting', '16:9', () => { const b = Builder('16:9',
   anim(b.el('Cow', 360, 560, 210), 'left', 0.6, 1.4, W, H);
   b.el('Grass & flowers', 640, 680, 90);
   anim(b.text('సంక్రాంతి శుభాకాంక్షలు', 700, 300, 74, '#B03A2E'), 'down', 1.6, 1, W, H);
+  b.sfx('birds', 0.3, 0.7);
   return b.p; });
 tpl('Greetings', 'Happy birthday', '16:9', () => { const b = Builder('16:9', 7), W = b.W, H = b.H;
   b.bg('Purple gradient');
   anim(b.el('Gift box', 640, 450, 270), 'bounce', 0.3, 1.2, W, H);
+  b.music('happy'); b.sfx('boing', 0.5, 0.7); b.sfx('applause', 1.6, 0.6);
   anim(b.text('Happy Birthday!', 640, 170, 96, '#F9E79F'), 'pop', 1.3, 0.9, W, H);
   anim(b.text('Name', 640, 650, 44, '#FFFFFF'), 'fadein', 2.0, 0.8, W, H);
   anim(b.el('Confetti', 640, 360, 720, {layer:2}), 'fadein', 1.6, 1, W, H);
@@ -207,6 +227,7 @@ tpl('Greetings', 'Good morning (Reel)', '9:16', () => { const b = Builder('9:16'
   anim(b.el('Lotus', 540, 1500, 330), 'up', 1.0, 1, W, H);
   anim(b.text('శుభోదయం', 540, 330, 140, '#B03A2E'), 'pop', 1.4, 0.9, W, H);
   anim(b.text('Have a blessed day', 540, 470, 56, '#5D4037'), 'fadein', 2.1, 0.8, W, H);
+  b.music('flute'); b.sfx('birds', 0.4, 0.7);
   return b.p; });
 
 window.VG_TEMPLATES = TPL;
