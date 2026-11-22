@@ -87,7 +87,7 @@ explosion, horse gallop, applause, birds, sparkle, cartoon bonk, boing, slide wh
 **Record your voice** while the animation plays, or **upload** your own MP3. Each clip has start time, volume and fade.
 Everything is mixed into the exported MP4 (AAC, or Opus where AAC is not available). Templates come with music.
 
-**Coming next:** Stage 5 Stage 5 motion-graphics effects, Stage 6 bones,
+**Coming next:** Stage 5 motion-graphics effects, Stage 6 bones,
 Stage 7 library and templates, Stage 8 phone install and Windows app.
 
 Shortcuts on a computer: V select, B brush, L line, R rectangle, O circle, F fill, T text, E eraser, H move view,
