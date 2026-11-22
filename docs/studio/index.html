@@ -130,7 +130,8 @@ function loadSong(s){ player.stop(); song = s; song.tracks.forEach(t => t.id = t
 // ------------------------------------------------------------ top bars
 function fillTop(){
   $('key').innerHTML = Object.keys(S.KEYS).map(k => `<option>${k}</option>`).join('');
-  $('scale').innerHTML = Object.entries(S.SCALES).map(([k, v]) => `<option value="${k}">${v.name}</option>`).join('');
+  const groups = {}; for(const [k, v] of Object.entries(S.SCALES)) (groups[v.g || 'Other'] = groups[v.g || 'Other'] || []).push([k, v]);
+  $('scale').innerHTML = Object.entries(groups).map(([g, list]) => `<optgroup label="${g}">${list.map(([k, v]) => `<option value="${k}">${v.name}</option>`).join('')}</optgroup>`).join('');
 }
 function syncTop(){ $('songName').textContent = song.name; $('bpm').value = song.bpm; $('key').value = song.key; $('scale').value = song.scale; $('bars').value = song.bars; $('meter').value = song.meter; $('feel').value = String(song.feel ?? 0.6);
   $('loopBtn').classList.toggle('on', player.loop); $('metroBtn').classList.toggle('on', player.metro); }

@@ -131,9 +131,10 @@ Open `https://<your-name>.github.io/videogen/studio/`. It works like a small Gar
 - **Real instruments** (recordings of real players, VSCO 2 Community Edition, public domain): piano, violin, violins, violas, cellos, double bass, pizzicato, harp, flute, clarinet, oboe, bassoon, trumpet, French horn, trombone, tuba, marimba, xylophone, glockenspiel, drum kit, timpani, orchestra percussion.
 - **Indian instruments** from our own synthesiser: veena, sitar, santoor, bansuri, harmonium, tanpura, guitar, kalimba; tabla, mridangam, ghatam, kanjira, dholak, dhol, manjira, gajjalu.
 - **Tracks**: one instrument or rhythm per track, with mute, solo, volume, left/right and hall echo.
+- **54 ragas and scales**, grouped: Indian 7-note (melakarta / thaat), Indian 5–6 note, Western, World (Japanese, Balinese, Persian).
 - **Piano roll** with **raga mode** (shows only the raga's notes, with Sa Ri Ga names).
 - **Rhythm grid** with Teentaal, Keherwa, Dadra, Rupak, Adi, Rupaka, Misra chapu, folk dholak, bhajan, dhol, rock, pop, latin, waltz, march, cinematic.
-- **✨ One-tap song**: choose a mood (spiritual, devotional, temple aarti, Vedic chant style, Carnatic, Hindustani, wedding, festival, calm, happy, cinematic, sad, motivational, folk, romantic, orchestra), the video length in seconds and an optional nature sound. You get intro (alap for Indian moods), verse, chorus, a tihai and an ending, exactly that long.
+- **✨ One-tap song**: choose a mood (spiritual, devotional, temple aarti, Vedic chant style, Carnatic, Hindustani, wedding, festival, zen, desert, blues, Spanish guitar, calm, happy, cinematic, sad, motivational, folk, romantic, orchestra), the video length in seconds and an optional nature sound. You get intro (alap for Indian moods), verse, chorus, a tihai and an ending, exactly that long.
 - **Feel**: Machine, Natural or Loose. Natural adds small timing and loudness changes and accents, like real players.
 - **Nature tracks**: rain, storm, river, sea, forest, birds, village, night, fire, city, temple and more, under the music.
 - **✨ Auto-fill** (rules and dice, no AI): melody, chords, bass, arpeggio, drone.
