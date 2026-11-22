@@ -333,8 +333,13 @@ function rows(t){ const I = S.INSTRUMENTS[t.inst] || {range:[36, 96]}; let lo = 
   const list = PR.lock && song.scale !== 'chromatic' ? S.scaleMidis(song, lo, hi) : Array.from({length:hi - lo + 1}, (_, i) => lo + i);
   if(PR.lock) for(const n of t.notes) if(!list.includes(n.m)) list.push(n.m);
   return list.sort((a, b) => b - a); }
-function sizeRoll(){ const r = roll.getBoundingClientRect(), dpr = devicePixelRatio || 1; const h = Math.max(300, innerHeight - r.top - 4);
-  roll.style.height = h + 'px'; roll.width = Math.round(r.width * dpr); roll.height = Math.round(h * dpr); }
+function sizeRoll(){ const r0 = roll.getBoundingClientRect(), dpr = devicePixelRatio || 1; const h = Math.max(300, innerHeight - r0.top - 4);
+  roll.style.height = h + 'px'; const r = roll.getBoundingClientRect();   // the size it really shows at (CSS may stretch it)
+  roll.width = Math.round(r.width * dpr); roll.height = Math.round(r.height * dpr); }
+// mouse/finger position in drawing units, even if the canvas is shown bigger or smaller than it was drawn
+function rollPos(e){ const r = roll.getBoundingClientRect(); return [(e.clientX - r.left) * rollW() / (r.width || 1), (e.clientY - r.top) * rollH() / (r.height || 1)]; }
+if(window.ResizeObserver) new ResizeObserver(() => { if(song && roll.style.display !== 'none' && sel()?.type === 'inst'){ const r = roll.getBoundingClientRect(), dpr = devicePixelRatio || 1;
+  if(Math.abs(roll.width - r.width * dpr) > 2 || Math.abs(roll.height - r.height * dpr) > 2){ roll.width = Math.round(r.width * dpr); roll.height = Math.round(r.height * dpr); drawRoll(); } } }).observe(roll);
 function rollW(){ return roll.width / (devicePixelRatio || 1); } function rollH(){ return roll.height / (devicePixelRatio || 1); }
 function clampScroll(t, R){ const maxX = Math.max(0, S.totalBeats(song) * PR.bw - (rollW() - KEYW) + 40), maxY = Math.max(0, R.length * PR.rh - (rollH() - RUL));
   if(PR.sy < 0){ // centre on the notes or around Sa of the middle octave
@@ -393,7 +398,7 @@ function hit(t, R, px, py){ const bt = (px - KEYW + PR.sx) / PR.bw, i = Math.flo
   return {bt, i, m, note}; }
 roll.addEventListener('pointerdown', e => {
   const t = sel(); if(!t || t.type !== 'inst') return; roll.setPointerCapture(e.pointerId);
-  const r = roll.getBoundingClientRect(), px = e.clientX - r.left, py = e.clientY - r.top, R = rows(t);
+  const [px, py] = rollPos(e), R = rows(t);
   if(pointers.size >= 1){ pointers.set(e.pointerId, {x:e.clientX, y:e.clientY}); drag = {mode:'pinch', d0:pinchDist(), bw0:PR.bw}; return; }
   pointers.set(e.pointerId, {x:e.clientX, y:e.clientY});
   if(py < RUL){ drag = {mode:'ruler', x0:px, beat0:Math.max(0, (px - KEYW + PR.sx) / PR.bw)}; return; }
@@ -406,7 +411,7 @@ roll.addEventListener('pointerdown', e => {
 const pointers = new Map(); const pinchDist = () => { const [a, b] = [...pointers.values()]; return a && b ? Math.hypot(a.x - b.x, a.y - b.y) : 1; };
 roll.addEventListener('pointermove', e => {
   if(!drag) return; if(pointers.has(e.pointerId)) pointers.set(e.pointerId, {x:e.clientX, y:e.clientY});
-  const t = sel(), r = roll.getBoundingClientRect(), px = e.clientX - r.left, py = e.clientY - r.top;
+  const t = sel(), [px, py] = rollPos(e);
   if(drag.mode === 'pinch'){ PR.bw = Math.max(12, Math.min(160, drag.bw0 * pinchDist() / drag.d0)); drawRoll(); return; }
   if(drag.mode === 'pan'){ const dx = e.clientX - drag.x0, dy = e.clientY - drag.y0; if(Math.abs(dx) + Math.abs(dy) > 8) drag.moved = true; if(drag.moved){ PR.sx = drag.sx - dx; PR.sy = drag.sy - dy; drawRoll(); } return; }
   if(drag.mode === 'ruler'){ if(Math.abs(px - drag.x0) > 10){ drag.loop = true; const b = Math.max(0, (px - KEYW + PR.sx) / PR.bw), bpb = S.beatsPerBar(song);
