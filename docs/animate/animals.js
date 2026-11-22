@@ -31,7 +31,22 @@ const A = {
   snake:    {name:'Snake (cobra)', kind:'snake', top:'#5D4037', bottom:'#C8A165', skin:'#E53935'},
 };
 for(const [k, v] of Object.entries(A)) C.PRESETS[k] = {hair:'#000000', ...v, animal:true};
-if(!C.ACTIONS.find(a => a[0] === 'eat')) C.ACTIONS.push(['eat', 'Eat / graze', '🌿']);
+// each animal gets its own action buttons (they reuse the action names the engine knows)
+const SOUND = {cow:['Moo', '🐮'], bull:['Moo', '🐂'], buffalo:['Moo', '🐃'], goat:['Bleat', '🐐'], dog:['Bark', '🐶'], cat:['Meow', '🐱'], tiger:['Roar', '🐯'], lion:['Roar', '🦁'],
+  horse:['Neigh', '🐴'], deer:['Call', '🦌'], monkey:['Chatter', '🐒'], elephant:['Trumpet', '🐘'], peacock:['Call', '🦚'], parrot:['Talk', '🦜'], crow:['Caw', '🐦‍⬛'], sparrow:['Chirp', '🐦'], snake:['Hiss', '🐍']};
+C.actionsFor = function(preset){
+  const L = C.PRESETS[preset];
+  if(!L || !L.animal) return C.ACTIONS;
+  const snd = SOUND[preset] || ['Make sound', '🔊'], say = ['talk', snd[0], snd[1]];
+  if(L.kind === 'bird') return [['idle', 'Perch', '🪵'], ['walk', 'Fly', '🕊️'], ['run', 'Fly fast', '💨'], ['eat', 'Peck', '🌾'], say, ...(L.peacock ? [['dance', 'Dance (open tail)', '🦚']] : []), ['sleep', 'Sleep', '😴']];
+  if(L.kind === 'snake') return [['idle', 'Rise up', '🐍'], ['walk', 'Slither', '〰️'], ['run', 'Slither fast', '💨'], say, ['sleep', 'Coil and rest', '😴']];
+  const list = [['idle', 'Stand', '🧍'], ['walk', 'Walk', '🐾'], ['run', preset === 'horse' ? 'Gallop' : 'Run', preset === 'horse' ? '🐎' : '🏃'], ['eat', L.kind === 'elephant' ? 'Eat (trunk)' : 'Eat / graze', '🌿'],
+    say, ['sit', 'Lie down', '🛏️'], ['sleep', 'Sleep', '😴']];
+  if(L.kind !== 'elephant') list.splice(3, 0, ['jump', L.cat ? 'Pounce' : 'Jump', '⤴️']);
+  if(preset === 'dog') list.push(['dance', 'Wag tail', '🐕']);
+  return list;
+};
+C.SPEED.fly = C.SPEED.walk;
 
 // ---------------------------------------------------------------- four-legged animals
 function legSeg(c, x, y, a1, l1, a2, l2, w, col, hoof){
@@ -49,9 +64,10 @@ function gait(act, t){
     g.legs = off.map((o, i) => { const s = Math.sin(ph + o * TAU), lift = Math.max(0, Math.cos(ph + o * TAU)); return [amp * s, 6 + (run ? 40 : 26) * lift]; });
     g.bob = (run ? 7 : 2.5) * Math.abs(Math.sin(ph)); g.neck = run ? -10 + 6 * Math.sin(ph * 2) : 3 * Math.sin(ph * 2); g.tail = run ? -25 : Math.sin(ph) * 15;
   } else if(act === 'eat'){ g.neck = 70 + 4 * Math.sin(t * 6); g.mouth = 0.3 + 0.3 * Math.abs(Math.sin(t * 6)); }
-  else if(act === 'sit'){ g.lie = 1; }
+  else if(act === 'sit' || act === 'sleep'){ g.lie = 1; if(act === 'sleep'){ g.neck = 55; g.tail = 0; g.closed = true; } }
   else if(act === 'jump'){ const u = (t % 1.1) / 1.1; g.jump = Math.sin(Math.PI * clamp(u * 1.3, 0, 1)) * 60; g.legs = [[-35, 50], [35, 60], [-35, 50], [35, 60]].map(l => [l[0] * Math.min(1, g.jump / 30), l[1]]); }
-  else if(act === 'talk' || act === 'dance'){ g.mouth = Math.abs(Math.sin(t * 7)); g.neck = -15; }
+  else if(act === 'dance'){ g.tail = Math.sin(t * 22) * 35; g.bob = 3 * Math.abs(Math.sin(t * 6)); g.mouth = 0.4; g.neck = -10; }   // happy dog: wag
+  else if(act === 'talk'){ g.mouth = Math.abs(Math.sin(t * 7)); g.neck = -15; }
   else { g.neck = 4 * Math.sin(t * 0.7); g.bob = 1.2 * Math.sin(t * 2); }
   return g;
 }
@@ -109,7 +125,7 @@ function drawQuad(c, L, o, t, act){
   // mouth (opens for talk / eat / lip sync)
   if(g.mouth > 0.08){ c.fillStyle = '#4E342E'; c.beginPath(); c.ellipse(hw * 0.7, hh * 0.5, hw * 0.16, 1 + hh * 0.22 * g.mouth, 0, 0, TAU); c.fill(); }
   // eye with blink
-  const blink = ((t + (o.blinkOff || 0)) % 4) < 0.12;
+  const blink = g.closed || ((t + (o.blinkOff || 0)) % 4) < 0.12;
   c.fillStyle = '#111'; c.beginPath(); if(blink) c.rect(hw * 0.1, -hh * 0.18, 7, 1.6); else c.arc(hw * 0.14, -hh * 0.16, Math.max(2.4, hh * 0.12), 0, TAU); c.fill();
   if(!blink){ c.fillStyle = '#fff'; c.beginPath(); c.arc(hw * 0.14 + 1, -hh * 0.16 - 1, 0.9, 0, TAU); c.fill(); }
   if(L.cat || L.lionMane){ c.strokeStyle = 'rgba(255,255,255,0.7)'; c.lineWidth = 1; for(const k of [-1, 0, 1]){ c.beginPath(); c.moveTo(hw * 0.8, hh * 0.25); c.lineTo(hw * 1.25, hh * 0.25 + k * 6); c.stroke(); } }
@@ -139,12 +155,13 @@ function drawElephant(c, L, o, t, act){
   c.stroke(); c.lineWidth = 10; c.stroke();
   c.strokeStyle = L.skin; c.lineWidth = 6; c.beginPath(); c.moveTo(hx + hw * 0.25, hy + hh * 0.28); c.quadraticCurveTo(hx + hw * 0.5, hy + hh * 0.5, hx + hw * 0.62, hy + hh * 0.36); c.stroke();
   const flap = Math.sin(t * 2.4) * 0.15; c.fillStyle = L.bottom; c.beginPath(); c.ellipse(hx - hw * 0.25, hy + 4, hw * 0.42, hh * 0.6, 0.2 + flap, 0, TAU); c.fill();
-  const blink = ((t + (o.blinkOff || 0)) % 4) < 0.12; c.fillStyle = '#111'; c.beginPath(); if(blink) c.rect(hx + hw * 0.12, hy - hh * 0.12, 7, 1.5); else c.arc(hx + hw * 0.16, hy - hh * 0.12, 3.5, 0, TAU); c.fill();
+  const blink = g.closed || ((t + (o.blinkOff || 0)) % 4) < 0.12; c.fillStyle = '#111'; c.beginPath(); if(blink) c.rect(hx + hw * 0.12, hy - hh * 0.12, 7, 1.5); else c.arc(hx + hw * 0.16, hy - hh * 0.12, 3.5, 0, TAU); c.fill();
 }
 
 // ---------------------------------------------------------------- birds (fly when walking / running; peacock opens its tail when dancing)
 function drawBird(c, L, o, t, act){
   const fly = act === 'walk' || act === 'run', lip = o.lip && C.lip ? C.lip(o, t) : 0, f = act === 'run' ? 9 : 6, flap = fly ? Math.sin(t * f * TAU / 2) : 0;
+  const peck = act === 'eat' ? Math.max(0, Math.sin(t * 8)) : 0, sleep = act === 'sleep';
   const y0 = fly ? -70 - 8 * Math.sin(t * f) : -38, s = 1;
   if(!fly){ c.strokeStyle = L.skin; c.lineWidth = 3; c.beginPath(); c.moveTo(-4, y0 + 14); c.lineTo(-6, 0); c.moveTo(6, y0 + 14); c.lineTo(5, 0); c.stroke(); }
   else { c.fillStyle = 'rgba(0,0,0,0.1)'; c.beginPath(); c.ellipse(0, 2, 22, 4, 0, 0, TAU); c.fill(); }
@@ -161,13 +178,13 @@ function drawBird(c, L, o, t, act){
   // body + head
   c.fillStyle = L.top; c.beginPath(); c.ellipse(0, y0, 20, 13, -0.15, 0, TAU); c.fill();
   if(L.peacock){ c.strokeStyle = L.top; c.lineWidth = 8; c.lineCap = 'round'; c.beginPath(); c.moveTo(12, y0 - 6); c.lineTo(20, y0 - 30); c.stroke(); }
-  const hx = L.peacock ? 22 : 18, hy = L.peacock ? y0 - 34 : y0 - 10;
+  const hx = (L.peacock ? 22 : 18) + peck * 6 - (sleep ? 8 : 0), hy = (L.peacock ? y0 - 34 : y0 - 10) + peck * (L.peacock ? 34 : 18) + (sleep ? 6 : 0);
   c.fillStyle = L.top; c.beginPath(); c.arc(hx, hy, L.peacock ? 7 : 9, 0, TAU); c.fill();
   if(L.peacock){ c.strokeStyle = L.top; c.lineWidth = 1.5; for(const k of [-1, 0, 1]){ c.beginPath(); c.moveTo(hx, hy - 6); c.lineTo(hx + k * 4, hy - 16); c.stroke(); c.beginPath(); c.arc(hx + k * 4, hy - 17, 2, 0, TAU); c.fillStyle = L.top; c.fill(); } }
   if(!L.peacock && L.bottom !== L.top){ c.fillStyle = L.bottom; c.beginPath(); c.ellipse(6, y0 + 4, 10, 6, 0, 0, TAU); c.fill(); }
   const open = act === 'talk' || lip > 0.06 ? Math.max(Math.abs(Math.sin(t * 9)), lip) : 0;
   c.fillStyle = L.skin; c.beginPath(); c.moveTo(hx + 6, hy - 2 - open * 2); c.lineTo(hx + 18, hy + 1); c.lineTo(hx + 6, hy + 3 + open * 3); c.fill();
-  c.fillStyle = '#111'; c.beginPath(); c.arc(hx + 3, hy - 2, 2, 0, TAU); c.fill();
+  c.fillStyle = '#111'; c.beginPath(); if(sleep) c.rect(hx + 1, hy - 2, 5, 1.2); else c.arc(hx + 3, hy - 2, 2, 0, TAU); c.fill();
   // near wing
   c.fillStyle = shade(L.top, fly ? 0.9 : 0.85); c.beginPath(); c.moveTo(4, y0 - 2); c.quadraticCurveTo(0, y0 - 30 * flap - 6, -24, y0 - 40 * flap); c.quadraticCurveTo(-14, y0 + 6, 4, y0 + 4); c.fill();
 }
@@ -179,7 +196,7 @@ function drawSnake(c, L, o, t, act){
   for(let i = 0; i <= n; i++){ const u = i / n, x = -len / 2 + u * len * (move ? 1 : 0.55);
     const y = move ? -6 + Math.sin(u * 3.5 * TAU - t * sp * TAU) * 10 * (0.4 + u * 0.6) : -6 + Math.sin(u * 2 * TAU) * 16 * (1 - u * 0.5);
     pts.push([x, y]); }
-  const rise = !move ? 1 : 0, head = pts[n]; const hx = head[0] + (rise ? 18 : 6), hy = head[1] - rise * 70 - (act === 'talk' ? 6 * Math.sin(t * 5) : 0);
+  const rise = !move && act !== 'sleep' ? 1 : 0, head = pts[n]; const hx = head[0] + (rise ? 18 : 6), hy = head[1] - rise * 70 - (act === 'talk' ? 6 * Math.sin(t * 5) : 0);
   c.lineCap = 'round'; c.lineJoin = 'round';
   for(const [w, col] of [[16, shade(L.top, 0.8)], [12, L.top]]){ c.strokeStyle = col; c.lineWidth = w; c.beginPath(); pts.forEach(([x, y], i) => i ? c.lineTo(x, y) : c.moveTo(x, y)); if(rise) c.quadraticCurveTo(head[0] + 22, head[1] - 10, hx, hy + 14); c.stroke(); }
   c.fillStyle = L.bottom; for(let i = 2; i < n; i += 3){ c.beginPath(); c.arc(pts[i][0], pts[i][1], 2.5, 0, TAU); c.fill(); }

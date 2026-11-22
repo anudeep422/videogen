@@ -1345,11 +1345,26 @@ function syncCharUI(){
   $('cLip').innerHTML = '<option value="">Off</option><option value="voice">🎙️ All my voice recordings</option>' + vcs.map(c => `<option value="clip:${c.id}">${KIND[c.kind]} ${c.name.replace(/</g, '&lt;')}</option>`).join('');
   $('cLip').value = o.lip || '';
   $('cExpr').value = o.expr || 'happy'; $('cSkin').value = L.skin; $('cHair').value = L.hair; $('cTop').value = L.top; $('cBot').value = L.bottom;
+  // animals: their own action buttons; hide face and hair settings
+  const acts = VG_CHAR.actionsFor ? VG_CHAR.actionsFor(o.preset) : VG_CHAR.ACTIONS, key = acts.map(a => a[0] + a[1]).join();
+  if(key !== syncCharUI.key){ syncCharUI.key = key; setActButtons(acts); }
+  [$('cExpr'), $('cHair')].forEach(el => { const row = el.closest('.f'); if(row) row.style.display = L.animal ? 'none' : ''; });
+  const lab = { top:$('cTop').closest('.f'), bot:$('cBot').closest('.f'), skin:$('cSkin').closest('.f') };
+  if(lab.top) lab.top.querySelector('label').textContent = L.animal ? 'Body' : 'Top';
+  if(lab.bot) lab.bot.querySelector('label').textContent = L.animal ? 'Patches / stripes' : 'Bottom / saree';
+  if(lab.skin) lab.skin.querySelector('label').textContent = L.animal ? 'Snout / feet' : 'Skin';
+}
+function setActButtons(acts){
+  const btn = ([id, label, icon]) => `<button data-act="${id}" title="${label}">${icon} ${label}</button>`;
+  $('cActs').innerHTML = acts.map(btn).join('');
+  $('charBar').querySelectorAll('[data-act]').forEach(b => b.remove());
+  $('charBar').insertAdjacentHTML('beforeend', acts.map(([id, label, icon]) => `<button data-act="${id}" style="flex:0 0 auto;padding:4px 8px;font-size:12px">${icon} ${label}</button>`).join(''));
+  document.querySelectorAll('[data-act]').forEach(b => b.onclick = e => { e.stopPropagation(); addAction(b.dataset.act); });
 }
 (function buildCharUI(){
   if(!window.VG_CHAR) return;
   const btn = ([id, label, icon]) => `<button data-act="${id}" title="${label}">${icon} ${label}</button>`;
-  $('cActs').innerHTML = VG_CHAR.ACTIONS.map(btn).join('');
+  $('cActs').innerHTML = VG_CHAR.ACTIONS.map(btn).join('');   // replaced per character by setActButtons
   $('charBar').innerHTML = `<select id="cDur2" title="Action length" style="flex:0 0 auto;background:#12141a;border:1px solid var(--line);border-radius:6px;font-size:12px">${[1, 2, 3, 5, 10].map(v => `<option value="${v}" ${v === 2 ? 'selected' : ''}>${v}s</option>`).join('')}</select>`
     + VG_CHAR.ACTIONS.map(([id, label, icon]) => `<button data-act="${id}" style="flex:0 0 auto;padding:4px 8px;font-size:12px">${icon} ${label}</button>`).join('');
   $('cDur2').onchange = e => { $('cDur').value = e.target.value; }; $('cDur').onchange = e => { $('cDur2').value = e.target.value; };
