@@ -23,7 +23,7 @@ function Builder(ratio, duration){
   const id = () => Math.random().toString(36).slice(2, 10);
   const layer = name => ({id:id(), name, visible:true, locked:false, opacity:1, objects:[]});
   const p = {app:'videogen-animator', version:3, width:W, height:H, background:'#ffffff', duration, fps:30, loop:true, audio:[],
-             layers:[layer('Background'), layer('Elements'), layer('Text')]};
+             layers:[layer('Background'), layer('Elements'), {...layer('Text'), fixed:true}]};
   const lib = name => { const it = (window.VG_LIBRARY || []).find(i => i.name === name); if(!it) throw new Error('Missing library element: ' + name); return it; };
   const wrap = o => (o.scaleX || 1) !== 1 || (o.scaleY || 1) !== 1 ? {type:'group', x:0, y:0, rotation:0, scaleX:1, scaleY:1, opacity:1, children:[o]} : o;
   return {

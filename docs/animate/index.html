@@ -128,6 +128,20 @@
       <div class="f"><label>Bottom / saree</label><input type="color" id="cBot"></div>
       <div class="hint">Actions start at the current time. After adding one, the time moves to its end, so you can add the next one straight away.</div>
     </div>
+    <div id="fxSec" style="display:none">
+      <h2>Effect</h2>
+      <div class="f"><label>Amount</label><input type="range" id="fxDen" min="10" max="300" value="100"></div>
+      <div class="f"><label>Speed</label><input type="range" id="fxSpd" min="10" max="300" value="100"></div>
+      <div class="f"><label>Colour</label><input type="color" id="fxCol"></div>
+      <div class="row"><button id="fxFull">Fill whole screen</button></div>
+      <div class="hint">Set when it starts and stops with "Show from / to" below. Drag the round icon to move it, and the corners to resize.</div>
+    </div>
+    <div id="txtSec" style="display:none">
+      <h2>Text animation</h2>
+      <div class="f"><label>Effect</label><select id="tfxK"><option value="">None</option><option value="typewriter">Typewriter (letter by letter)</option><option value="words">Word by word</option><option value="bounce">Letters bounce in</option><option value="wave">Wave (keeps moving)</option><option value="glow">Glow (keeps glowing)</option></select></div>
+      <div class="f"><label>Takes</label><select id="tfxD"><option value="0.8">0.8 s</option><option value="1.5" selected>1.5 s</option><option value="3">3 s</option><option value="5">5 s</option></select></div>
+      <div class="hint">Starts at the current time.</div>
+    </div>
     <h2>Animation</h2>
     <div class="f"><label>Video length</label><div class="row" style="margin:0"><input type="number" id="nDur" min="1" max="600" step="0.5" value="10" style="width:80px;background:#12141a;border:1px solid var(--line);border-radius:6px;padding:4px"> <span class="hint">seconds</span> <label class="hint"><input type="checkbox" id="cLoop" checked> loop</label></div></div>
     <div class="f"><label>Ease</label><select id="sEase">
@@ -184,6 +198,8 @@
   <button data-tool="select"><b>👆</b>Select</button>
   <button id="tTpl" style="border-color:var(--acc)"><b>🧩</b>Templates</button>
   <button id="tLib" style="border-color:var(--acc)"><b>📚</b>Library</button>
+  <button id="tFx" style="border-color:var(--acc)"><b>✨</b>Effects</button>
+  <button id="tSound"><b>🎵</b>Sound</button>
   <button data-tool="brush" class="on"><b>🖌️</b>Brush</button>
   <button data-tool="line"><b>╱</b>Line</button>
   <button data-tool="rect"><b>▭</b>Rectangle</button>
@@ -192,7 +208,6 @@
   <button data-tool="text"><b>🔤</b>Text</button>
   <button data-tool="eraser"><b>🧽</b>Eraser</button>
   <button data-tool="hand"><b>✋</b>Move view</button>
-  <button id="tSound"><b>🎵</b>Sound</button>
   <button id="tImage"><b>🖼️</b>Image</button>
 </div>
 <div id="libModal" style="position:fixed;inset:0;background:#000a;display:none;z-index:10;align-items:center;justify-content:center;padding:10px">
@@ -245,11 +260,20 @@
     <div class="hint" style="margin-top:8px;font-size:11px">Instrument sounds: FluidR3 SoundFont by Frank Wen (MIT licence).</div>
   </div>
 </div>
+<div id="fxModal" style="position:fixed;inset:0;background:#000a;display:none;z-index:10;align-items:center;justify-content:center;padding:10px">
+  <div style="background:var(--panel);border:1px solid var(--line);border-radius:12px;width:min(640px,100%);height:min(620px,92vh);display:flex;flex-direction:column;overflow:hidden">
+    <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--line)"><b style="font-size:16px">✨ Effects</b>
+      <span class="hint" id="fxHint">Effects start at the current time</span><span style="flex:1"></span><button id="fxClose">Close</button></div>
+    <div id="fxTabs" style="display:flex;gap:4px;padding:8px 10px;overflow-x:auto;flex-shrink:0"></div>
+    <div id="fxGrid" style="flex:1;overflow:auto;padding:8px 10px 14px;display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px;align-content:start"></div>
+  </div>
+</div>
 <div class="toast" id="toast"></div>
 
 <script src="../lib/mp4-muxer.js"></script>
 <script src="library.js"></script>
 <script src="characters.js"></script>
+<script src="effects.js"></script>
 <script src="templates.js"></script>
 <script src="sound.js"></script>
 <script src="musicgen.js"></script>
@@ -267,14 +291,15 @@ const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
 // ------------------------------------------------------------------ project model
 function newProject(w = 1280, h = 720){
-  return {app:'videogen-animator', version:3, audio:[], width:w, height:h, background:'#ffffff', duration:10, fps:30, loop:true,
+  const p = {app:'videogen-animator', version:4, audio:[], width:w, height:h, background:'#ffffff', duration:10, fps:30, loop:true,
     layers:[{id:uid(), name:'Background', visible:true, locked:false, opacity:1, objects:[]},
             {id:uid(), name:'Layer 2', visible:true, locked:false, opacity:1, objects:[]}]};
+  upgrade(p); return p;
 }
 let P = null, curLayer = 1, selId = null, tool = 'brush';
 const style = {stroke:'#1e1e1e', fill:'#f0a830', noFill:false, width:6, opacity:1};
 let view = {zoom:1, ox:0, oy:0};
-let T = 0, RT = 0, playing = false, autoKey = true;   // RT = time being drawn (characters use it)
+let T = 0, RT = 0, FXUI = false, camPreview = false, playing = false, autoKey = true;   // RT = time being drawn (characters use it)
 
 // ------------------------------------------------------------------ animation core
 const ANIM = ['x', 'y', 'rotation', 'scaleX', 'scaleY', 'opacity'];
@@ -349,6 +374,7 @@ function localBox(o){  // [x0,y0,x1,y1] in local coords
     case 'line': { const m = (o.width || 1) / 2; return [Math.min(o.x1, o.x2) - m, Math.min(o.y1, o.y2) - m, Math.max(o.x1, o.x2) + m, Math.max(o.y1, o.y2) + m]; }
     case 'text': { measureText(o); return [-o._w / 2, -o._h / 2, o._w / 2, o._h / 2]; }
     case 'char': return VG_CHAR.box(o);
+    case 'fx': return [-(o.w || P.width) / 2, -(o.h || P.height) / 2, (o.w || P.width) / 2, (o.h || P.height) / 2];
     case 'group': { const g = o.__base || o; if(g._gb && g._gbk === g._v) return g._gb;
       let a = Infinity, b = Infinity, c = -Infinity, d = -Infinity;
       for(const ch of g.children){ const bb = localBox(ch); for(const [x, y] of [[bb[0], bb[1]], [bb[2], bb[1]], [bb[2], bb[3]], [bb[0], bb[3]]]){ const [wx, wy] = toWorld(ch, x, y); a = Math.min(a, wx); b = Math.min(b, wy); c = Math.max(c, wx); d = Math.max(d, wy); } }
@@ -408,15 +434,35 @@ function paint(c, o, f){
   else g = f.dir === 'h' ? c.createLinearGradient(b[0], 0, b[2], 0) : c.createLinearGradient(0, b[1], 0, b[3]);
   cols.forEach((col, i) => g.addColorStop(cols.length > 1 ? i / (cols.length - 1) : 0, col)); return g;
 }
+// text with optional animation: typewriter, words, bounce, wave, glow (keeps Telugu letters whole)
+const graphemes = (() => { try{ const sg = new Intl.Segmenter('te', {granularity:'grapheme'}); return s => [...sg.segment(s)].map(x => x.segment); }catch(e){ return s => Array.from(s); } })();
+function drawText(c, o){
+  c.font = fontFor(o); c.textBaseline = 'middle'; c.fillStyle = o.fill || o.stroke || '#000';
+  const lines = String(o.text).split('\n'), lh = o.size * 1.3, fx = o.tfx;
+  const y0 = i => (i - (lines.length - 1) / 2) * lh;
+  if(!fx || !fx.k){ c.textAlign = 'center'; lines.forEach((l, i) => c.fillText(l, 0, y0(i))); return; }
+  const u = Math.max(0, Math.min(1, (RT - fx.t0) / (fx.d || 1.5)));
+  if(fx.k === 'glow'){ c.shadowColor = o.fill || '#fff'; c.shadowBlur = o.size * (0.25 + 0.2 * Math.sin(RT * 4)); c.textAlign = 'center'; lines.forEach((l, i) => c.fillText(l, 0, y0(i))); c.shadowBlur = 0; return; }
+  c.textAlign = 'left';
+  const all = lines.map(l => fx.k === 'words' ? l.split(/(\s+)/) : graphemes(l)), total = all.reduce((a, g) => a + g.length, 0);
+  let shown = Math.floor(total * u + 1e-6), idx = 0;
+  lines.forEach((l, li) => { const parts = all[li], full = c.measureText(l).width; let x = -full / 2;
+    parts.forEach(g => { const w = c.measureText(g).width, i = idx++;
+      if(fx.k === 'typewriter' || fx.k === 'words'){ if(i < shown) c.fillText(g, x, y0(li)); }
+      else if(fx.k === 'bounce'){ const st = (fx.d || 1.5) / Math.max(1, total), lt = RT - fx.t0 - i * st, e = Math.max(0, Math.min(1, lt / 0.35));
+        if(e > 0){ const back = 1 + 2.7 * Math.pow(e - 1, 3) + 1.7 * Math.pow(e - 1, 2); c.globalAlpha *= 1; c.save(); c.globalAlpha *= e; c.fillText(g, x, y0(li) - (1 - back) * o.size * 0.8); c.restore(); } }
+      else if(fx.k === 'wave'){ c.fillText(g, x, y0(li) + Math.sin(RT * 5 + i * 0.6) * o.size * 0.12); }
+      x += w; }); });
+}
 function drawObj(c, o){
   c.save();
   c.translate(o.x, o.y); c.rotate((o.rotation || 0) * Math.PI / 180); c.scale(o.scaleX || 1, o.scaleY || 1);
   c.globalAlpha *= (o.opacity ?? 1);
   c.lineCap = 'round'; c.lineJoin = 'round';
   if(o.type === 'text'){
-    c.font = fontFor(o); c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillStyle = o.fill || o.stroke || '#000';
-    const lines = String(o.text).split('\n'), lh = o.size * 1.3;
-    lines.forEach((l, i) => c.fillText(l, 0, (i - (lines.length - 1) / 2) * lh));
+    drawText(c, o);
+  } else if(o.type === 'fx'){
+    window.VG_FX && VG_FX.draw(c, o, RT, P.width, P.height, FXUI);
   } else if(o.type === 'image'){
     const im = imgOf(o); if(im.complete && im.naturalWidth) c.drawImage(im, -o.w / 2, -o.h / 2, o.w, o.h);
   } else if(o.type === 'group'){
@@ -430,13 +476,23 @@ function drawObj(c, o){
   }
   c.restore();
 }
+// camera: position, zoom and rotation can have keyframes; shakes add a short jitter
+function camAt(t){ const C = P.cam; let sx = 0, sy = 0;
+  for(const s of C.shakes || []){ if(t >= s.t0 && t <= s.t1){ const u = (t - s.t0) / (s.t1 - s.t0), a = (s.amp || 14) * (1 - u); sx += Math.sin(t * 63) * a; sy += Math.cos(t * 51) * a * 0.8; } }
+  const zoom = Math.max(0.1, propAt(C, 'zoom', t)); let x = propAt(C, 'x', t), y = propAt(C, 'y', t);
+  if(zoom >= 1){ const hw = P.width / zoom / 2, hh = P.height / zoom / 2; x = Math.max(hw, Math.min(P.width - hw, x)); y = Math.max(hh, Math.min(P.height - hh, y)); }
+  return {x, y, zoom, rot:propAt(C, 'rotation', t), sx, sy}; }
 function renderScene(c, opts = {}){
   c.fillStyle = P.background; c.fillRect(0, 0, P.width, P.height);
   const t = opts.t ?? T, ghost = opts.ghost; RT = t;
+  const cam = opts.cam && P.cam ? camAt(t) : null, screenFx = [];
   for(const L of P.layers){ if(!L.visible) continue; c.save(); c.globalAlpha = L.opacity ?? 1;
-    for(const o of L.objects){ const vis = shownAt(o, t); if(!vis && !ghost) continue;
+    if(cam && !L.fixed){ c.translate(P.width / 2 + cam.sx, P.height / 2 + cam.sy); c.scale(cam.zoom, cam.zoom); c.rotate(cam.rot * Math.PI / 180); c.translate(-cam.x, -cam.y); }
+    for(const o of L.objects){ if(o.type === 'fx' && window.VG_FX && VG_FX.isFull(o.kind)){ screenFx.push([o, L]); continue; }
+      const vis = shownAt(o, t); if(!vis && !ghost) continue;
       if(!vis){ c.save(); c.globalAlpha *= .18; drawObj(c, E(o, t)); c.restore(); } else drawObj(c, E(o, t)); }
     c.restore(); }
+  for(const [o, L] of screenFx){ if(!shownAt(o, t)) continue; c.save(); c.globalAlpha = L.opacity ?? 1; drawObj(c, E(o, t)); c.restore(); }
 }
 let preview = null;   // object being drawn right now
 function draw(){
@@ -445,11 +501,15 @@ function draw(){
   ctx.setTransform(d * view.zoom, 0, 0, d * view.zoom, d * view.ox, d * view.oy);
   ctx.save(); ctx.shadowColor = '#000a'; ctx.shadowBlur = 30 / view.zoom; ctx.fillStyle = P.background; ctx.fillRect(0, 0, P.width, P.height); ctx.restore();
   ctx.save(); ctx.beginPath(); ctx.rect(0, 0, P.width, P.height); ctx.clip();
-  renderScene(ctx, {ghost:!playing});
+  FXUI = !playing; renderScene(ctx, {ghost:!playing, cam:playing || camPreview}); FXUI = false;
   if(preview){ const L = P.layers[curLayer]; ctx.globalAlpha = L.opacity ?? 1; drawObj(ctx, preview); ctx.globalAlpha = 1; }
   ctx.restore();
   // selection box and handles
   const s = selId && findObj(selId);
+  if(!playing && !camPreview && P.cam && P.cam.keys && Object.keys(P.cam.keys).length){   // what the camera sees right now
+    const cm = camAt(T), vw = P.width / cm.zoom, vh = P.height / cm.zoom, z = 1 / view.zoom;
+    ctx.save(); ctx.strokeStyle = '#E74C3C'; ctx.lineWidth = 2 * z; ctx.setLineDash([10 * z, 6 * z]); ctx.strokeRect(cm.x - vw / 2, cm.y - vh / 2, vw, vh); ctx.setLineDash([]);
+    ctx.fillStyle = '#E74C3C'; ctx.font = `${12 * z}px "Noto Sans"`; ctx.fillText('🎥 camera', cm.x - vw / 2 + 4 * z, cm.y - vh / 2 + 14 * z); ctx.restore(); }
   if(s && !playing && (hasKeys(s.o, 'x') || hasKeys(s.o, 'y'))){   // motion path
     const z = 1 / view.zoom; ctx.strokeStyle = '#3fb27fcc'; ctx.lineWidth = 2 * z; ctx.setLineDash([5 * z, 5 * z]); ctx.beginPath();
     const n = Math.max(30, Math.round(P.duration * 15));
@@ -501,6 +561,7 @@ function hitLeaf(o, wx, wy, tol){
 }
 function hitObj(o, wx, wy, tol){
   const [lx, ly] = toLocal(o, wx, wy), sc = Math.max(Math.abs(o.scaleX || 1), Math.abs(o.scaleY || 1));
+  if(o.type === 'fx') return Math.hypot(lx * (o.scaleX || 1), ly * (o.scaleY || 1)) < 30 / view.zoom;
   if(o.type === 'text' || o.type === 'image' || o.type === 'char'){ const b = localBox(o); return lx >= b[0] && lx <= b[2] && ly >= b[1] && ly <= b[3]; }
   if(o.type === 'group'){ for(let i = o.children.length - 1; i >= 0; i--) if(hitObj(o.children[i], lx, ly, tol / sc)) return true; return false; }
   const p = shapePath(o);
@@ -550,7 +611,9 @@ cv.addEventListener('pointerup', endPointer); cv.addEventListener('pointercancel
 
 function layerEditable(){ const L = P.layers[curLayer]; if(!L.visible){ toast('This layer is hidden. Tap 👁 to show it.', true); return false; }
   if(L.locked){ toast('This layer is locked. Tap 🔒 to unlock it.', true); return false; } return true; }
-function addObj(o){ pushUndo(); P.layers[curLayer].objects.push(o); touch(o); autosave(); }
+function sceneRange(o){ const cuts = (P.cuts || []).slice().sort((a, b) => a - b); if(!cuts.length || o.show) return; const prev = cuts.filter(c => c <= T + 1e-6).pop(), next = cuts.find(c => c > T + 1e-6);
+  if(prev != null || next != null) o.show = [prev ?? null, next ?? null]; }
+function addObj(o){ pushUndo(); sceneRange(o); P.layers[curLayer].objects.push(o); touch(o); autosave(); }
 function baseStyle(){ return {stroke:style.stroke, fill:style.noFill ? null : style.fill, width:style.width, opacity:style.opacity}; }
 
 function start(e, sx, sy, wx, wy){
@@ -704,11 +767,12 @@ function refreshLayers(){
   const box = $('layers'); box.innerHTML = '';
   for(let i = P.layers.length - 1; i >= 0; i--){
     const L = P.layers[i], d = document.createElement('div'); d.className = 'layer' + (i === curLayer ? ' sel' : '');
-    d.innerHTML = `<button data-a="vis" title="Show / hide">${L.visible ? '👁' : '🚫'}</button><button data-a="lock" title="Lock">${L.locked ? '🔒' : '🔓'}</button>
+    d.innerHTML = `<button data-a="vis" title="Show / hide">${L.visible ? '👁' : '🚫'}</button><button data-a="lock" title="Lock">${L.locked ? '🔒' : '🔓'}</button><button data-a="fix" title="Fixed: the camera does not move this layer (good for titles)" style="opacity:${L.fixed ? 1 : .35}">📌</button>
       <span class="nm">${L.name.replace(/</g, '&lt;')}</span><span class="hint">${L.objects.length}</span>`;
     d.onclick = e => { const a = e.target.dataset.a;
       if(a === 'vis'){ L.visible = !L.visible; if(!L.visible && selId && L.objects.some(o => o.id === selId)) selId = null; }
       else if(a === 'lock'){ L.locked = !L.locked; }
+      else if(a === 'fix'){ L.fixed = !L.fixed; toast(L.fixed ? 'Camera will not move this layer' : 'Camera moves this layer'); }
       curLayer = i; refreshLayers(); draw(); autosave(); };
     box.appendChild(d);
   }
@@ -776,7 +840,8 @@ window.addEventListener('keydown', e => {
     pushUndo(); const e = E(s.o); if(k === 'arrowleft') setProp(s.o, 'x', e.x - st); if(k === 'arrowright') setProp(s.o, 'x', e.x + st); if(k === 'arrowup') setProp(s.o, 'y', e.y - st); if(k === 'arrowdown') setProp(s.o, 'y', e.y + st); draw(); afterEdit(); }
 });
 
-function upgrade(p){ p.duration = p.duration || 10; p.fps = p.fps || 30; if(p.loop === undefined) p.loop = true; p.audio = p.audio || []; p.version = 3; }
+function upgrade(p){ p.duration = p.duration || 10; p.fps = p.fps || 30; if(p.loop === undefined) p.loop = true; p.audio = p.audio || [];
+  p.cam = p.cam || {x:p.width / 2, y:p.height / 2, zoom:1, rotation:0, keys:{}, shakes:[]}; p.cuts = p.cuts || []; p.version = 4; }
 function syncCanvasUI(){ $('nDur').value = P.duration; $('cLoop').checked = !!P.loop; $('cBg').value = P.background; const v = P.width + 'x' + P.height; if([...$('sSize').options].some(o => o.value === v)) $('sSize').value = v; }
 function refreshAll(){ refreshLayers(); draw(); updUndo(); syncTimeUI(); drawTrack(); syncAnimUI(); if(typeof renderClips === 'function') renderClips(); }
 function toast(msg, bad){ const el = $('toast'); el.textContent = msg; el.style.background = bad ? '#e5534b' : ''; el.classList.add('show'); clearTimeout(toast.h); toast.h = setTimeout(() => el.classList.remove('show'), 2400); }
@@ -851,7 +916,7 @@ new ResizeObserver(drawTrack).observe(track);
 
 // animation panel: ease, show from/to, delete/clear, presets
 function keysAtT(o){ const out = []; if(o.keys) for(const p of ANIM) (o.keys[p] || []).forEach(k => { if(Math.abs(k.t - T) < frameT() / 2) out.push(k); }); return out; }
-function syncAnimUI(){ if(window.VG_CHAR) syncCharUI(); const s = selId && findObj(selId); const ks = s ? keysAtT(s.o) : [];
+function syncAnimUI(){ if(window.VG_CHAR) syncCharUI(); if(window.VG_FX && $('fxSec')) syncFxUI(); const s = selId && findObj(selId); const ks = s ? keysAtT(s.o) : [];
   $('sEase').disabled = !ks.length; if(ks.length) $('sEase').value = ks[0].e || 'inout';
   $('nIn').value = s && s.o.show && s.o.show[0] != null ? s.o.show[0] : ''; $('nOut').value = s && s.o.show && s.o.show[1] != null ? s.o.show[1] : '';
   $('kDel').disabled = !ks.length; $('kClear').disabled = !(s && animated(s.o)); }
@@ -924,7 +989,7 @@ function insertLib(item){
     o.scaleX = (o.scaleX || 1) * k; o.scaleY = (o.scaleY || 1) * k;
     o.x = P.width / 2 - (b[0] + w / 2) * k; o.y = P.height / 2 - (b[1] + h / 2) * k; touch(o); pushUndo(); P.layers[curLayer].objects.push(o);
   }
-  selId = o.id; $('libModal').style.display = 'none'; setTool('select'); refreshAll(); autosave(); toast('Added ' + item.name);
+  sceneRange(o); selId = o.id; $('libModal').style.display = 'none'; setTool('select'); refreshAll(); autosave(); toast('Added ' + item.name);
 }
 $('tLib').onclick = openLibrary; $('libClose').onclick = () => $('libModal').style.display = 'none';
 $('libModal').addEventListener('pointerdown', e => { if(e.target.id === 'libModal') $('libModal').style.display = 'none'; });
@@ -1074,7 +1139,7 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 function allObjects(){ const out = []; const walk = o => { out.push(o); if(o.children) o.children.forEach(walk); }; P.layers.forEach(L => L.objects.forEach(walk)); return out; }
 async function preloadImages(){ const ims = allObjects().filter(o => o.type === 'image').map(imgOf);
   await Promise.all(ims.map(im => im.complete ? 0 : new Promise(r => { im.onload = im.onerror = r; }))); }
-function renderFrame(g, t, W, H){ g.setTransform(W / P.width, 0, 0, H / P.height, 0, 0); g.globalAlpha = 1; renderScene(g, {t}); }
+function renderFrame(g, t, W, H){ g.setTransform(W / P.width, 0, 0, H / P.height, 0, 0); g.globalAlpha = 1; FXUI = false; renderScene(g, {t, cam:true}); }
 function openExport(){
   if(playing) pause();
   const W = P.width, H = P.height, n = Math.round(P.duration * (P.fps || 30));
@@ -1198,6 +1263,93 @@ function syncCharUI(){
   $('cExpr').onchange = e => { const o = selChar(); if(!o) return; pushUndo(); o.expr = e.target.value; draw(); autosave(); };
   [['cSkin', 'skin'], ['cHair', 'hair'], ['cTop', 'top'], ['cBot', 'bottom']].forEach(([id, k]) => $(id).oninput = e => { const o = selChar(); if(!o) return; o.look = o.look || {}; o.look[k] = e.target.value; draw(); autosave(); });
 })();
+
+// ------------------------------------------------------------------ effects picker, camera, scenes
+let fxCat = null;
+const CAM_ACTIONS = [
+  ['zoomin', 'Zoom in', '🔍', 'Zooms towards the selected object (or the centre)'], ['zoomout', 'Zoom out', '🔭', 'Back to the full view'],
+  ['pan', 'Pan to selected', '🎯', 'Camera moves to the selected object'], ['slow', 'Slow zoom', '🎞️', 'Gentle zoom until the end of the video'],
+  ['shake', 'Camera shake', '📳', 'Short shake, good for hits and explosions'], ['preview', 'Preview camera', '👁️', 'Show the camera view while editing (on/off)'],
+  ['reset', 'Reset camera', '♻️', 'Remove all camera moves']];
+function openFx(){
+  const K = window.VG_FX && VG_FX.KINDS; if(!K) return toast('Effects did not load', true);
+  const cats = [...new Set(Object.values(K).map(k => k[1]))].concat(['Camera', 'Scenes']); fxCat = fxCat || cats[0];
+  $('fxTabs').innerHTML = cats.map(c => `<button data-cat="${c}" class="${c === fxCat ? 'on' : ''}">${c}</button>`).join('');
+  $('fxTabs').querySelectorAll('button').forEach(b => b.onclick = () => { fxCat = b.dataset.cat; openFx(); });
+  const card = (id, icon, name, sub) => `<button data-fx="${id}" style="display:flex;flex-direction:column;gap:4px;padding:10px 6px;align-items:center;white-space:normal;line-height:1.2"><span style="font-size:28px">${icon}</span><span style="font-size:12px">${name}</span>${sub ? `<span class="hint" style="font-size:10px">${sub}</span>` : ''}</button>`;
+  let html = '';
+  if(fxCat === 'Camera'){ $('fxHint').textContent = 'Camera moves start at the current time. Titles on 📌 fixed layers stay still.';
+    html = `<div class="f" style="grid-column:1/-1"><label>Move takes</label><select id="camDur">${[0.5, 1, 2, 3, 5].map(v => `<option ${v === 2 ? 'selected' : ''}>${v}</option>`).join('')}</select></div>`
+      + CAM_ACTIONS.map(([id, n, ic, sub]) => card('cam:' + id, ic, n + (id === 'preview' ? (camPreview ? ' (on)' : ' (off)') : ''), sub)).join(''); }
+  else if(fxCat === 'Scenes'){ $('fxHint').textContent = 'Split your video into scenes';
+    html = card('scene:new', '✂️', 'New scene here', 'Everything now ends here with a fade. New things belong to the next scene') + card('scene:list', '📋', 'Scene list', (P.cuts || []).length + ' cut(s)'); }
+  else { $('fxHint').textContent = fxCat === 'Transitions' ? 'Transitions are centred on the current time' : 'Effects start at the current time';
+    html = Object.entries(K).filter(([, k]) => k[1] === fxCat).map(([id, k]) => card(id, k[2], k[0], k[3] + ' s')).join(''); }
+  $('fxGrid').innerHTML = html;
+  $('fxGrid').querySelectorAll('[data-fx]').forEach(b => b.onclick = () => fxAction(b.dataset.fx));
+  $('fxModal').style.display = 'flex';
+}
+function addFx(kind){
+  const K = VG_FX.KINDS[kind], o = VG_FX.make(kind, P.width, P.height); o.id = uid(); o.name = K[0];
+  const d = K[3]; o.show = VG_FX.isTransition(kind) ? [Math.max(0, +(T - d / 2).toFixed(2)), +(T + d / 2).toFixed(2)] : [+T.toFixed(2), Math.min(P.duration, +(T + d).toFixed(2))];
+  if(['night', 'warm', 'oldfilm', 'bw', 'vignette', 'stars'].includes(kind)) o.show[1] = null;   // colour filters stay on
+  touch(o); pushUndo(); const top = P.layers[P.layers.length - 1]; top.objects.push(o); curLayer = P.layers.length - 1;
+  selId = o.id; setTool('select'); refreshAll(); autosave(); return o;
+}
+function fxAction(id){
+  if(id.startsWith('cam:')) return camAction(id.slice(4));
+  if(id === 'scene:new') return newScene();
+  if(id === 'scene:list'){ const c = (P.cuts || []).slice().sort((a, b) => a - b); toast(c.length ? 'Scenes start at: 0s, ' + c.map(x => x.toFixed(1) + 's').join(', ') : 'Only one scene so far'); return; }
+  const o = addFx(id); $('fxModal').style.display = 'none';
+  toast(`${VG_FX.KINDS[id][0]} added at ${T.toFixed(1)}s. Tap ▶ to see it`);
+}
+function camAction(a){
+  const C = P.cam, dur = +($('camDur') ? $('camDur').value : 2), t0 = snapT(T), t1 = Math.min(P.duration, snapT(T + dur)), cur = camAt(T), s = selId && findObj(selId);
+  const target = s ? E(s.o) : null; let tx = P.width / 2, ty = P.height / 2;
+  if(target){ const b = localBox(target); [tx, ty] = toWorld(target, (b[0] + b[2]) / 2, (b[1] + b[3]) / 2); }
+  const key2 = (p, v) => { if(!hasKeys(C, p)) setKey(C, p, 0, C[p]); setKey(C, p, t0, p === 'x' ? cur.x : p === 'y' ? cur.y : p === 'zoom' ? cur.zoom : cur.rot); setKey(C, p, t1, v); };
+  if(a !== 'preview' && a !== 'reset' && t1 - t0 < frameT()) return toast('No time left for a camera move', true);
+  pushUndo();
+  if(a === 'zoomin'){ key2('zoom', Math.min(4, cur.zoom * 1.6)); key2('x', tx); key2('y', ty); }
+  else if(a === 'zoomout'){ key2('zoom', 1); key2('x', P.width / 2); key2('y', P.height / 2); }
+  else if(a === 'pan'){ if(!target){ undoStack.pop(); return toast('Select an object first, then Pan to selected', true); } key2('x', tx); key2('y', ty); }
+  else if(a === 'slow'){ setKey(C, 'zoom', t0, cur.zoom); setKey(C, 'zoom', P.duration, cur.zoom * 1.25); setKey(C, 'x', t0, cur.x); setKey(C, 'x', P.duration, tx); setKey(C, 'y', t0, cur.y); setKey(C, 'y', P.duration, ty); }
+  else if(a === 'shake'){ C.shakes = C.shakes || []; C.shakes.push({t0, t1:Math.min(P.duration, t0 + Math.min(dur, 0.8)), amp:16}); }
+  else if(a === 'preview'){ undoStack.pop(); camPreview = !camPreview; draw(); openFx(); return toast(camPreview ? 'Showing the camera view (editing is easier with it off)' : 'Camera preview off'); }
+  else if(a === 'reset'){ C.keys = {}; C.shakes = []; C.x = P.width / 2; C.y = P.height / 2; C.zoom = 1; C.rotation = 0; }
+  autosave(); draw(); $('fxModal').style.display = 'none';
+  toast({zoomin:'Zoom in', zoomout:'Zoom out', pan:'Pan', slow:'Slow zoom', shake:'Shake', reset:'Camera reset'}[a] + (a === 'reset' ? '' : ` at ${t0.toFixed(1)}s. Tap ▶ to see it`));
+}
+function newScene(){
+  const t = snapT(T); if(t <= 0.05 || t >= P.duration - 0.05) return toast('Move the time slider to where the new scene should start', true);
+  pushUndo(); P.cuts = (P.cuts || []).filter(c => Math.abs(c - t) > 0.05).concat([t]).sort((a, b) => a - b);
+  for(const L of P.layers) for(const o of L.objects){ if(o.type === 'fx' && VG_FX.isTransition(o.kind)) continue;
+    const a = o.show ? o.show[0] : null, b = o.show ? o.show[1] : null;
+    if((a == null || a < t) && (b == null || b > t)) o.show = [a, t]; }
+  const C = P.cam; if(C && Object.keys(C.keys || {}).length){ const ft = frameT(), before = camAt(t - ft);
+    for(const [k, v0, v1] of [['zoom', propAt(C, 'zoom', t - ft), 1], ['x', propAt(C, 'x', t - ft), P.width / 2], ['y', propAt(C, 'y', t - ft), P.height / 2]]){
+      C.keys[k] = (C.keys[k] || []).filter(q => q.t < t - ft / 2); setKey(C, k, t - ft, v0); C.keys[k].find(q => Math.abs(q.t - (t - ft)) < ft / 2).e = 'hold'; setKey(C, k, t, v1); } }
+  const tr = VG_FX.make('fade', P.width, P.height); tr.id = uid(); tr.name = 'Scene fade'; tr.show = [Math.max(0, +(t - 0.5).toFixed(2)), +(t + 0.5).toFixed(2)]; touch(tr);
+  P.layers[P.layers.length - 1].objects.push(tr); selId = null;
+  $('fxModal').style.display = 'none'; refreshAll(); autosave();
+  toast(`New scene from ${t.toFixed(1)}s. Add a background, characters and text now: they appear in this scene`);
+}
+function syncFxUI(){
+  const s = selId && findObj(selId), o = s && s.o;
+  $('fxSec').style.display = o && o.type === 'fx' ? '' : 'none'; $('txtSec').style.display = o && o.type === 'text' ? '' : 'none';
+  if(o && o.type === 'fx'){ $('fxDen').value = Math.round((o.density || 1) * 100); $('fxSpd').value = Math.round((o.speed || 1) * 100); $('fxCol').value = (o.color || '#ffffff').slice(0, 7); }
+  if(o && o.type === 'text'){ $('tfxK').value = o.tfx ? o.tfx.k : ''; if(o.tfx) $('tfxD').value = String(o.tfx.d); }
+}
+$('tFx').onclick = openFx; $('fxClose').onclick = () => $('fxModal').style.display = 'none';
+$('fxModal').addEventListener('pointerdown', e => { if(e.target.id === 'fxModal') $('fxModal').style.display = 'none'; });
+const selFx = () => { const s = selId && findObj(selId); return s && s.o.type === 'fx' ? s.o : null; };
+$('fxDen').oninput = e => { const o = selFx(); if(o){ o.density = +e.target.value / 100; draw(); autosave(); } };
+$('fxSpd').oninput = e => { const o = selFx(); if(o){ o.speed = +e.target.value / 100; draw(); autosave(); } };
+$('fxCol').oninput = e => { const o = selFx(); if(o){ o.color = e.target.value; draw(); autosave(); } };
+$('fxFull').onclick = () => { const o = selFx(); if(!o) return; pushUndo(); o.x = P.width / 2; o.y = P.height / 2; o.w = P.width; o.h = P.height; o.scaleX = o.scaleY = 1; delete o.keys; touch(o); draw(); autosave(); };
+const setTfx = () => { const s = selId && findObj(selId); if(!s || s.o.type !== 'text') return; pushUndo(); const k = $('tfxK').value;
+  if(k) s.o.tfx = {k, t0:+T.toFixed(2), d:+$('tfxD').value}; else delete s.o.tfx; draw(); autosave(); if(k && !['wave', 'glow'].includes(k)) toast('Text animation starts at ' + T.toFixed(1) + 's'); };
+$('tfxK').onchange = setTfx; $('tfxD').onchange = setTfx;
 
 // ------------------------------------------------------------------ templates
 let tplCat = null; const tplThumbs = {};

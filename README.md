@@ -100,8 +100,15 @@ Walk and run move the character forward, and actions chain one after another. Ey
 (happy, sad, surprised, angry), and you can change the skin, hair and clothes colours. Select a character and use the
 action bar on the canvas. Library → Characters.
 
-**Coming next:** Stage 5 motion-graphics effects (moving rain and confetti, camera, scene transitions),
-Stage 7 library and templates, Stage 8 phone install and Windows app.
+**✨ Stage 5 (now): Effects, camera, scenes and text animation.** 30 moving effects: rain, snow, petals, leaves,
+fireflies, bubbles, birds, twinkling stars, confetti, sparkles, falling ₹ coins, balloons, fireworks, fire, smoke, dust,
+explosion, arrow volley, speed lines and lightning. Transitions: fade, white flash, wipe, circle (iris) and colour slide.
+Colour filters: day to night, warm sunset, old film, black and white, and dark corners.
+**Camera:** zoom in, zoom out, pan to an object, slow zoom and shake. Titles on 📌 fixed layers stay still.
+**Scenes:** ✂️ New scene here ends the current scene with a fade, and new things belong to the next scene.
+**Text animation:** typewriter, word by word, letters bounce in, wave and glow (Telugu letters stay whole).
+
+**Coming next:** more library elements and templates, crowds for battle scenes, phone install and a Windows app.
 
 Shortcuts on a computer: V select, B brush, L line, R rectangle, O circle, F fill, T text, E eraser, H move view,
 Ctrl+Z undo, Ctrl+D duplicate, Delete removes, arrow keys nudge, Space play / pause, K add keyframe.
