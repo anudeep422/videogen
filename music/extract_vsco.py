@@ -16,28 +16,29 @@ import numpy as np
 
 NOTE = {'C': 0, 'D': 2, 'E': 4, 'F': 5, 'G': 7, 'A': 9, 'B': 11}
 
-# name, label, group, folder, file regex, preferred velocity tokens, seconds, min spacing
+# name, label, group, folder, loudness layers (soft -> loud; None = any), seconds, short-note folder, short-note layer
 PITCHED = [
-    ('piano', 'Piano', 'Keys', 'Keys/Upright Piano', None, None, 4.5, 4),
-    ('violin', 'Violin (solo)', 'Strings', 'Strings/Solo Violin/Arco Vib', None, ['f', 'p'], 3.0, 3),
-    ('violins', 'Violins (section)', 'Strings', 'Strings/Violin Section/susVib', None, ['v1'], 3.0, 3),
-    ('violas', 'Violas', 'Strings', 'Strings/Viola Section/susvib', None, ['v2', 'v1', 'v3'], 3.0, 3),
-    ('cellos', 'Cellos', 'Strings', 'Strings/Cello Section/susvib', None, ['v2', 'v1', 'v3'], 3.0, 3),
-    ('basses', 'Double bass', 'Strings', 'Strings/Solo Contrabass/SusVib', None, ['v2', 'v1', 'v3'], 3.0, 3),
-    ('pizz', 'Strings pizzicato', 'Strings', 'Strings/Violin Section/Pizz', None, ['v2', 'v1'], 1.2, 3),
-    ('harp', 'Harp', 'Strings', 'Strings/Harp', None, ['mf', 'f', 'mp'], 3.5, 3),
-    ('flute', 'Flute', 'Woodwinds', 'Woodwinds/Flute/susvib', None, ['v1', 'v2'], 3.0, 3),
-    ('clarinet', 'Clarinet', 'Woodwinds', 'Woodwinds/Clarinet/susLong', None, ['v2', 'v1', 'v3'], 3.0, 3),
-    ('oboe', 'Oboe', 'Woodwinds', 'Woodwinds/Oboe/Vib', None, ['v3', 'v2', 'v1'], 3.0, 3),
-    ('bassoon', 'Bassoon', 'Woodwinds', 'Woodwinds/Bassoon/vib', None, ['v2', 'v1'], 3.0, 3),
-    ('trumpet', 'Trumpet', 'Brass', 'Brass/Trumpet/susvib', None, ['v2', 'v1', 'v3'], 3.0, 3),
-    ('horn', 'French horn', 'Brass', 'Brass/F Horn/sus', None, ['v2', 'v3', 'v1'], 3.0, 3),
-    ('trombone', 'Trombone', 'Brass', 'Brass/Tenor Trombone/sus', None, ['v2', 'v1', 'v3'], 3.0, 3),
-    ('tuba', 'Tuba', 'Brass', 'Brass/Tuba/sus', None, ['v2', 'v1', 'v3'], 3.0, 3),
-    ('marimba', 'Marimba', 'Mallets', 'Percussion/Marimba', None, None, 2.5, 1),
-    ('xylophone', 'Xylophone', 'Mallets', 'Percussion/Xylo', None, None, 1.5, 1),
-    ('glock', 'Glockenspiel', 'Mallets', 'Percussion/Glock', None, None, 2.5, 1),
+    ('piano', 'Piano', 'Keys', 'Keys/Upright Piano', ['1', '2', '3'], 4.5, None, None),
+    ('violin', 'Violin (solo)', 'Strings', 'Strings/Solo Violin/Arco Vib', ['p', 'f'], 3.2, 'Strings/Solo Violin/spic', 'v2'),
+    ('violins', 'Violins (section)', 'Strings', 'Strings/Violin Section/susVib', ['v1', 'v2'], 3.2, 'Strings/Violin Section/Spic', 'v2'),
+    ('violas', 'Violas', 'Strings', 'Strings/Viola Section/susvib', ['v1', 'v2'], 3.2, 'Strings/Viola Section/spic', 'v2'),
+    ('cellos', 'Cellos', 'Strings', 'Strings/Cello Section/susvib', ['v1', 'v3'], 3.2, 'Strings/Cello Section/spic', 'v2'),
+    ('basses', 'Double bass', 'Strings', 'Strings/Solo Contrabass/SusVib', ['v1', 'v3'], 3.2, 'Strings/Solo Contrabass/Spic', 'v1'),
+    ('pizz', 'Strings pizzicato', 'Strings', 'Strings/Violin Section/Pizz', ['v1', 'v2'], 1.2, None, None),
+    ('harp', 'Harp', 'Strings', 'Strings/Harp', None, 3.5, None, None),
+    ('flute', 'Flute', 'Woodwinds', 'Woodwinds/Flute/susvib', ['v1'], 3.2, 'Woodwinds/Flute/stac', 'v2'),
+    ('clarinet', 'Clarinet', 'Woodwinds', 'Woodwinds/Clarinet/susLong', ['v1', 'v2', 'v3'], 3.2, 'Woodwinds/Clarinet/stac', 'v2'),
+    ('oboe', 'Oboe', 'Woodwinds', 'Woodwinds/Oboe/Vib', ['v1', 'v3'], 3.2, 'Woodwinds/Oboe/Stacc', 'v2'),
+    ('bassoon', 'Bassoon', 'Woodwinds', 'Woodwinds/Bassoon/vib', ['v1', 'v2'], 3.2, 'Woodwinds/Bassoon/stac', 'v2'),
+    ('trumpet', 'Trumpet', 'Brass', 'Brass/Trumpet/susvib', ['v1', 'v2'], 3.2, 'Brass/Trumpet/stac', 'v2'),
+    ('horn', 'French horn', 'Brass', 'Brass/F Horn/sus', ['v1', 'v2', 'v3'], 3.2, 'Brass/F Horn/stac', 'v2'),
+    ('trombone', 'Trombone', 'Brass', 'Brass/Tenor Trombone/sus', ['v1', 'v2', 'v3'], 3.2, 'Brass/Tenor Trombone/stac', 'v2'),
+    ('tuba', 'Tuba', 'Brass', 'Brass/Tuba/sus', ['v1', 'v2', 'v3'], 3.2, 'Brass/Tuba/stac', 'v2'),
+    ('marimba', 'Marimba', 'Mallets', 'Percussion/Marimba', None, 2.5, None, None),
+    ('xylophone', 'Xylophone', 'Mallets', 'Percussion/Xylo', None, 1.5, None, None),
+    ('glock', 'Glockenspiel', 'Mallets', 'Percussion/Glock', None, 2.5, None, None),
 ]
+LEVEL = {1: [0.9], 2: [0.6, 0.95], 3: [0.45, 0.7, 0.95]}
 
 # drum kit: id, label, path (exact file)
 DRUMS = [
@@ -77,33 +78,39 @@ def parse(path):
     return midi, vel, rr
 
 
-def choose(repo, spec):
-    name, label, group, folder, rx, prefs, secs, gap = spec
-    files = ls(repo, folder)
-    out = []
-    if name == 'piano':
-        for f in files:
-            m = re.search(r'dyn(\d)_rr1_(\d{3})', f)
-            if m and m.group(1) in ('2', '3') and int(m.group(2)) % 2 == 0:
-                idx = int(m.group(2))
-                out.append((21 + 2 * idx if idx < 44 else 108, 'f' if m.group(1) == '3' else 'p', f))
-        return out
-    if name == 'organ':
-        return [(None, '', f) for f in files[::2]]
+def pick_layer(repo, folder, token):
+    """{midi: path} for one loudness token (None = best file of any loudness)."""
     best = {}
-    for f in files:
+    for f in ls(repo, folder):
         p = parse(f)
         if not p:
             continue
         midi, vel, rr = p
-        rank = (prefs.index(vel) if prefs and vel in prefs else 9, rr)
+        if token is not None and vel != token:
+            continue
+        rank = (rr, 0 if vel in ('mf', 'loud', 'ff', '') else 1)
         if midi not in best or rank < best[midi][0]:
             best[midi] = (rank, f)
-    last = -99
-    for midi in sorted(best):
-        if midi - last >= gap:
-            out.append((midi, '', best[midi][1]))
-            last = midi
+    return {m: v[1] for m, v in best.items()}
+
+
+def choose(repo, spec):
+    """list of (layer_name, {midi: path}); layer names '1'..'3' soft->loud, 's' = short notes"""
+    name, label, group, folder, layers, secs, sfold, stok = spec
+    out = []
+    if name == 'piano':
+        for d in layers:
+            notes = {}
+            for f in ls(repo, folder):
+                m = re.search(r'dyn(\d)_rr1_(\d{3})', f)
+                if m and m.group(1) == d and int(m.group(2)) % 2 == 0:
+                    idx = int(m.group(2)); notes[21 + 2 * idx if idx < 44 else 108] = f
+            out.append((d, notes))
+        return out
+    for i, tok in enumerate(layers or [None]):
+        out.append((str(i + 1), pick_layer(repo, folder, tok)))
+    if sfold:
+        out.append(('s', pick_layer(repo, sfold, stok)))
     return out
 
 
@@ -170,7 +177,7 @@ def load(path, sr=44100):
 def save_mp3(x, sr, out):
     os.makedirs(os.path.dirname(out), exist_ok=True)
     subprocess.run(['ffmpeg', '-v', 'error', '-y', '-f', 'f32le', '-ar', str(sr), '-ac', '1', '-i', '-',
-                    '-c:a', 'libmp3lame', '-b:a', '80k', out], input=x.astype(np.float32).tobytes(), check=True)
+                    '-c:a', 'libmp3lame', '-b:a', '96k', out], input=x.astype(np.float32).tobytes(), check=True)
 
 
 def trim(x, sr, secs):
@@ -188,49 +195,47 @@ def main():
     cmd, repo = sys.argv[1], sys.argv[2]
     if cmd == 'select':
         for spec in PITCHED:
-            for _, _, f in choose(repo, spec):
-                print('/' + f)
+            for _, notes in choose(repo, spec):
+                for f in notes.values():
+                    print('/' + f)
         for _, _, f in DRUMS:
             print('/' + f)
         return
     dest = sys.argv[3]
     sr = 44100
-    man = {'source': 'VSCO 2 Community Edition (CC0) https://github.com/sgossner/VSCO-2-CE',
+    man = {'source': 'VSCO 2 Community Edition (CC0) https://github.com/sgossner/VSCO-2-CE', 'version': 2,
            'instruments': {}, 'drums': {}}
     for spec in PITCHED:
-        name, label, group, _, _, _, secs, _ = spec
-        notes = {}
-        items = []
-        for midi, layer, f in choose(repo, spec):
-            p = os.path.join(repo, f)
-            if not os.path.exists(p):
-                print('missing', f, file=sys.stderr)
+        name, label, group, _, layers, secs, _, _ = spec
+        entry = {'label': label, 'group': group, 'sustain': secs >= 3 and name not in ('piano', 'harp', 'marimba', 'glock', 'xylophone', 'pizz'), 'layers': {}}
+        chosen = choose(repo, spec)
+        nlay = len([c for c in chosen if c[0] != 's'])
+        for lname, notes in chosen:
+            if not notes:
                 continue
-            x = trim(load(p, sr), sr, secs)
-            items.append((midi, layer, f, x, detect_pitch(x, sr)))
-        offs = [round((d - m) / 12) for m, _, _, _, d in items if m is not None and d is not None]
-        shift = 12 * max(set(offs), key=offs.count) if offs and name != 'piano' else 0
-        print(name, 'octave shift', shift, 'votes', offs, file=sys.stderr)
-        for midi, layer, f, x, det in items:
-            peak = np.max(np.abs(x)) or 1
-            if midi is None:
-                if det is None:
-                    continue
-                midi = int(round(det))
-            else:
+            short = lname == 's'
+            items = []
+            for midi, f in sorted(notes.items()):
+                pth = os.path.join(repo, f)
+                if not os.path.exists(pth):
+                    print('missing', f, file=sys.stderr); continue
+                x = trim(load(pth, sr), sr, 1.0 if short else secs)
+                items.append((midi, x, detect_pitch(x, sr)))
+            offs = [round((d - m) / 12) for m, _, d in items if d is not None]
+            shift = 12 * max(set(offs), key=offs.count) if offs and name != 'piano' else 0
+            level = 0.9 if short else LEVEL[min(3, nlay)][int(lname) - 1]
+            got = []
+            for midi, x, det in items:
                 midi += shift
-                if det is not None and abs(det - midi) > 0.8 and abs(det - midi - 12 * round((det - midi) / 12)) > 0.8:
-                    print(f'  check {f}: using {midi}, heard {det:.1f}', file=sys.stderr)
-            # keep natural loudness differences between layers, but normalise level per instrument
-            x = x / peak * (0.9 if layer != 'p' else 0.55)
-            key = str(midi) + ('_' + layer if layer else '')
-            save_mp3(x, sr, os.path.join(dest, name, key + '.mp3'))
-            notes.setdefault(layer or 'n', []).append(midi)
-        if notes:
-            man['instruments'][name] = {'label': label, 'group': group,
-                                        'layers': {k: sorted(set(v)) for k, v in notes.items()},
-                                        'sustain': secs >= 3 and name not in ('piano', 'harp', 'marimba', 'glock', 'xylophone', 'pizz')}
-            print(name, {k: len(v) for k, v in notes.items()}, file=sys.stderr)
+                x = x / (np.max(np.abs(x)) or 1) * level
+                save_mp3(x, sr, os.path.join(dest, name, f'{midi}_{lname}.mp3'))
+                got.append(midi)
+            if short:
+                entry['short'] = sorted(set(got))
+            else:
+                entry['layers'][lname] = sorted(set(got))
+            print(name, lname, 'shift', shift, len(got), file=sys.stderr)
+        man['instruments'][name] = entry
     for did, label, f in DRUMS:
         p = os.path.join(repo, f)
         if not os.path.exists(p):

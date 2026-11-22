@@ -136,7 +136,7 @@ async function load(base = './samples/'){
   manifest.base = base;
   for(const [id, v] of Object.entries(manifest.instruments)){
     const all = [].concat(...Object.values(v.layers));
-    INSTRUMENTS['r:' + id] = {label:v.label, group:'Real · ' + v.group, kind:'real', id, layers:v.layers, sustain:v.sustain,
+    INSTRUMENTS['r:' + id] = {label:v.label, group:'Real · ' + v.group, kind:'real', id, layers:v.layers, short:v.short, nlay:Object.keys(v.layers).length, sustain:v.sustain,
       range:[Math.min(...all), Math.max(...all)], gain:GAIN[id] ?? 0.6, release:RELEASE[id] ?? (v.sustain ? 0.3 : 0.6)};
   }
   for(const [id, v] of Object.entries(SYN)) INSTRUMENTS['s:' + id] = {label:v.label, group:'Indian & synth', kind:'synth', id, range:v.range, sustain:!!v.sustain, gain:SYNGAIN[id] ?? 0.6};
@@ -148,12 +148,16 @@ function fetchBuf(key){
   return loading[key] = fetch(manifest.base + key + '.mp3').then(r => { if(!r.ok) throw new Error('missing ' + key); return r.arrayBuffer(); })
     .then(ab => new Promise((res, rej) => dctx().decodeAudioData(ab, res, rej))).then(b => (bufs[key] = b)).catch(e => { console.warn(e); delete loading[key]; return null; });
 }
-function sampleFor(inst, m, v){
-  const I = INSTRUMENTS[inst]; const L = I.layers;
-  let layer = L.n ? 'n' : (v >= 0.66 && L.f ? 'f' : (L.p ? 'p' : Object.keys(L)[0]));
-  const list = L[layer]; let best = list[0];
+// choose the recording: short notes use staccato recordings; otherwise soft / medium / loud by velocity
+function sampleFor(inst, m, v, short){
+  const I = INSTRUMENTS[inst]; let layer, list;
+  if(short && I.short && I.short.length){ layer = 's'; list = I.short; }
+  else { const keys = Object.keys(I.layers).sort(), n = keys.length;
+    const idx = n === 1 ? 0 : n === 2 ? (v < 0.62 ? 0 : 1) : (v < 0.5 ? 0 : v < 0.78 ? 1 : 2);
+    layer = keys[Math.min(idx, n - 1)]; list = I.layers[layer]; }
+  let best = list[0];
   for(const s of list) if(Math.abs(s - m) < Math.abs(best - m) || (Math.abs(s - m) === Math.abs(best - m) && s < m)) best = s;
-  return {key:I.id + '/' + best + (layer === 'n' ? '' : '_' + layer), base:best};
+  return {key:I.id + '/' + best + '_' + layer, base:best, layered:layer === 's' || I.nlay > 1};
 }
 // synth notes and strokes rendered once and cached as AudioBuffers
 const synCache = new Map();
@@ -185,9 +189,15 @@ function events(song){
   const accent = t => { const p = ((t % bpb) + bpb) % bpb; return Math.abs(p) < 1e-3 ? 0.08 : Math.abs(p - Math.round(p)) < 1e-3 ? 0.02 : -0.03; };
   for(const tr of song.tracks){
     const th = strHash(tr.id || 'x');
-    if(tr.type === 'inst'){ tr.notes.forEach((n, i) => { if(n.t >= TB) return;
-        const dt = feel * (hsh(th, i * 2 + 1) - 0.5) * 0.036, dv = feel * ((hsh(th, i * 2 + 2) - 0.5) * 0.16 + accent(n.t));
-        ev.push({s:Math.max(0, n.t * k + (n.t > 0 ? dt : 0)), dur:Math.min(n.d, TB + 4 - n.t) * k, tr, type:'note', m:n.m, v:Math.max(0.12, Math.min(1, (n.v ?? 0.8) + dv))}); }); }
+    if(tr.type === 'inst'){
+      // legato: a note that starts as the previous one ends, with no other note starting together (a single line)
+      const starts = new Map(); for(const n of tr.notes){ const key = Math.round(n.t * 100); starts.set(key, (starts.get(key) || 0) + 1); }
+      const order = tr.notes.map((n, i) => i).sort((a, b) => tr.notes[a].t - tr.notes[b].t), leg = new Set();
+      for(let j = 1; j < order.length; j++){ const p = tr.notes[order[j - 1]], n = tr.notes[order[j]];
+        if(starts.get(Math.round(n.t * 100)) === 1 && starts.get(Math.round(p.t * 100)) === 1 && p.t < n.t && p.t + p.d >= n.t - 0.08 && p.t + p.d <= n.t + 0.3 && Math.abs(p.m - n.m) <= 12) leg.add(order[j]); }
+      tr.notes.forEach((n, i) => { if(n.t >= TB) return;
+        const dt = feel * (hsh(th, i * 2 + 1) - 0.5) * 0.036, dv = feel * ((hsh(th, i * 2 + 2) - 0.5) * 0.16 + accent(n.t)), dur = Math.min(n.d, TB + 4 - n.t) * k;
+        ev.push({s:Math.max(0, n.t * k + (n.t > 0 ? dt : 0)), dur, tr, type:'note', m:n.m, v:Math.max(0.12, Math.min(1, (n.v ?? 0.8) + dv)), short:dur < 0.3 && !n.long, legato:leg.has(i) && dur >= 0.3}); }); }
     else if(tr.type === 'amb'){ ev.push({s:0, dur:TB * k, tr, type:'amb'}); }
     else if(tr.type === 'drum'){
       const from = (tr.from || 1) - 1, to = Math.min(tr.to || song.bars, song.bars), b0 = from * beatsPerBar(song), b1 = to * beatsPerBar(song);
@@ -210,7 +220,7 @@ function needs(song){
   const keys = new Set(), syn = [];
   for(const e of events(song)){
     if(e.type === 'amb') continue;
-    if(e.type === 'note'){ const I = INSTRUMENTS[e.tr.inst]; if(!I) continue; if(I.kind === 'real') keys.add(sampleFor(e.tr.inst, e.m, e.v).key); else syn.push(e); }
+    if(e.type === 'note'){ const I = INSTRUMENTS[e.tr.inst]; if(!I) continue; if(I.kind === 'real') keys.add(sampleFor(e.tr.inst, e.m, e.v, e.short).key); else syn.push(e); }
     else if(e.row.startsWith('r:')) keys.add('drums/' + e.row.slice(2)); else syn.push(e);
   }
   return {keys:[...keys], syn};
@@ -234,15 +244,27 @@ function bufferFor(song, e){
   }
   const I = INSTRUMENTS[e.tr.inst]; if(!I) return null;
   if(I.kind === 'synth') return {buf:synNote(I.id, e.m, I.sustain ? e.dur + 0.1 : Math.max(e.dur, 1.2), e.v), rate:1, gain:I.gain, release:I.sustain ? 0.15 : 0.5, synth:true};
-  const sm = sampleFor(e.tr.inst, e.m, e.v), b = bufs[sm.key]; if(!b){ fetchBuf(sm.key); return null; }
-  return {buf:b, rate:Math.pow(2, (e.m - sm.base) / 12), gain:I.gain, release:I.release, sustain:I.sustain};
+  const sm = sampleFor(e.tr.inst, e.m, e.v, e.short), b = bufs[sm.key]; if(!b){ fetchBuf(sm.key); return null; }
+  return {buf:b, rate:Math.pow(2, (e.m - sm.base) / 12), gain:I.gain, release:e.short ? 0.12 : I.release, sustain:I.sustain && !e.short, layered:sm.layered};
 }
 
 // ---------------------------------------------------------------- audio graph
-function impulse(ctx, secs = 2.4){
-  const n = Math.floor(secs * ctx.sampleRate), b = ctx.createBuffer(2, n, ctx.sampleRate);
-  let s = 12345; const r = () => (s = (s * 16807) % 2147483647) / 2147483647;
-  for(let c = 0; c < 2; c++){ const d = b.getChannelData(c); for(let i = 0; i < n; i++) d[i] = (r() * 2 - 1) * Math.pow(1 - i / n, 3) * (i < 300 ? i / 300 : 1); }
+// concert-hall echo made with code: pre-delay, early reflections, then a dense tail where high sounds die away sooner
+function impulse(ctx, secs = 2.6){
+  const sr = ctx.sampleRate, n = Math.floor(secs * sr), b = ctx.createBuffer(2, n, sr);
+  let seed = 12345; const r = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  const pre = Math.floor(0.018 * sr), T60 = [2.4, 1.9, 1.1];            // low, mid, high decay times
+  for(let c = 0; c < 2; c++){
+    const d = b.getChannelData(c), lo = new Float32Array(n), mid = new Float32Array(n), hi = new Float32Array(n);
+    for(let i = pre; i < n; i++){ const t = (i - pre) / sr, w = r() * 2 - 1, env = Math.min(1, t / 0.03);
+      lo[i] = w * env * Math.pow(10, -3 * t / T60[0]); mid[i] = w * env * Math.pow(10, -3 * t / T60[1]); hi[i] = w * env * Math.pow(10, -3 * t / T60[2]); }
+    // split bands with one-pole filters (lows < 400 Hz, highs > 3.5 kHz)
+    const a1 = 1 - Math.exp(-2 * Math.PI * 400 / sr), a2 = 1 - Math.exp(-2 * Math.PI * 3500 / sr); let l = 0, m1 = 0, m2 = 0, h = 0;
+    for(let i = 0; i < n; i++){ l += a1 * (lo[i] - l); m1 += a1 * (mid[i] - m1); m2 += a2 * (mid[i] - m2); h += a2 * (hi[i] - h);
+      d[i] = l * 1.1 + (m2 - m1) * 0.9 + (hi[i] - h) * 0.5; }
+    // early reflections from walls, different on left and right
+    for(let k = 0; k < 18; k++){ const t = 0.006 + r() * 0.075, i = pre + Math.floor(t * sr); if(i < n) d[i] += (r() < 0.5 ? -1 : 1) * 0.6 * Math.pow(1 - t / 0.09, 1.5); }
+  }
   return b;
 }
 function graph(ctx, song){
@@ -271,16 +293,17 @@ function mixAll(G, song){ for(const tr of song.tracks){ trackNode(G, song, tr); 
 function fire(G, song, e, when, offset = 0){
   const info = bufferFor(song, e); if(!info) return null;
   const ctx = G.ctx, src = ctx.createBufferSource(), g = ctx.createGain(); src.buffer = info.buf; src.playbackRate.value = info.rate;
-  const vel = e.type === 'amb' ? 1 : e.type === 'hit' ? e.v : 0.3 + 0.7 * e.v;
+  const vel = e.type === 'amb' ? 1 : e.type === 'hit' ? e.v : info.layered ? 0.55 + 0.45 * e.v : 0.3 + 0.7 * e.v;
   g.gain.value = info.gain * vel; src.connect(g); g.connect(trackNode(G, song, e.tr).input);
   if(info.amb){ src.start(when, offset); src.stop(when + Math.max(0.1, e.dur - offset + 0.5)); return src; }
   if(e.type === 'note'){
-    const len = info.buf.duration / info.rate;
-    if(info.sustain && (song.feel ?? 0.6) > 0 && offset === 0){ g.gain.setValueAtTime(info.gain * vel * 0.55, when); g.gain.linearRampToValueAtTime(info.gain * vel, when + 0.07); }
+    const len = info.buf.duration / info.rate; let skip = 0;
+    if(info.sustain && e.legato && offset === 0){ skip = Math.min(0.12, len * 0.1); g.gain.setValueAtTime(0.0001, when); g.gain.linearRampToValueAtTime(info.gain * vel, when + 0.045); }   // joined to the note before
+    else if(info.sustain && (song.feel ?? 0.6) > 0 && offset === 0){ g.gain.setValueAtTime(info.gain * vel * 0.55, when); g.gain.linearRampToValueAtTime(info.gain * vel, when + 0.07); }
     if(info.sustain && e.dur > len - 0.5 && info.buf.duration > 2){ src.loop = true; src.loopStart = 1.0; src.loopEnd = info.buf.duration - 0.45; }
     const end = when + e.dur - offset, rel = info.release || 0.3;
     if(!info.synth || SYN[INSTRUMENTS[e.tr.inst].id].sustain){ g.gain.setValueAtTime(info.gain * vel, Math.max(when, end - 0.001)); g.gain.setTargetAtTime(0, Math.max(when, end), rel / 3); }
-    src.start(when, offset * info.rate); src.stop(Math.max(when, end) + rel * 2 + 0.05);
+    src.start(when, offset * info.rate + skip * info.rate); src.stop(Math.max(when, end) + rel * 2 + 0.05);
   } else src.start(when, offset);
   return src;
 }
