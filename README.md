@@ -93,7 +93,14 @@ Hindolam, Shankarabharanam, Kalyani, Mayamalavagowla, Kharaharapriya, Abheri), l
 It composes by rules and plays with real recorded instruments (FluidR3 SoundFont, MIT licence), right in the browser.
 Templates use it for their background music. The same generator is also available in Python in `music/`.
 
-**Coming next:** Stage 5 motion-graphics effects, Stage 6 bones,
+**🚶 Stage 6 (now): Animated characters.** 12 characters built on a skeleton: man, woman in saree, boy, girl, farmer,
+grandfather, office person, insurance advisor, standing rishi, warrior with sword, archer with bow, and king.
+15 one-tap actions: stand, walk, run, jump, sit, wave, namaste, talk, point, clap, dance, bow, fall, sword attack and shoot arrow.
+Walk and run move the character forward, and actions chain one after another. Eyes blink, there are 4 expressions
+(happy, sad, surprised, angry), and you can change the skin, hair and clothes colours. Select a character and use the
+action bar on the canvas. Library → Characters.
+
+**Coming next:** Stage 5 motion-graphics effects (moving rain and confetti, camera, scene transitions),
 Stage 7 library and templates, Stage 8 phone install and Windows app.
 
 Shortcuts on a computer: V select, B brush, L line, R rectangle, O circle, F fill, T text, E eraser, H move view,

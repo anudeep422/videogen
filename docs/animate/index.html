@@ -32,7 +32,7 @@
   #timeline .tr button{padding:4px 9px}
   #timeline input[type=range]{flex:1;min-width:60px}
   #tTime{font-variant-numeric:tabular-nums;font-size:12px;color:var(--dim);min-width:86px;text-align:right}
-  #track{width:100%;height:42px;display:block;margin-top:4px;border-radius:6px;background:#12141a;touch-action:none;cursor:pointer}
+  #track{width:100%;height:52px;display:block;margin-top:4px;border-radius:6px;background:#12141a;touch-action:none;cursor:pointer}
   #bAuto.on{background:#c0392b;border-color:#c0392b;color:#fff}
   .presets{display:grid;grid-template-columns:repeat(4,1fr);gap:4px}
   .presets button{padding:5px 2px;font-size:11px}
@@ -93,6 +93,7 @@
   <div id="stage">
     <canvas id="cv"></canvas>
     <div id="status">Brush</div>
+    <div id="charBar" style="position:absolute;left:6px;right:6px;bottom:34px;display:none;gap:4px;overflow-x:auto;padding:4px;background:#1d2029e6;border:1px solid var(--line);border-radius:10px"></div>
     <div id="zoomBox"><button id="zOut">−</button><button id="zFit">Fit</button><button id="zIn">+</button></div>
   </div>
   <aside id="side">
@@ -114,6 +115,19 @@
       <button id="oFlip">Flip ↔</button><button id="oUngroup">Ungroup</button><button id="oLayer">→ Layer…</button>
     </div>
 
+    <div id="charSec" style="display:none">
+      <h2>Character</h2>
+      <div class="f"><label>Action length</label><select id="cDur"><option>1</option><option selected>2</option><option>3</option><option>5</option><option>10</option></select></div>
+      <label class="hint" style="display:block;margin:2px 0 6px"><input type="checkbox" id="cMove" checked> Walk / Run moves the character forward</label>
+      <div id="cActs" class="presets"></div>
+      <div class="row" style="margin-top:6px"><button id="cTurn">Turn ↔</button><button id="cDelAct">Remove action here</button><button id="cClearAct">Remove all actions</button></div>
+      <div class="f"><label>Face</label><select id="cExpr"><option value="happy">😊 Happy</option><option value="sad">😢 Sad</option><option value="surprised">😮 Surprised</option><option value="angry">😠 Angry</option></select></div>
+      <div class="f"><label>Skin</label><input type="color" id="cSkin"></div>
+      <div class="f"><label>Hair</label><input type="color" id="cHair"></div>
+      <div class="f"><label>Top</label><input type="color" id="cTop"></div>
+      <div class="f"><label>Bottom / saree</label><input type="color" id="cBot"></div>
+      <div class="hint">Actions start at the current time. After adding one, the time moves to its end, so you can add the next one straight away.</div>
+    </div>
     <h2>Animation</h2>
     <div class="f"><label>Video length</label><div class="row" style="margin:0"><input type="number" id="nDur" min="1" max="600" step="0.5" value="10" style="width:80px;background:#12141a;border:1px solid var(--line);border-radius:6px;padding:4px"> <span class="hint">seconds</span> <label class="hint"><input type="checkbox" id="cLoop" checked> loop</label></div></div>
     <div class="f"><label>Ease</label><select id="sEase">
@@ -235,6 +249,7 @@
 
 <script src="../lib/mp4-muxer.js"></script>
 <script src="library.js"></script>
+<script src="characters.js"></script>
 <script src="templates.js"></script>
 <script src="sound.js"></script>
 <script src="musicgen.js"></script>
@@ -259,7 +274,7 @@ function newProject(w = 1280, h = 720){
 let P = null, curLayer = 1, selId = null, tool = 'brush';
 const style = {stroke:'#1e1e1e', fill:'#f0a830', noFill:false, width:6, opacity:1};
 let view = {zoom:1, ox:0, oy:0};
-let T = 0, playing = false, autoKey = true;
+let T = 0, RT = 0, playing = false, autoKey = true;   // RT = time being drawn (characters use it)
 
 // ------------------------------------------------------------------ animation core
 const ANIM = ['x', 'y', 'rotation', 'scaleX', 'scaleY', 'opacity'];
@@ -333,6 +348,7 @@ function localBox(o){  // [x0,y0,x1,y1] in local coords
       const m = (o.width || 1) / 2; return [a - m, b - m, c + m, d + m]; }
     case 'line': { const m = (o.width || 1) / 2; return [Math.min(o.x1, o.x2) - m, Math.min(o.y1, o.y2) - m, Math.max(o.x1, o.x2) + m, Math.max(o.y1, o.y2) + m]; }
     case 'text': { measureText(o); return [-o._w / 2, -o._h / 2, o._w / 2, o._h / 2]; }
+    case 'char': return VG_CHAR.box(o);
     case 'group': { const g = o.__base || o; if(g._gb && g._gbk === g._v) return g._gb;
       let a = Infinity, b = Infinity, c = -Infinity, d = -Infinity;
       for(const ch of g.children){ const bb = localBox(ch); for(const [x, y] of [[bb[0], bb[1]], [bb[2], bb[1]], [bb[2], bb[3]], [bb[0], bb[3]]]){ const [wx, wy] = toWorld(ch, x, y); a = Math.min(a, wx); b = Math.min(b, wy); c = Math.max(c, wx); d = Math.max(d, wy); } }
@@ -405,6 +421,8 @@ function drawObj(c, o){
     const im = imgOf(o); if(im.complete && im.naturalWidth) c.drawImage(im, -o.w / 2, -o.h / 2, o.w, o.h);
   } else if(o.type === 'group'){
     for(const ch of o.children) drawObj(c, ch);
+  } else if(o.type === 'char'){
+    window.VG_CHAR && VG_CHAR.draw(c, o, RT);
   } else {
     const p = shapePath(o);
     if(o.fill && o.type !== 'line' && (o.type !== 'path' || o.closed)){ c.fillStyle = paint(c, o, o.fill); c.fill(p); }
@@ -414,7 +432,7 @@ function drawObj(c, o){
 }
 function renderScene(c, opts = {}){
   c.fillStyle = P.background; c.fillRect(0, 0, P.width, P.height);
-  const t = opts.t ?? T, ghost = opts.ghost;
+  const t = opts.t ?? T, ghost = opts.ghost; RT = t;
   for(const L of P.layers){ if(!L.visible) continue; c.save(); c.globalAlpha = L.opacity ?? 1;
     for(const o of L.objects){ const vis = shownAt(o, t); if(!vis && !ghost) continue;
       if(!vis){ c.save(); c.globalAlpha *= .18; drawObj(c, E(o, t)); c.restore(); } else drawObj(c, E(o, t)); }
@@ -483,7 +501,7 @@ function hitLeaf(o, wx, wy, tol){
 }
 function hitObj(o, wx, wy, tol){
   const [lx, ly] = toLocal(o, wx, wy), sc = Math.max(Math.abs(o.scaleX || 1), Math.abs(o.scaleY || 1));
-  if(o.type === 'text' || o.type === 'image'){ const b = localBox(o); return lx >= b[0] && lx <= b[2] && ly >= b[1] && ly <= b[3]; }
+  if(o.type === 'text' || o.type === 'image' || o.type === 'char'){ const b = localBox(o); return lx >= b[0] && lx <= b[2] && ly >= b[1] && ly <= b[3]; }
   if(o.type === 'group'){ for(let i = o.children.length - 1; i >= 0; i--) if(hitObj(o.children[i], lx, ly, tol / sc)) return true; return false; }
   const p = shapePath(o);
   ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.lineWidth = (o.width || 1) + tol * 2 / sc; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
@@ -627,7 +645,7 @@ function afterEdit(){ autosave(); drawTrack(); syncAnimUI(); }
 // ------------------------------------------------------------------ tools & style UI
 function setTool(t){
   tool = t; document.querySelectorAll('#tools button[data-tool]').forEach(b => b.classList.toggle('on', b.dataset.tool === t));
-  cv.style.cursor = t === 'hand' ? 'grab' : t === 'select' ? 'default' : 'crosshair'; status(); draw();
+  cv.style.cursor = t === 'hand' ? 'grab' : t === 'select' ? 'default' : 'crosshair'; status(); draw(); if(window.VG_CHAR && $('charBar')) syncCharUI();
 }
 const TOOLNAMES = {select:'Select: tap an object, drag to move, corners to resize, ● to rotate', brush:'Brush: draw freely (end near the start to make a filled shape)',
   line:'Line: drag', rect:'Rectangle: drag, or tap for a square', ellipse:'Circle: drag, or tap', fill:'Fill: tap a shape to colour it',
@@ -768,7 +786,7 @@ function setTime(t, fromSlider){ T = clamp(t, 0, P.duration); syncTimeUI(fromSli
 function syncTimeUI(fromSlider){ const sl = $('tSlider'); sl.max = P.duration; sl.step = frameT(); if(!fromSlider) sl.value = T;
   $('tTime').textContent = `${T.toFixed(2)} / ${(+P.duration).toFixed(1)}s`; $('bPlay').textContent = playing ? '⏸' : '▶'; }
 let rafId = 0, lastTs = 0;
-function play(){ if(playing) return; if(T >= P.duration - 1e-3) T = 0; playing = true; lastTs = performance.now(); syncTimeUI(); startAudio(); rafId = requestAnimationFrame(tick); }
+function play(){ if(playing) return; $('charBar').style.display = 'none'; if(T >= P.duration - 1e-3) T = 0; playing = true; lastTs = performance.now(); syncTimeUI(); startAudio(); rafId = requestAnimationFrame(tick); }
 function pause(){ playing = false; stopAudio(); cancelAnimationFrame(rafId); T = snapT(T); syncTimeUI(); draw(); drawTrack(); syncAnimUI(); status(); }
 function togglePlay(){ playing ? pause() : play(); }
 function tick(ts){ if(!playing) return; T += (ts - lastTs) / 1000; lastTs = ts;
@@ -804,6 +822,9 @@ function drawTrack(){
     for(const t of keyTimes(s.o)){ const x = trackX(t); tctx.save(); tctx.translate(x, 22); tctx.rotate(Math.PI / 4);
       tctx.fillStyle = Math.abs(t - T) < frameT() / 2 ? '#f0a830' : '#e8e9ee'; tctx.fillRect(-4.5, -4.5, 9, 9); tctx.restore(); }
   } else { tctx.fillStyle = '#9aa0b4'; tctx.textAlign = 'left'; tctx.fillText('Select an object to see its keyframes', 12, 25); }
+  if(s && s.o.type === 'char') (s.o.actions || []).forEach(a => { const x0 = trackX(a.t0), x1 = trackX(Math.min(P.duration, a.t1));
+    tctx.fillStyle = '#F0A830'; tctx.globalAlpha = .9; tctx.fillRect(x0, 42, Math.max(3, x1 - x0), 6); tctx.globalAlpha = 1;
+    if(x1 - x0 > 26){ tctx.fillStyle = '#1a1300'; tctx.font = '8px "Noto Sans"'; tctx.textAlign = 'left'; tctx.fillText(a.a, x0 + 2, 48); } });
   const KC = {music:'#8E44AD', sfx:'#2E86C1', voice:'#27AE60', file:'#D35400'};
   (P.audio || []).forEach((c, i) => { const len = clipLen(c); const x0 = trackX(c.start), x1 = trackX(Math.min(P.duration, c.start + len));
     tctx.fillStyle = KC[c.kind] || '#888'; tctx.globalAlpha = .85; tctx.fillRect(x0, 31 + (i % 2) * 5, Math.max(3, x1 - x0), 4); tctx.globalAlpha = 1; });
@@ -830,7 +851,7 @@ new ResizeObserver(drawTrack).observe(track);
 
 // animation panel: ease, show from/to, delete/clear, presets
 function keysAtT(o){ const out = []; if(o.keys) for(const p of ANIM) (o.keys[p] || []).forEach(k => { if(Math.abs(k.t - T) < frameT() / 2) out.push(k); }); return out; }
-function syncAnimUI(){ const s = selId && findObj(selId); const ks = s ? keysAtT(s.o) : [];
+function syncAnimUI(){ if(window.VG_CHAR) syncCharUI(); const s = selId && findObj(selId); const ks = s ? keysAtT(s.o) : [];
   $('sEase').disabled = !ks.length; if(ks.length) $('sEase').value = ks[0].e || 'inout';
   $('nIn').value = s && s.o.show && s.o.show[0] != null ? s.o.show[0] : ''; $('nOut').value = s && s.o.show && s.o.show[1] != null ? s.o.show[1] : '';
   $('kDel').disabled = !ks.length; $('kClear').disabled = !(s && animated(s.o)); }
@@ -1140,6 +1161,43 @@ async function runExport(){
 }
 $('bExport').onclick = openExport; $('expGo').onclick = runExport; $('expStop').onclick = () => { expStop = true; };
 $('expClose').onclick = () => { expStop = true; $('expModal').style.display = 'none'; };
+
+// ------------------------------------------------------------------ characters: actions, turning, looks
+function selChar(){ const s = selId && findObj(selId); return s && s.o.type === 'char' ? s.o : null; }
+function addAction(a){
+  const o = selChar(); if(!o) return toast('Select a character first');
+  const dur = +$('cDur').value || 2, t0 = snapT(T), t1 = Math.min(P.duration, snapT(T + dur));
+  if(t1 - t0 < frameT()) return toast('No time left. Make the video longer (Animation → Video length)', true);
+  pushUndo(); o.actions = (o.actions || []).filter(s => s.t1 <= t0 + 1e-6 || s.t0 >= t1 - 1e-6);
+  if(a !== 'idle') o.actions.push({a, t0, t1}); o.actions.sort((x, y) => x.t0 - y.t0);
+  if((a === 'walk' || a === 'run') && $('cMove').checked){
+    const e = E(o), sz = (VG_CHAR.PRESETS[o.preset] || {}).size || 1, dist = VG_CHAR.SPEED[a] * sz * Math.abs(e.scaleX || 1) * (t1 - t0) * (o.face || 1);
+    setKey(o, 'x', t0, e.x); setKey(o, 'x', t1, e.x + dist);
+    o.keys.x.find(k => Math.abs(k.t - t0) < frameT() / 2).e = 'linear';
+  }
+  touch(o); setTime(t1); afterEdit(); draw(); toast(`${a} from ${t0.toFixed(1)}s to ${t1.toFixed(1)}s`);
+}
+function syncCharUI(){
+  const o = selChar(); $('charSec').style.display = o ? '' : 'none';
+  $('charBar').style.display = o && tool === 'select' && !playing ? 'flex' : 'none';
+  if(!o) return; const L = Object.assign({}, VG_CHAR.PRESETS[o.preset], o.look || {});
+  $('cExpr').value = o.expr || 'happy'; $('cSkin').value = L.skin; $('cHair').value = L.hair; $('cTop').value = L.top; $('cBot').value = L.bottom;
+}
+(function buildCharUI(){
+  if(!window.VG_CHAR) return;
+  const btn = ([id, label, icon]) => `<button data-act="${id}" title="${label}">${icon} ${label}</button>`;
+  $('cActs').innerHTML = VG_CHAR.ACTIONS.map(btn).join('');
+  $('charBar').innerHTML = `<select id="cDur2" title="Action length" style="flex:0 0 auto;background:#12141a;border:1px solid var(--line);border-radius:6px;font-size:12px">${[1, 2, 3, 5, 10].map(v => `<option value="${v}" ${v === 2 ? 'selected' : ''}>${v}s</option>`).join('')}</select>`
+    + VG_CHAR.ACTIONS.map(([id, label, icon]) => `<button data-act="${id}" style="flex:0 0 auto;padding:4px 8px;font-size:12px">${icon} ${label}</button>`).join('');
+  $('cDur2').onchange = e => { $('cDur').value = e.target.value; }; $('cDur').onchange = e => { $('cDur2').value = e.target.value; };
+  document.querySelectorAll('[data-act]').forEach(b => b.onclick = e => { e.stopPropagation(); addAction(b.dataset.act); });
+  $('charBar').addEventListener('pointerdown', e => e.stopPropagation());
+  $('cTurn').onclick = () => { const o = selChar(); if(!o) return; pushUndo(); o.face = -(o.face || 1); o.autoFace = false; draw(); autosave(); toast('Turned around'); };
+  $('cDelAct').onclick = () => { const o = selChar(); if(!o) return; pushUndo(); o.actions = (o.actions || []).filter(s => !(T >= s.t0 && T <= s.t1)); afterEdit(); draw(); };
+  $('cClearAct').onclick = () => { const o = selChar(); if(!o) return; pushUndo(); o.actions = []; afterEdit(); draw(); };
+  $('cExpr').onchange = e => { const o = selChar(); if(!o) return; pushUndo(); o.expr = e.target.value; draw(); autosave(); };
+  [['cSkin', 'skin'], ['cHair', 'hair'], ['cTop', 'top'], ['cBot', 'bottom']].forEach(([id, k]) => $(id).oninput = e => { const o = selChar(); if(!o) return; o.look = o.look || {}; o.look[k] = e.target.value; draw(); autosave(); });
+})();
 
 // ------------------------------------------------------------------ templates
 let tplCat = null; const tplThumbs = {};
