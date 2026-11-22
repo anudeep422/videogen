@@ -152,7 +152,7 @@
 <div class="modal" id="vModal"><div class="card">
   <h3>🎞️ My videos</h3>
   <div id="vList" class="list vlist hint">Loading…</div>
-  <div class="row" style="margin-top:12px"><button id="vClose">Close</button></div>
+  <div class="row" style="margin-top:12px"><button id="vClose">Close</button><button id="vKey">🔑 GitHub key</button></div>
 </div></div>
 
 <div class="toast" id="toast"></div>
@@ -610,6 +610,8 @@ async function renderOnGitHub(){
     const i=S.findIndex(x=>x[1]==='on'); if(i>=0){ S[i][1]='bad'; } steps(S);
     $('rResult').innerHTML=`<div class="hint" style="color:var(--bad)">${e.status===401?'Your GitHub key is wrong or expired. Tap 🚀 again to set it up.':e.status===403||e.status===404?'The key has no permission. It needs Contents: Read and write, and Actions: Read-only.<br><span style="color:var(--dim)">GitHub said: '+e.message+'</span>':e.message}</div>`;
     if(e.status===401){ const c2=ghCfg(); c2.token=''; ghStore(c2); }
+    if(e.status===401||e.status===403||e.status===404){ const b=document.createElement('button'); b.className='primary'; b.style.marginTop='10px';
+      b.textContent='🔑 Change GitHub key'; b.onclick=()=>{ $('rModal').style.display='none'; openGhSetup(); }; $('rResult').appendChild(b); }
   }
 }
 $('rClose').onclick=()=>$('rModal').style.display='none';
@@ -626,7 +628,7 @@ async function showVideos(){
       <a href="${a.browser_download_url}" target="_blank" rel="noopener">▶ Play</a></div>`).join('');
   }catch(e){ $('vList').innerHTML='<span style="color:var(--bad)">Could not load the list: '+e.message+'</span>'; }
 }
-$('bVideos').onclick=showVideos; $('vClose').onclick=()=>$('vModal').style.display='none';
+$('bVideos').onclick=showVideos; $('vKey').onclick=()=>{ $('vModal').style.display='none'; openGhSetup(); }; $('vClose').onclick=()=>$('vModal').style.display='none';
 
 // ---------------------------------------------------------------- start
 project = loadSaved() || JSON.parse(JSON.stringify(EXAMPLE));
