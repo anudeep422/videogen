@@ -59,10 +59,15 @@ Open `https://<your-username>.github.io/videogen/animate/`. It is a drawing app 
 select / move / resize / rotate, layers (show, hide, lock, reorder, opacity), undo / redo, pinch zoom,
 save and open projects (`.anim.json`), and PNG export. Everything is stored as editable shapes, ready to animate.
 
-**Coming next:** Stage 2 timeline and keyframes, Stage 3 MP4 export, Stage 4 sound, Stage 5 character library and bones.
+**Stage 2 (now):** timeline with play, scrub and loop. Keyframes: go to a time and move, resize, rotate or fade an object,
+and **Auto-key** records it. Drag the diamonds to retime. Easing (smooth, linear, ease in/out, overshoot, bounce, hold),
+"show from / to" times, a motion path display, and 12 quick animations (fade, pop, slide in, spin, pulse, shake, bounce).
+
+**Coming next:** Stage 3 MP4 export, Stage 4 sound, Stage 5 motion-graphics effects, Stage 6 bones,
+Stage 7 library and templates, Stage 8 phone install and Windows app.
 
 Shortcuts on a computer: V select, B brush, L line, R rectangle, O circle, F fill, T text, E eraser, H move view,
-Ctrl+Z undo, Ctrl+D duplicate, Delete removes, arrow keys nudge.
+Ctrl+Z undo, Ctrl+D duplicate, Delete removes, arrow keys nudge, Space play / pause, K add keyframe.
 
 ## 3. Run on your own computer (optional)
 
