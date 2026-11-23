@@ -635,6 +635,8 @@ const MOODS = {
     parts:{melody:'r:epiano', bass:'r:basses', arp:'r:steel'}, rhythm:'pop', verb:0.3},
   spanish:{name:'💃 Spanish guitar', scales:['vakulabharanam', 'minor'], bpm:[96, 112], keys:['E', 'A'],
     parts:{melody:'r:nylon', counter:'r:violin', bass:'r:cellos', arp:'r:steel'}, rhythm:'latin', verb:0.3},
+  solo:{name:'🎵 Solo instrument', scales:['mohanam', 'kalyani', 'hindolam', 'shivaranjani', 'hamsadhwani', 'abheri', 'mayamalavagowla', 'kharaharapriya', 'madhyamavati', 'charukesi'], bpm:[62, 78], keys:['C#', 'D', 'C', 'E'], indian:true,
+    parts:{melody:'s:bansuri'}, verb:0.45},
   cowboy:{name:'🤠 Cowboy / country', scales:['major', 'mohanam', 'harikambhoji'], bpm:[100, 118], keys:['G', 'D', 'A'],
     parts:{melody:'r:violin', arp:'r:steel', bass:'r:basses', counter:'r:nylon'}, arpKind:'strum', rhythm:'country', verb:0.22},
   western:{name:'🌵 Wild West (whistle & guitar)', scales:['minor', 'keeravani', 'vakulabharanam'], bpm:[72, 86], keys:['A', 'D', 'E'],
