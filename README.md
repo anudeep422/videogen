@@ -146,6 +146,8 @@ Open `https://<your-name>.github.io/videogen/studio/`. It works like a small Gar
 - **Rhythm grid** with Teentaal, Keherwa, Dadra, Rupak, Adi, Rupaka, Misra chapu, folk dholak, bhajan, dhol, rock, pop, latin, waltz, march, cinematic.
 - **✨ One-tap song**: choose a mood (spiritual, devotional, temple aarti, Vedic chant style, Carnatic, Hindustani, wedding, festival, zen, desert, blues, Spanish guitar, calm, happy, cinematic, sad, motivational, folk, romantic, orchestra), the video length in seconds and an optional nature sound. You get intro (alap for Indian moods), verse, chorus, a tihai and an ending, exactly that long.
 - **Raga phrases**: Indian moods and "🪷 Raga melody" build tunes from real phrases of the raga (Mohanam, Kalyani, Hamsadhwani, Hindolam, Mayamalavagowla and more), landing on Sa or Pa every 4 bars.
+- **Sound** (Polished / Natural): Polished adds studio mastering — EQ, warmth, glue compression and a limiter.
+- **Rich sound** (one-tap option, on by default): doubled melody in the chorus, soft pad, swarmandal shimmer for Indian moods, swells and impacts before the chorus, and a crescendo into it.
 - **Gamaka** (Off / Light / Rich): automatic meend (slides) and kampita (shakes) on veena, sitar, bansuri, violin, flute, shehnai, voice.
 - **Lead and Support** instrument choice on the one-tap screen.
 - **🎙️ Voice track**: record your voice or chanting while the music plays (☰ → Record my voice), or upload audio; it is mixed into downloads and the Animator.

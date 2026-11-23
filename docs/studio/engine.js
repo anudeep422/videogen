@@ -82,10 +82,11 @@ const SYN = {
   tanpura:{label:'Tanpura', range:[36, 62]}, guitar:{label:'Acoustic guitar', range:[40, 80]}, kalimba:{label:'Kalimba', range:[60, 88]},
   vibraphone:{label:'Vibraphone', range:[53, 89]}, organ:{label:'Organ', range:[36, 84], sustain:true},
   bowl_tibetan:{label:'Singing bowl (struck)', range:[43, 72], g:'Bowls & bells'}, bowl_rubbed:{label:'Singing bowl (rubbed hum)', range:[43, 72], g:'Bowls & bells'},
+  swell:{label:'Swell / riser (before a big moment)', range:[60, 60], g:'Effects'}, boom:{label:'Deep impact (boom)', range:[36, 36], g:'Effects'},
   crystal:{label:'Crystal bowl', range:[55, 84], g:'Bowls & bells'}, gong:{label:'Gong', range:[33, 55], g:'Bowls & bells'}, chimes:{label:'Wind chimes / bells', range:[72, 98], g:'Bowls & bells'},
 };
 const GAMAKA_OK = new Set(['veena', 'sitar', 'bansuri', 'violin', 'violins', 'flute', 'shehnai', 'sitar_rec', 'oboe', 'clarinet', 'voice', 'cellos', 'violas', 'panflute', 'harmonium', 'reedorgan']);
-const SYNGAIN = {bowl_tibetan:0.75, bowl_rubbed:0.6, crystal:0.6, gong:0.8, chimes:0.45, veena:0.9, sitar:0.8, santoor:0.7, bansuri:0.7, harmonium:0.55, tanpura:0.5, guitar:0.8, kalimba:0.8, vibraphone:0.7, organ:0.45};
+const SYNGAIN = {swell:0.5, boom:0.7, bowl_tibetan:0.75, bowl_rubbed:0.6, crystal:0.6, gong:0.8, chimes:0.45, veena:0.9, sitar:0.8, santoor:0.7, bansuri:0.7, harmonium:0.55, tanpura:0.5, guitar:0.8, kalimba:0.8, vibraphone:0.7, organ:0.45};
 const INSTRUMENTS = {};   // id -> {label, group, range, kind:'real'|'synth', ...}
 let manifest = null;
 
@@ -193,7 +194,21 @@ function renderBowl(id, f, dur, vel){
   for(let i = 0; i < Math.floor(0.03 * SR); i++){ x[i] += B.click * (rnd() * 2 - 1) * Math.exp(-i / (0.004 * SR)); }
   let pk = 0; for(const v of x) pk = Math.max(pk, Math.abs(v)); for(let i = 0; i < n; i++) x[i] *= 0.9 * vel / (pk || 1); return x;
 }
+// riser before a chorus (noise sweeping up and getting louder) and a soft deep impact on the chorus
+function renderFx(id, dur, vel){
+  let s0 = 99; const rnd = () => (s0 = (s0 * 16807) % 2147483647) / 2147483647 * 2 - 1;
+  if(id === 'swell'){ const n = Math.floor(Math.max(0.5, dur) * SR), x = new Float32Array(n); let lp = 0, bp = 0;
+    for(let i = 0; i < n; i++){ const u = i / n, fc = 300 + 7000 * u * u, a = 1 - Math.exp(-2 * Math.PI * fc / SR); lp += a * (rnd() - lp); bp += 0.3 * (lp - bp);
+      x[i] = (lp - bp * 0.6) * Math.pow(u, 2.2) * (u > 0.97 ? (1 - u) / 0.03 : 1); }
+    let pk = 0; for(const v of x) pk = Math.max(pk, Math.abs(v)); for(let i = 0; i < n; i++) x[i] *= 0.8 * vel / (pk || 1); return x; }
+  // boom
+  const n = Math.floor(3 * SR), x = new Float32Array(n); let ph = 0, lp = 0;
+  for(let i = 0; i < n; i++){ const t = i / SR, f = 38 + 50 * Math.exp(-t * 7); ph += 2 * Math.PI * f / SR; lp += 0.05 * (rnd() - lp);
+    x[i] = Math.sin(ph) * Math.exp(-t * 1.6) + lp * 3 * Math.exp(-t * 4) + (i < 300 ? rnd() * 0.3 * (1 - i / 300) : 0); }
+  let pk = 0; for(const v of x) pk = Math.max(pk, Math.abs(v)); for(let i = 0; i < n; i++) x[i] *= 0.9 * vel / (pk || 1); return x;
+}
 function synNote(id, m, dur, v){
+  if(id === 'swell' || id === 'boom'){ const d = Math.round(dur * 10) / 10, key = 'fx|' + id + '|' + d + '|' + v; let b = synCache.get(key); if(b) return b; b = toBuf(renderFx(id, dur, v)); synCache.set(key, b); return b; }
   if(id === 'bowl_rubbed' || BOWLS[id]){ const d = id === 'bowl_rubbed' ? Math.round(dur * 2) / 2 : 0, vv = Math.round(v * 4) / 4 || 0.25, key = 'b|' + id + '|' + m + '|' + d + '|' + vv;
     let b = synCache.get(key); if(b) return b; b = toBuf(renderBowl(id, hz(m), dur, vv)); synCache.set(key, b); return b; }
   const d = Math.max(0.15, Math.round(dur * 20) / 20), vv = Math.round(v * 4) / 4 || 0.25, key = 'n|' + id + '|' + m + '|' + d + '|' + vv;
@@ -317,7 +332,20 @@ function graph(ctx, song){
   const master = ctx.createGain(); master.gain.value = song.master ?? 0.9;
   const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -12; comp.ratio.value = 3; comp.attack.value = 0.01; comp.release.value = 0.2;
   const verb = ctx.createConvolver(); verb.buffer = impulse(ctx); const verbOut = ctx.createGain(); verbOut.gain.value = 0.7;
-  verb.connect(verbOut); verbOut.connect(master); master.connect(comp); comp.connect(ctx.destination);
+  verb.connect(verbOut); verbOut.connect(master);
+  if(song.polish === false){ master.connect(comp); comp.connect(ctx.destination); }
+  else {   // mastering: clean lows, less mud, a little air, gentle warmth, glue compression, then a limiter
+    const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 32; hp.Q.value = 0.7;
+    const mud = ctx.createBiquadFilter(); mud.type = 'peaking'; mud.frequency.value = 320; mud.Q.value = 0.9; mud.gain.value = -2.5;
+    const low = ctx.createBiquadFilter(); low.type = 'lowshelf'; low.frequency.value = 110; low.gain.value = 1.5;
+    const air = ctx.createBiquadFilter(); air.type = 'highshelf'; air.frequency.value = 9000; air.gain.value = 2.5;
+    const sat = ctx.createWaveShaper(); const n = 2048, cv = new Float32Array(n); for(let i = 0; i < n; i++){ const x = i / (n - 1) * 2 - 1; cv[i] = Math.tanh(1.4 * x) / Math.tanh(1.4); } sat.curve = cv; sat.oversample = '2x';
+    const pre = ctx.createGain(); pre.gain.value = 0.8;
+    const glue = ctx.createDynamicsCompressor(); glue.threshold.value = -20; glue.ratio.value = 2.2; glue.knee.value = 8; glue.attack.value = 0.025; glue.release.value = 0.3;
+    const lim = ctx.createDynamicsCompressor(); lim.threshold.value = -3; lim.ratio.value = 20; lim.knee.value = 0; lim.attack.value = 0.002; lim.release.value = 0.08;
+    const post = ctx.createGain(); post.gain.value = 1.15;
+    master.connect(hp); hp.connect(mud); mud.connect(low); low.connect(air); air.connect(pre); pre.connect(sat); sat.connect(glue); glue.connect(post); post.connect(lim); lim.connect(ctx.destination);
+  }
   const G = {ctx, master, comp, verb, tracks:{}};
   for(const tr of song.tracks) trackNode(G, song, tr);
   return G;
@@ -738,6 +766,32 @@ function compose(o){
       if(main.kit === 'folk' && main.grid['s:manjira']) main.hits.push({t:outroSec.b0 * meter, row:'s:manjira', v:1});
       for(const t of song.tracks) if(t.type === 'drum'){ t.off = [...new Set([...(t.off || []), tb])].sort((a, b) => a - b); }
     }
+  }
+  // richness: doubled melody, soft pad, swarmandal shimmer, risers and impacts, crescendos into the chorus
+  const plain = ['solo', 'custom', 'bowls', 'meditation', 'vedic'].includes(o.mood);
+  if(o.rich !== false && !plain){
+    const mel = song.tracks.find(t => t.name.startsWith('Melody')), bpb = meter, choruses = secs_.filter(x => x.type === 'B');
+    const DOUBLE = {'s:bansuri':'r:violins', 'r:flute':'r:violins', 'r:violin':'r:flute', 's:veena':'s:sitar', 's:sitar':'r:violins', 's:harmonium':'r:accordion', 'r:piano':'r:violins',
+      'r:shehnai':'r:oboe', 'r:oboe':'r:flute', 'r:marimba':'r:glock', 'r:nylon':'r:violin', 'r:epiano':'r:violins', 'r:panflute':'r:violins', 'r:horn':'r:trumpet', 'r:voice':'r:violins', 'r:sitar_rec':'r:violins'};
+    if(mel && DOUBLE[mel.inst] && INSTRUMENTS[DOUBLE[mel.inst]] && choruses.length){
+      const DI = INSTRUMENTS[DOUBLE[mel.inst]], notes = [];
+      for(const c of choruses) for(const n of mel.notes) if(n.t >= c.b0 * bpb && n.t < (c.b0 + c.n) * bpb){ let m = n.m; while(m > DI.range[1] - 2) m -= 12; while(m < DI.range[0] + 2) m += 12; notes.push({...n, m, v:n.v * 0.8}); }
+      if(notes.length) song.tracks.push({id:tid(), type:'inst', inst:DOUBLE[mel.inst], name:'Melody double · ' + DI.label, notes, vol:0.32, pan:-0.3, verb:Math.min(0.6, M.verb + 0.1)});
+    }
+    const hasPad = song.tracks.some(t => t.name.startsWith('Chords'));
+    if(!hasPad && INSTRUMENTS['r:warmpad']){ const padInst = ['spiritual', 'devotional', 'aarti', 'calm'].includes(o.mood) && INSTRUMENTS['r:choir'] ? 'r:choir' : 'r:warmpad', tr = {id:tid(), type:'inst', inst:padInst, name:'Soft pad · ' + INSTRUMENTS[padInst].label, notes:[], vol:0.22, pan:0.2, verb:0.5};
+      for(const c of secs_) if(c.type === 'B' || c.type === 'C') tr.notes.push(...auto(song, tr, 'chords', seedB + 9, c.n).map(x => ({...x, t:x.t + c.b0 * bpb, v:0.45})));
+      if(tr.notes.length) song.tracks.push(tr); }
+    if(M.indian && INSTRUMENTS['r:harp']){ const sw = {id:tid(), type:'inst', inst:'r:harp', name:'Swarmandal shimmer · Harp', notes:[], vol:0.3, pan:0.35, verb:0.6}, pool = scaleMidis(song, 62, 86);
+      for(const c of secs_) if(c.type === 'B' || c.type === 'outro'){ const up = pool.slice(0, 10); up.forEach((m, i) => sw.notes.push({t:Math.max(0, c.b0 * bpb - 0.9 + i * 0.09), d:1.5, m, v:0.35 + i * 0.03})); }
+      if(sw.notes.length) song.tracks.push(sw); }
+    const fx = {id:tid(), type:'inst', inst:'s:swell', name:'Swells', notes:[], vol:0.4, pan:0, verb:0.4};
+    for(const c of choruses) if(c.b0 >= 2) fx.notes.push({t:c.b0 * bpb - 2, d:2, m:60, v:0.8});
+    if(fx.notes.length) song.tracks.push(fx);
+    if(M.rhythm && ['cinematic', 'festival', 'motivational', 'orchestra', 'happy', 'cowboy', 'western', 'devotional', 'aarti', 'wedding', 'folk'].includes(o.mood)){
+      const bm = {id:tid(), type:'inst', inst:'s:boom', name:'Impact', notes:choruses.map(c => ({t:c.b0 * bpb, d:2, m:36, v:0.7})), vol:0.45, pan:0, verb:0.3}; if(bm.notes.length) song.tracks.push(bm); }
+    // crescendo: the two bars before each chorus get louder
+    for(const t of song.tracks) if(t.type === 'inst' && t.notes) for(const c of choruses){ const a = (c.b0 - 2) * bpb, b = c.b0 * bpb; t.notes.forEach(n => { if(n.t >= a && n.t < b) n.v = Math.min(1, n.v * (0.82 + 0.25 * (n.t - a) / (b - a))); }); }
   }
   if(o.nature && window.VG_AMB) song.tracks.push({id:tid(), type:'amb', amb:o.nature, name:'Nature · ' + ((window.VG_AMB.LIST.find(a => a.id === o.nature) || {}).name || o.nature), vol:0.4, pan:0, verb:0});
   // drum fill in the last two beats before each chorus (and before the ending when there is no tihai)
