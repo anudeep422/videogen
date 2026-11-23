@@ -121,8 +121,8 @@ const S = window.VG_STUDIO, $ = id => document.getElementById(id);
 const player = new S.Player();
 let song = null, selId = null, undoStack = [], redoStack = [], lastAuto = {};
 const uid = () => 't' + Math.random().toString(36).slice(2, 8);
-const GROUP_CLR = {'Real · Keys':'#f0a830', 'Real · Strings':'#e5534b', 'Real · Woodwinds':'#3fb27f', 'Real · Brass':'#d9b84a', 'Real · Mallets':'#4aa3ff', 'Indian & synth':'#c46cff', 'Real · Voices':'#ff8fb1', 'Real · Indian & world (recorded)':'#e0a04a', 'Real · Guitars & keys':'#7ab8ff', 'Real · Bells & pads':'#9be0c0'};
-const KIT_CLR = {kit:'#8a8aa0', orch:'#c98a5a', tabla:'#e07a3a', mridangam:'#d06a8a', folk:'#9bbf3a'};
+const GROUP_CLR = {'Real · Keys':'#f0a830', 'Real · Strings':'#e5534b', 'Real · Woodwinds':'#3fb27f', 'Real · Brass':'#d9b84a', 'Real · Mallets':'#4aa3ff', 'Indian & synth':'#c46cff', 'Real · Voices':'#ff8fb1', 'Real · Indian & world (recorded)':'#e0a04a', 'Real · Guitars & keys':'#7ab8ff', 'Real · Bells & pads':'#9be0c0', 'Real · World':'#d98a3a', 'Real · Bells':'#8fd6e8'};
+const KIT_CLR = {kit:'#8a8aa0', orch:'#c98a5a', tabla:'#e07a3a', mridangam:'#d06a8a', folk:'#9bbf3a', world:'#c9733a', calm:'#6fc3d8'};
 const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;'}[c]));
 
 // ------------------------------------------------------------ song model

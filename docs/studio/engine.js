@@ -74,8 +74,9 @@ const noteName = m => NAMES[m % 12] + (Math.floor(m / 12) - 1);
 // ---------------------------------------------------------------- instruments
 // real: filled from samples/manifest.json. gain balances loudness between instruments.
 const GAIN = {choir:0.5, voice:0.55, shehnai:0.5, warmpad:0.45, organ:0.45, accordion:0.5, reedorgan:0.5, taiko:0.8, tubular:0.5, piano:0.75, violin:0.6, violins:0.55, violas:0.55, cellos:0.6, basses:0.7, pizz:0.7, harp:0.7, flute:0.55, clarinet:0.55, oboe:0.5,
-  bassoon:0.6, trumpet:0.45, horn:0.5, trombone:0.5, tuba:0.6, marimba:0.7, xylophone:0.5, glock:0.4};
-const RELEASE = {piano:0.25, harp:1.2, marimba:0.8, xylophone:0.6, glock:1.5, pizz:0.4};
+  bassoon:0.6, trumpet:0.45, horn:0.5, trombone:0.5, tuba:0.6, marimba:0.7, xylophone:0.5, glock:0.4,
+  grand:0.75, pipeorgan:0.4, folkharp:0.7, tsax:0.5, harmonica:0.45, ocarina:0.5, balafon:0.7, kalimba_ke:0.75, mbira:0.7, wineglass:0.45, tubebells:0.5};
+const RELEASE = {grand:0.3, folkharp:1.2, balafon:0.6, kalimba_ke:1, mbira:1, tubebells:2, wineglass:1.2, piano:0.25, harp:1.2, marimba:0.8, xylophone:0.6, glock:1.5, pizz:0.4};
 const SYN = {
   veena:{label:'Veena', range:[48, 84]}, sitar:{label:'Sitar', range:[48, 84]}, santoor:{label:'Santoor', range:[55, 91]},
   bansuri:{label:'Bansuri (flute)', range:[60, 88], sustain:true}, harmonium:{label:'Harmonium', range:[48, 84], sustain:true},
@@ -103,6 +104,11 @@ const KITS = {
   folk:{label:'Folk: dholak, dhol, gajjalu', rows:[['s:dholak:dhe', 'Dholak dhe'], ['s:dholak:ta', 'Dholak ta'], ['s:dhol:dhum', 'Dhol dhum'], ['s:dhol:tak', 'Dhol tak'],
     ['s:manjira', 'Manjira'], ['s:manjira:closed', 'Manjira closed'], ['s:gajjalu', 'Gajjalu'], ['s:taalam', 'Taalam'], ['s:shaker', 'Shaker'],
     ['s:bell:small', 'Small bell'], ['s:bell:temple', 'Temple bell'], ['s:bowl', 'Singing bowl']]},
+  world:{label:'World hand drums (real)', rows:[['r:frame_low', 'Frame drum'], ['r:frame_mute', 'Frame muted'], ['r:frame_hi', 'Small frame'], ['r:darbuka_1', 'Darbuka dum'],
+    ['r:darbuka_2', 'Darbuka ka'], ['r:darbuka_4', 'Darbuka tek'], ['r:cajon_2', 'Cajon bass'], ['r:cajon_1', 'Cajon slap'], ['r:slit_lo', 'Slit drum low'], ['r:slit_hi', 'Slit drum high'],
+    ['r:fingercym', 'Finger cymbals'], ['s:shaker', 'Shaker']]},
+  calm:{label:'Bells, gongs & calm (real)', rows:[['r:nepal_bell', 'Nepal bell'], ['r:nepal_bell2', 'Nepal bell 2'], ['r:fingercym', 'Finger cymbals'], ['r:gong_soft', 'Gong soft'],
+    ['r:gong_real', 'Gong'], ['r:marktree', 'Wind chimes'], ['r:ocean', 'Ocean waves'], ['r:didgeridoo', 'Didgeridoo'], ['s:bowl', 'Singing bowl']]},
 };
 // pattern strings: one char per step. x = hit, o = soft hit, - = rest
 const RHYTHMS = {
@@ -119,6 +125,10 @@ const RHYTHMS = {
   dhol:{name:'Dhol dance (bhangra)', kit:'folk', steps:8, stepBeats:0.5, pat:{'s:dhol:dhum':'x--x--x-', 's:dhol:tak':'-xx-xx-x', 's:taalam':'x---x---'}},
   aarti:{name:'Aarti (dholak, manjira, bell)', kit:'folk', steps:8, stepBeats:0.5, pat:{'s:dholak:dhe':'x--x-x--', 's:dholak:ta':'--x---x-', 's:manjira':'x-x-x-x-', 's:bell:small':'x-------'}},
   thavil:{name:'Thavil style (wedding)', kit:'mridangam', steps:8, stepBeats:0.5, pat:{'s:mri:thom':'x--x--x-', 's:mri:tha':'-x--x--x', 's:kanjira':'o-o-o-o-', 's:mri:dheem':'x-------'}},
+  darbuka:{name:'Darbuka (maqsum)', kit:'world', steps:16, stepBeats:0.25, pat:{'r:darbuka_1':'x-------x-------', 'r:darbuka_4':'--x---x-----x---', 'r:darbuka_2':'-----o-------o-o', 'r:fingercym':'x---------------'}},
+  frame:{name:'Frame drum & cajon (world)', kit:'world', steps:16, stepBeats:0.25, pat:{'r:frame_low':'x-------x--x----', 'r:frame_hi':'----o-------o---', 'r:cajon_1':'----x-------x---', 's:shaker':'o-o-o-o-o-o-o-o-'}},
+  slit:{name:'Slit drum (African)', kit:'world', steps:16, stepBeats:0.25, pat:{'r:slit_lo':'x--x--x---x--x--', 'r:slit_hi':'--o---o-o---o--o', 'r:frame_mute':'x-------x-------'}},
+  bells:{name:'Bells & gong (calm)', kit:'calm', steps:16, stepBeats:1, pat:{'r:gong_soft':'x---------------', 'r:nepal_bell':'--------x-------', 'r:fingercym':'----o-------o---'}},
   bowl:{name:'Singing bowl (slow)', kit:'folk', steps:16, stepBeats:1, pat:{'s:bowl':'x---------------'}},
   desert:{name:'Desert (darbuka style)', kit:'kit', steps:16, stepBeats:0.25, pat:{'r:big_drum':'x-----x---x-----', 'r:conga_mute':'---x-------x--x-', 'r:conga_open':'----x-------x---', 'r:claves':'--o---o---o---o-'}},
   country:{name:'Country train beat', kit:'kit', steps:16, stepBeats:0.25, pat:{'r:kick':'x-------x-------', 'r:rim':'----x-------x---', 'r:snare_soft':'-o-o-o-o-o-o-o-o', 's:shaker':'o-o-o-o-o-o-o-o-'}},
@@ -656,7 +666,7 @@ const MOODS = {
   cinematic:{name:'🎬 Cinematic / epic', scales:['minor', 'kharaharapriya'], bpm:[84, 96], keys:['D', 'C', 'E'],
     parts:{melody:'r:horn', counter:'r:trumpet', pad:'r:violins', bass:'r:cellos', arp:'r:pizz'}, rhythm:'epic', verb:0.45},
   sad:{name:'😢 Sad / emotional', scales:['minor', 'bhairavi'], bpm:[64, 72], keys:['A', 'D', 'E'],
-    parts:{melody:'r:piano', counter:'r:violin', pad:'r:cellos'}, verb:0.45},
+    parts:{melody:'r:grand', counter:'r:violin', pad:'r:cellos'}, verb:0.45},
   motivational:{name:'💼 Motivational / business', scales:['major'], bpm:[100, 110], keys:['C', 'D', 'G'],
     parts:{melody:'r:piano', pad:'r:violins', bass:'r:cellos', arp:'s:guitar'}, rhythm:'pop', verb:0.3},
   folk:{name:'🌾 Village folk', scales:['kharaharapriya', 'mohanam', 'major'], bpm:[100, 112], keys:['D', 'E'],
@@ -674,21 +684,27 @@ const MOODS = {
   zen:{name:'🎋 Zen / Japanese calm', scales:['hirajoshi', 'iwato', 'durga'], bpm:[60, 70], keys:['D', 'E', 'A'],
     parts:{melody:'r:panflute', arp:'r:koto', pad:'r:warmpad'}, rhythm:'bowl', verb:0.55},
   desert:{name:'🐪 Desert / Arabic', scales:['vakulabharanam', 'mayamalavagowla', 'persian'], bpm:[90, 104], keys:['D', 'E', 'C#'],
-    parts:{melody:'r:oboe', counter:'r:violin', bass:'r:pizz', drone:'s:tanpura'}, rhythm:'desert', verb:0.35},
+    parts:{melody:'r:oboe', counter:'r:violin', bass:'r:pizz', drone:'s:tanpura'}, rhythm:'darbuka', verb:0.35},
   blues:{name:'🎷 Blues', scales:['blues'], bpm:[76, 92], keys:['E', 'A', 'G'],
-    parts:{melody:'r:epiano', bass:'r:basses', arp:'r:steel'}, rhythm:'pop', verb:0.3},
+    parts:{melody:'r:tsax', counter:'r:harmonica', pad:'r:epiano', bass:'r:basses', arp:'r:steel'}, rhythm:'pop', verb:0.3},
   spanish:{name:'💃 Spanish guitar', scales:['vakulabharanam', 'minor'], bpm:[96, 112], keys:['E', 'A'],
     parts:{melody:'r:nylon', counter:'r:violin', bass:'r:cellos', arp:'r:steel'}, rhythm:'latin', verb:0.3},
   solo:{name:'🎵 Solo instrument', scales:['mohanam', 'kalyani', 'hindolam', 'shivaranjani', 'hamsadhwani', 'abheri', 'mayamalavagowla', 'kharaharapriya', 'madhyamavati', 'charukesi'], bpm:[62, 78], keys:['C#', 'D', 'C', 'E'], indian:true,
     parts:{melody:'s:bansuri'}, verb:0.45},
   cowboy:{name:'🤠 Cowboy / country', scales:['major', 'mohanam', 'harikambhoji'], bpm:[100, 118], keys:['G', 'D', 'A'],
-    parts:{melody:'r:violin', arp:'r:steel', bass:'r:basses', counter:'r:nylon'}, arpKind:'strum', rhythm:'country', verb:0.22},
+    parts:{melody:'r:violin', arp:'r:steel', bass:'r:basses', counter:'r:harmonica'}, arpKind:'strum', rhythm:'country', verb:0.22},
   western:{name:'🌵 Wild West (whistle & guitar)', scales:['minor', 'keeravani', 'vakulabharanam'], bpm:[72, 86], keys:['A', 'D', 'E'],
     parts:{melody:'r:flute', counter:'r:trumpet', arp:'r:nylon', bass:'r:cellos'}, rhythm:'gallop', verb:0.5},
   meditation:{name:'🧘 Meditation (bansuri + tabla)', scales:['mohanam', 'kalyani', 'shivaranjani', 'hindolam', 'madhyamavati'], bpm:[60, 68], keys:['C#', 'D', 'C'], indian:true,
     parts:{melody:'s:bansuri', drone:'s:tanpura'}, rhythm:'tabla_soft', verb:0.5},
   bowls:{name:'🔔 Singing bowls meditation', scales:['mohanam', 'major', 'durga', 'madhyamavati'], bpm:[54, 62], keys:['C#', 'D', 'C', 'F'], indian:false,
-    parts:{bowls:'s:bowl_tibetan', hum:'s:bowl_rubbed', sparkle:'s:chimes'}, verb:0.55},
+    parts:{bowls:'s:bowl_tibetan', hum:'s:bowl_rubbed', sparkle:'s:chimes'}, rhythm:'bells', verb:0.55},
+  africa:{name:'🌍 African / world', scales:['mohanam', 'major', 'durga'], bpm:[96, 112], keys:['G', 'A', 'F'],
+    parts:{melody:'r:kalimba_ke', counter:'r:ocarina', arp:'r:mbira', bass:'r:balafon'}, rhythm:'slit', rhythm2:'frame', verb:0.3},
+  church:{name:'⛪ Church / hymn', scales:['major'], bpm:[66, 76], keys:['C', 'F', 'G', 'D'],
+    parts:{melody:'r:pipeorgan', pad:'r:choir', bass:'r:basses', sparkle:'r:tubebells'}, verb:0.6},
+  jazz:{name:'🌃 Night jazz / lounge', scales:['kharaharapriya', 'blues', 'minor'], bpm:[84, 98], keys:['F', 'C', 'D'],
+    parts:{melody:'r:tsax', pad:'r:grand', bass:'r:basses'}, rhythm:'pop', verb:0.3},
   custom:{name:'🎛️ My own choice', scales:['mohanam'], bpm:[70, 80], keys:['C#'], indian:true, parts:{}, verb:0.4},
   orchestra:{name:'🎻 Orchestra', scales:['major', 'minor'], bpm:[84, 96], keys:['D', 'G', 'C'],
     parts:{melody:'r:flute', counter:'r:oboe', pad:'r:violins', bass:'r:basses', arp:'r:harp'}, rhythm:'march', verb:0.45},
@@ -806,7 +822,7 @@ function compose(o){
   if(o.nature && window.VG_AMB) song.tracks.push({id:tid(), type:'amb', amb:o.nature, name:'Nature · ' + ((window.VG_AMB.LIST.find(a => a.id === o.nature) || {}).name || o.nature), vol:0.4, pan:0, verb:0});
   // drum fill in the last two beats before each chorus (and before the ending when there is no tihai)
   const mainDr = song.tracks.find(t => t.type === 'drum');
-  if(mainDr && meter === 4){ const rows = Object.entries(mainDr.grid).map(([r, a]) => [r, a.reduce((x, y) => x + y, 0)]).sort((a, b) => b[1] - a[1]).map(x => x[0]).filter(r => !/shaker|bowl|bell|manjira|taalam/.test(r));
+  if(mainDr && meter === 4 && mainDr.kit !== 'calm'){ const rows = Object.entries(mainDr.grid).map(([r, a]) => [r, a.reduce((x, y) => x + y, 0)]).sort((a, b) => b[1] - a[1]).map(x => x[0]).filter(r => !/shaker|bowl|bell|manjira|taalam/.test(r));
     if(rows.length) for(let k = 1; k < secs_.length; k++){ const sec = secs_[k]; if(sec.type !== 'B' && !(sec.type === 'outro' && !(mainDr.hits || []).length)) continue;
       const t0 = sec.b0 * meter - 2, n = R() < 0.5 ? 8 : 6; for(let q = 0; q < n; q++) (mainDr.hits = mainDr.hits || []).push({t:t0 + q * 2 / n, row:rows[q % Math.min(2, rows.length)], v:0.55 + 0.45 * q / n}); } }
   song.feel = 0.6; song.gamaka = M.indian ? 0.7 : 0; song.style = style;

@@ -28,5 +28,6 @@ mp4-muxer (docs/lib) is MIT licensed, (c) Vanilagy.
 Instrument samples in docs/animate/samples come from the FluidR3_GM SoundFont by Frank Wen, MIT licence.
 Instrument recordings in docs/studio/samples come from VSCO 2 Community Edition by Versilian Studios, CC0 1.0 (public domain),
 and from GeneralUser GS 2.0 by S. Christian Collins (free licence for use in software projects; see docs/studio/samples/LICENSE.txt).
+More recordings come from the Versilian Community Sample Library (VCSL) by Versilian Studios, CC0 1.0 (public domain), https://github.com/sgossner/VCSL.
 
 three.js (docs/lib/three.module.min.js, three.core.min.js) is MIT licensed, Copyright 2010-2024 three.js authors (docs/lib/LICENSE-three.txt).
