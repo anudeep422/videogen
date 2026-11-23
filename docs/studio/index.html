@@ -439,7 +439,7 @@ addEventListener('resize', () => { if(sel()?.type === 'inst'){ sizeRoll(); drawR
 
 // ------------------------------------------------------------ auto-fill
 function autoSheet(t){
-  const kinds = [['raga', '🪷 Raga melody', 'built from real phrases of this raga'], ['melody', '🎶 Simple melody', 'a free tune using the raga notes'], ['chords', '🎹 Chords', 'long chords, one per bar'], ['bass', '🎸 Bass line', 'low notes on beats'], ['arp', '🌊 Arpeggio', 'broken chords (harp, guitar, piano)'], ['drone', '🪕 Drone', 'tanpura style Pa-Sa-Sa-Sa']];
+  const kinds = [['raga', '🪷 Raga melody', 'built from real phrases of this raga'], ['melody', '🎶 Simple melody', 'a free tune using the raga notes'], ['chords', '🎹 Chords', 'long chords, one per bar'], ['bass', '🎸 Bass line', 'low notes on beats'], ['arp', '🌊 Arpeggio', 'broken chords (harp, guitar, piano)'], ['strum', '🎸 Strum', 'guitar strumming chords'], ['drone', '🪕 Drone', 'tanpura style Pa-Sa-Sa-Sa']];
   sheet('✨ Auto-fill ' + esc(t.name), `<p class="hint">Makes notes using music rules and dice — no AI. Uses the key and raga at the top. Press again for a different version.</p>
     <div class="opts">${kinds.map(([k, l, h]) => `<button data-k="${k}" title="${h}">${l}</button>`).join('')}</div>
     <p style="margin-top:12px"><label><input type="checkbox" id="keepOld"> Keep existing notes (add on top)</label></p>`, box => box.querySelectorAll('[data-k]').forEach(b => b.onclick = () => {
