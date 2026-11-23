@@ -2,6 +2,10 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<link rel="manifest" href="../manifest.webmanifest">
+<meta name="theme-color" content="#1b1829">
+<link rel="apple-touch-icon" href="../icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <title>VideoGen Instrument Studio · make music with real instruments</title>
 <style>
@@ -126,7 +130,7 @@ function snapshot(){ return JSON.stringify(song); }
 function pushUndo(){ undoStack.push(snapshot()); if(undoStack.length > 60) undoStack.shift(); redoStack = []; }
 function changed(opts = {}){ save(); if(!opts.noRefresh) player.refresh(song); if(player.G) S.mixAll(player.G, song); if(!opts.keepUI) renderAll(); else { drawMinis(); drawRoll(); } }
 let saveT = 0; function save(){ clearTimeout(saveT); saveT = setTimeout(() => { try{ localStorage.setItem('vg_studio_song', snapshot()); }catch(e){} }, 300); }
-function loadSong(s){ player.stop(); song = s; song.tracks.forEach(t => t.id = t.id || uid()); selId = song.tracks[0]?.id; player.G = null; player.pos = 0; renderAll(); save(); }
+function loadSong(s){ player.stop(); song = s; setTimeout(async () => { for(const t of song.tracks) if(t.type === 'audio' && t.blob) await S.clipLoad(t.blob); drawMinis(); renderTracks(); }, 50); song.tracks.forEach(t => t.id = t.id || uid()); selId = song.tracks[0]?.id; player.G = null; player.pos = 0; renderAll(); save(); }
 
 // ------------------------------------------------------------ top bars
 function fillTop(){
@@ -170,9 +174,9 @@ function frame(){ drawAllPlayheads(); if(player.playing) requestAnimationFrame(f
 function drawAllPlayheads(){ const p = player.position(); $('pos').textContent = posText(p); drawMinis(); followRoll(p); drawRoll(); markGrid(p); }
 
 // ------------------------------------------------------------ track list
-function trackColor(t){ if(t.type === 'amb') return '#38b6c9'; return t.type === 'drum' ? KIT_CLR[t.kit] || '#888' : GROUP_CLR[(S.INSTRUMENTS[t.inst] || {}).group] || '#888'; }
+function trackColor(t){ if(t.type === 'audio') return '#ff7a59'; if(t.type === 'amb') return '#38b6c9'; return t.type === 'drum' ? KIT_CLR[t.kit] || '#888' : GROUP_CLR[(S.INSTRUMENTS[t.inst] || {}).group] || '#888'; }
 function ambInfo(id){ return (window.VG_AMB && VG_AMB.LIST.find(a => a.id === id)) || {name:id, icon:'🌿'}; }
-function trackSub(t){ if(t.type === 'amb'){ const a = ambInfo(t.amb); return a.icon + ' ' + a.name; } return t.type === 'drum' ? (S.KITS[t.kit]?.label || t.kit) + ' · ' + (S.RHYTHMS[t.rhythm]?.name.split(' (')[0] || 'own rhythm') : (S.INSTRUMENTS[t.inst]?.label || t.inst); }
+function trackSub(t){ if(t.type === 'audio') return '🎙️ ' + (S.clipBufs[t.blob] ? S.clipBufs[t.blob].duration.toFixed(1) + ' s · starts at ' + (t.start || 0).toFixed(1) + ' s' : 'recording'); if(t.type === 'amb'){ const a = ambInfo(t.amb); return a.icon + ' ' + a.name; } return t.type === 'drum' ? (S.KITS[t.kit]?.label || t.kit) + ' · ' + (S.RHYTHMS[t.rhythm]?.name.split(' (')[0] || 'own rhythm') : (S.INSTRUMENTS[t.inst]?.label || t.inst); }
 function renderTracks(){
   const box = $('tracks');
   box.innerHTML = song.tracks.map(t => `<div class="trk${t.id === selId ? ' sel' : ''}${t.id === openId ? ' open' : ''}" data-id="${t.id}">
@@ -221,6 +225,8 @@ function drawMinis(){
     c.fillStyle = trackColor(t); c.globalAlpha = audibleUI(t) ? 1 : 0.3;
     if(t.type === 'inst'){ if(t.notes.length){ let lo = 127, hi = 0; for(const n of t.notes){ lo = Math.min(lo, n.m); hi = Math.max(hi, n.m); } const span = Math.max(12, hi - lo);
         for(const n of t.notes) c.fillRect(n.t * k / total * w, h - 4 - (n.m - lo) / span * (h - 8), Math.max(1.5, n.d * k / total * w - 0.5), 2.5); } }
+    else if(t.type === 'audio'){ const b = S.clipBufs[t.blob]; if(b){ const d = b.getChannelData(0), x0 = (t.start || 0) / total * w, wd = b.duration / total * w, step = Math.max(1, Math.floor(d.length / Math.max(1, wd)));
+        for(let x = 0; x < wd && x0 + x < w; x++){ let pk = 0; for(let j = Math.floor(x * d.length / wd), e = Math.min(d.length, j + step); j < e; j += 4) pk = Math.max(pk, Math.abs(d[j])); c.fillRect(x0 + x, h / 2 - pk * h * 0.45, 1, pk * h * 0.9 + 0.5); } } }
     else if(t.type === 'amb'){ c.globalAlpha *= 0.55; for(let x = 0; x < w; x += 3){ const a = 0.5 + 0.35 * Math.sin(x * 0.21 + t.amb.length) * Math.sin(x * 0.047); c.fillRect(x, h / 2 - a * h * 0.4, 2, a * h * 0.8); } }
     else { for(const e of S.events({...song, tracks:[t]})) c.fillRect(e.s / total * w, h / 2 - 5 * e.v, 1.5, 10 * e.v); }
     c.globalAlpha = 1; c.fillStyle = '#fff'; c.fillRect(p / total * w, 0, 1.5, h);
@@ -258,8 +264,11 @@ async function hear(inst){
   const t0 = G.ctx.currentTime; delete G.tracks.__pv; ms.forEach((x, i) => setTimeout(() => S.preview(G, song, tmp, x), i * 260));
 }
 function addTrackSheet(){
-  sheet('Add a track', `<h4 style="margin-top:0">Instrument (melody, chords, bass)</h4>` + soundButtons() + `<h4>Rhythm (drums, tabla, mridangam)</h4><div class="opts">${Object.entries(S.RHYTHMS).map(([id, R]) => `<button data-rh="${id}">${esc(R.name)}</button>`).join('')}</div>
+  sheet('Add a track', `<h4 style="margin-top:0">Your voice</h4><div class="opts"><button data-voice="rec" class="on">🎙️ Record my voice over the music</button><button data-voice="up">📂 Upload an audio file</button></div>
+    <h4>Instrument (melody, chords, bass)</h4>` + soundButtons() + `<h4>Rhythm (drums, tabla, mridangam)</h4><div class="opts">${Object.entries(S.RHYTHMS).map(([id, R]) => `<button data-rh="${id}">${esc(R.name)}</button>`).join('')}</div>
     <h4>Nature & place sounds (play through the whole song)</h4>${ambButtons().replace(/data-amb=/g, 'data-addamb=')}`, box => {
+    box.querySelectorAll('[data-voice]').forEach(b => b.onclick = () => { pushUndo(); const t = {id:uid(), type:'audio', name:'My voice', blob:null, start:0, vol:1, pan:0, verb:0.12}; song.tracks.push(t); selId = t.id; closeSheet(); changed();
+      if(b.dataset.voice === 'rec') recordVoice(t); else uploadAudio(t); });
     box.querySelectorAll('[data-addamb]').forEach(b => b.onclick = () => { pushUndo(); const id = b.dataset.addamb; const t = {id:uid(), type:'amb', amb:id, name:'Nature · ' + ambInfo(id).name, vol:0.45, pan:0, verb:0}; song.tracks.push(t); selId = t.id; closeSheet(); changed(); hearAmb(id); });
     box.querySelectorAll('[data-inst]').forEach(b => b.onclick = () => { pushUndo(); const t = instTrack(b.dataset.inst); song.tracks.push(t); selId = t.id; closeSheet(); changed(); hear(b.dataset.inst); });
     box.querySelectorAll('[data-rh]').forEach(b => b.onclick = () => { pushUndo(); const t = drumTrack(b.dataset.rh); song.tracks.push(t); selId = t.id; closeSheet(); changed(); });
@@ -271,6 +280,20 @@ const PR = {bw:44, rh:22, sx:0, sy:-1, snap:0.5, len:1, lock:true, follow:true, 
 const KEYW = 62, RUL = 22;
 function renderEditor(){
   const t = sel(); if(!t){ $('edTools').innerHTML = '<span class="hint">Add a track to start.</span>'; $('roll').style.display = 'none'; $('grid').style.display = 'none'; return; }
+  if(t.type === 'audio'){
+    $('roll').style.display = 'none'; $('grid').style.display = '';
+    $('edTools').innerHTML = `<span class="t">🎙️ ${esc(t.name)}</span>`;
+    const b = S.clipBufs[t.blob];
+    $('grid').innerHTML = `<p class="hint" style="margin-top:4px">${b ? 'Length ' + b.duration.toFixed(1) + ' s.' : 'No sound yet.'} Your voice plays with the music and goes into the download and the Animator.</p>
+      <div class="opts" style="margin:8px 0"><button id="recBtn" class="on">🎙️ Record again (music plays)</button><button id="upBtn">📂 Upload audio</button></div>
+      <div class="opts" style="align-items:center"><label class="hint">Starts at</label><input id="recStart" type="number" step="0.1" min="0" value="${(t.start || 0).toFixed(1)}" style="width:80px"><span class="hint">seconds</span>
+        <button id="nudgeL">◀ 0.1 s</button><button id="nudgeR">0.1 s ▶</button></div>
+      <p class="hint">Tip: use earphones while recording, so the music does not go into the microphone. Turn down the music with ⚙ → Volume if your voice is too soft.</p>`;
+    $('recBtn').onclick = () => recordVoice(t); $('upBtn').onclick = () => uploadAudio(t);
+    const setStart = v => { pushUndo(); t.start = Math.max(0, Math.round(v * 10) / 10); changed(); };
+    $('recStart').onchange = () => setStart(+$('recStart').value || 0); $('nudgeL').onclick = () => setStart((t.start || 0) - 0.1); $('nudgeR').onclick = () => setStart((t.start || 0) + 0.1);
+    return;
+  }
   if(t.type === 'amb'){
     $('roll').style.display = 'none'; $('grid').style.display = '';
     $('edTools').innerHTML = `<span class="t">🌿 ${esc(t.name)}</span>`;
@@ -465,6 +488,8 @@ $('menuBtn').onclick = () => {
   sheet('Menu', `<div class="menu">
     <button data-m="save">💾 Save to My songs</button>
     <button data-m="rename">✏️ Rename song</button>
+    <button data-m="voice">🎙️ Record my voice over the music</button>
+    <button data-m="bars">🔁 Repeat or remove bars</button>
     <button data-m="new">📄 New empty song</button>
     <button data-m="onetap">✨ Make a full song in one tap</button>
     <button data-m="demo">🎵 Example songs</button>
@@ -486,6 +511,8 @@ async function menu(m){
   if(m === 'rename'){ const n = prompt('Song name', song.name); if(n){ song.name = n.trim(); syncTop(); save(); } closeSheet(); }
   if(m === 'new'){ if(!confirm('Start a new song? (Save this one first if you want to keep it.)')) return; closeSheet(); undoStack = []; loadSong(newSong()); }
   if(m === 'demo') demoSheet();
+  if(m === 'bars') barsSheet();
+  if(m === 'voice'){ closeSheet(); pushUndo(); const t = {id:uid(), type:'audio', name:'My voice', blob:null, start:0, vol:1, pan:0, verb:0.12}; song.tracks.push(t); selId = t.id; changed(); recordVoice(t); }
   if(m === 'onetap') oneTapSheet();
   if(m === 'wav' || m === 'm4a' || m === 'anim'){
     closeSheet(); player.stop(); syncPlay();
@@ -508,12 +535,55 @@ async function menu(m){
     <li><b>✨ Auto-fill</b> writes a melody, chords, bass, arpeggio or drone for you.</li>
     <li><b>Rhythm</b> tracks: pick Teentaal, Adi, Keherwa, rock… or tap the boxes to make your own.</li>
     <li><b>Feel → Natural</b> adds small timing and loudness changes, like real players.</li>
+    <li>☰ → <b>Record my voice</b>: the music plays while you chant or speak; your voice becomes a track.</li>
     <li>⚙ opens volume, left/right and hall echo. <b>M</b> mutes, <b>S</b> plays only that track.</li>
     <li>🔁 repeats. Drag on the bar numbers above the notes to repeat only some bars.</li>
     <li>☰ Menu → download WAV/M4A or send to the 🎬 Animator.</li></ol>`);
 }
 function idb(){ return new Promise((res, rej) => { const r = indexedDB.open('videogen_audio', 1); r.onupgradeneeded = () => r.result.createObjectStore('blobs'); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }); }
+async function idbGet(id){ const db = await idb(); return new Promise((res, rej) => { const tx = db.transaction('blobs', 'readonly'), r = tx.objectStore('blobs').get(id); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }); }
+S.setClipLoader(async id => { const blob = await idbGet(id); if(!blob) return null; const ab = await blob.arrayBuffer(); const ctx = player.ensure(song).ctx; return await new Promise((res, rej) => ctx.decodeAudioData(ab, res, rej)); });
 async function idbPut(id, blob){ const db = await idb(); return new Promise((res, rej) => { const tx = db.transaction('blobs', 'readwrite'); tx.objectStore('blobs').put(blob, id); tx.oncomplete = res; tx.onerror = () => rej(tx.error); }); }
+
+// ------------------------------------------------------------ voice track: record over the music, or upload
+let recState = null;
+async function recordVoice(t){
+  if(recState){ recState.stop(); return; }
+  if(!navigator.mediaDevices || !window.MediaRecorder) return toast('This browser cannot record', true);
+  let stream; try{ stream = await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true, noiseSuppression:true}}); }catch(e){ return toast('Please allow the microphone', true); }
+  const G = player.ensure(song); await S.prepare(song);
+  const mr = new MediaRecorder(stream), chunks = []; mr.ondataavailable = e => e.data.size && chunks.push(e.data);
+  const from = player.pos || 0, lat = (G.ctx.outputLatency || 0) + (G.ctx.baseLatency || 0);
+  t.muteWhileRec = true; const wasVol = t.vol; t.vol = 0; S.mixAll(G, song);
+  mr.start(); player.start(song, from); syncPlay(); requestAnimationFrame(frame); const t0 = performance.now();
+  const bar = document.createElement('div'); bar.style.cssText = 'position:fixed;left:50%;top:12px;transform:translateX(-50%);background:#e5534b;color:#fff;font-weight:700;padding:10px 16px;border-radius:12px;z-index:50;cursor:pointer';
+  bar.textContent = '⏺ Recording… tap here to stop'; document.body.appendChild(bar);
+  const timer = setInterval(() => { bar.textContent = `⏺ Recording ${((performance.now() - t0) / 1000).toFixed(0)} s… tap to stop`; if(!player.playing) recState && recState.stop(); }, 300);
+  recState = {stop:() => { if(mr.state !== 'inactive') mr.stop(); }};
+  bar.onclick = () => recState.stop();
+  mr.onstop = async () => {
+    clearInterval(timer); bar.remove(); stream.getTracks().forEach(x => x.stop()); player.stop(); syncPlay(); recState = null; t.vol = wasVol || 1; delete t.muteWhileRec;
+    const blob = new Blob(chunks, {type:mr.mimeType || 'audio/webm'}); if(!blob.size) return toast('Nothing was recorded', true);
+    const id = 'studio_voice_' + Date.now(); await idbPut(id, blob); delete S.clipBufs[id]; await S.clipLoad(id);
+    pushUndo(); t.blob = id; t.start = Math.max(0, +(from - lat).toFixed(2)); changed(); toast('Voice saved. Press ▶ to hear it with the music');
+  };
+}
+function uploadAudio(t){
+  const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'audio/*';
+  inp.onchange = async () => { const f = inp.files[0]; if(!f) return; const id = 'studio_voice_' + Date.now(); await idbPut(id, f); await S.clipLoad(id);
+    if(!S.clipBufs[id]) return toast('Could not read this audio file', true); pushUndo(); t.blob = id; t.name = f.name.replace(/\.[^.]+$/, '').slice(0, 30) || 'Audio'; changed(); toast('Audio added'); };
+  inp.click();
+}
+function barsSheet(){
+  sheet('🔁 Repeat or remove bars', `<p class="hint" style="margin-top:0">Changes every track together. Your song has ${song.bars} bars.</p>
+    <div class="opts" style="align-items:center"><label class="hint">From bar</label><input id="bA" type="number" min="1" max="${song.bars}" value="1" style="width:64px"><label class="hint">to bar</label><input id="bB" type="number" min="1" max="${song.bars}" value="${Math.min(4, song.bars)}" style="width:64px"></div>
+    <div class="opts" style="margin-top:10px;align-items:center"><button id="bRep" class="on">🔁 Repeat</button><select id="bTimes"><option>1</option><option>2</option><option>3</option><option>4</option></select><span class="hint">more time(s), right after</span></div>
+    <div class="opts" style="margin-top:10px"><button id="bDel" style="color:#ff8a80">🗑 Remove these bars</button></div>`, box => {
+    const get = () => { const a = Math.max(1, Math.min(song.bars, +$('bA').value || 1)), b = Math.max(a, Math.min(song.bars, +$('bB').value || a)); return [a, b]; };
+    $('bRep').onclick = () => { const [a, b] = get(); pushUndo(); S.editBars(song, a, b, 'repeat', +$('bTimes').value); closeSheet(); player.G = null; changed(); toast(`Bars ${a}–${b} repeated. Now ${song.bars} bars`); };
+    $('bDel').onclick = () => { const [a, b] = get(); if(b - a + 1 >= song.bars) return toast('Cannot remove the whole song', true); pushUndo(); S.editBars(song, a, b, 'delete'); closeSheet(); player.G = null; changed(); toast(`Bars ${a}–${b} removed. Now ${song.bars} bars`); };
+  });
+}
 
 // ------------------------------------------------------------ one-tap song
 const OT = (() => { try{ return JSON.parse(localStorage.getItem('vg_studio_onetap') || 'null') || {}; }catch(e){ return {}; } })();
@@ -612,5 +682,6 @@ function renderAll(){ syncTop(); renderTracks(); renderEditor(); if(window.syncN
   if(!s) setTimeout(oneTapSheet, 400);
 })();
 </script>
+<script>if('serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('../sw.js', {scope:'../'}).catch(() => {}));</script>
 </body>
 </html>

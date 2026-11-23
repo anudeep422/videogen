@@ -239,6 +239,7 @@ function events(song){
           if(dur >= 0.75 && [1, 2, 3, 4, 8, 9, 10, 11].includes(rel) && hsh(th, i * 7 + 5) < 0.4 + 0.4 * gam) (g = g || {}).kamp = 0.6 + 0.6 * gam; }
         ev.push({s:Math.max(0, n.t * k + (n.t > 0 ? dt : 0)), dur, tr, type:'note', m:n.m, v:Math.max(0.12, Math.min(1, (n.v ?? 0.8) + dv)), short:dur < 0.3 && !n.long, legato:leg.has(i) && dur >= 0.3, g}); }); }
     else if(tr.type === 'amb'){ ev.push({s:0, dur:TB * k, tr, type:'amb'}); }
+    else if(tr.type === 'audio'){ if(!tr.blob) continue; const b = clipBufs[tr.blob]; const st = Math.max(0, tr.start || 0); if(st < TB * k) ev.push({s:st, dur:Math.min(b ? b.duration : TB * k, TB * k + 2 - st), tr, type:'clip'}); }
     else if(tr.type === 'drum'){
       const from = (tr.from || 1) - 1, to = Math.min(tr.to || song.bars, song.bars), b0 = from * beatsPerBar(song), b1 = to * beatsPerBar(song);
       const len = tr.steps * tr.stepBeats, off = new Set(tr.off || []), bpb = beatsPerBar(song);
@@ -253,13 +254,17 @@ function events(song){
 }
 // nature sounds (from ../animate/ambience.js), rendered to the song length
 const ambBufs = {};
+// recorded / uploaded audio (voice track); the page gives a loader that reads it from the phone's storage
+const clipBufs = {}; let clipLoader = null;
+function setClipLoader(f){ clipLoader = f; }
+async function clipLoad(id){ if(clipBufs[id] || !clipLoader) return clipBufs[id]; try{ const b = await clipLoader(id); if(b) clipBufs[id] = b; }catch(e){ console.warn(e); } return clipBufs[id]; }
 const ambKey = (id, secs) => id + '|' + Math.ceil(secs + 1);
 async function ambLoad(id, secs){ const k = ambKey(id, secs); if(ambBufs[k]) return ambBufs[k]; if(!window.VG_AMB) return null; return ambBufs[k] = await window.VG_AMB.render(id, Math.ceil(secs + 1)); }
 // buffers the song needs (so playback can start without gaps)
 function needs(song){
   const keys = new Set(), syn = [];
   for(const e of events(song)){
-    if(e.type === 'amb') continue;
+    if(e.type === 'amb' || e.type === 'clip') continue;
     if(e.type === 'note'){ const I = INSTRUMENTS[e.tr.inst]; if(!I) continue; if(I.kind === 'real') keys.add(sampleFor(e.tr.inst, e.m, e.v, e.short).key); else syn.push(e); }
     else if(e.row.startsWith('r:')) keys.add('drums/' + e.row.slice(2)); else syn.push(e);
   }
@@ -268,7 +273,7 @@ function needs(song){
 async function prepare(song, onProgress){
   await load();
   const {keys, syn} = needs(song); let done = 0; const total = keys.length + syn.length || 1;
-  for(const tr of song.tracks) if(tr.type === 'amb') await ambLoad(tr.amb, songSeconds(song));
+  for(const tr of song.tracks) if(tr.type === 'amb') await ambLoad(tr.amb, songSeconds(song)); else if(tr.type === 'audio') await clipLoad(tr.blob);
   await Promise.all(keys.map(k => fetchBuf(k).then(() => onProgress && onProgress(++done / total))));
   const t0 = performance.now();
   for(const e of syn){ bufferFor(song, e); done++; if(performance.now() - t0 > 30){ onProgress && onProgress(done / total); await new Promise(r => setTimeout(r, 0)); } }
@@ -276,6 +281,7 @@ async function prepare(song, onProgress){
 }
 // returns {buf, rate, loop, gain, release} or null if not ready yet
 function bufferFor(song, e){
+  if(e.type === 'clip'){ const b = clipBufs[e.tr.blob]; if(!b){ clipLoad(e.tr.blob); return null; } return {buf:b, rate:1, gain:1, amb:true}; }
   if(e.type === 'amb'){ const b = ambBufs[ambKey(e.tr.amb, songSeconds(song))]; if(!b){ ambLoad(e.tr.amb, songSeconds(song)); return null; } return {buf:b, rate:1, gain:1, amb:true}; }
   if(e.type === 'hit'){
     if(e.row.startsWith('r:')){ const b = bufs['drums/' + e.row.slice(2)]; if(!b){ fetchBuf('drums/' + e.row.slice(2)); return null; } return {buf:b, rate:1, gain:0.8}; }
@@ -333,7 +339,7 @@ function mixAll(G, song){ for(const tr of song.tracks){ trackNode(G, song, tr); 
 function fire(G, song, e, when, offset = 0){
   const info = bufferFor(song, e); if(!info) return null;
   const ctx = G.ctx, src = ctx.createBufferSource(), g = ctx.createGain(); src.buffer = info.buf; src.playbackRate.value = info.rate;
-  const vel = e.type === 'amb' ? 1 : e.type === 'hit' ? e.v : info.layered ? 0.55 + 0.45 * e.v : 0.3 + 0.7 * e.v;
+  const vel = e.type === 'amb' || e.type === 'clip' ? 1 : e.type === 'hit' ? e.v : info.layered ? 0.55 + 0.45 * e.v : 0.3 + 0.7 * e.v;
   g.gain.value = info.gain * vel; src.connect(g); g.connect(trackNode(G, song, e.tr).input);
   if(info.amb){ src.start(when, offset); src.stop(when + Math.max(0.1, e.dur - offset + 0.5)); return src; }
   if(e.type === 'note'){
@@ -375,7 +381,7 @@ class Player {
     if(fromSec >= le - 0.01) fromSec = ls;
     this.segs = [{ctx0:this.ctx.currentTime + 0.08, song0:fromSec, song1:le}]; this.next = fromSec; this.ls = ls; this.le = le;
     // notes that started before the playhead but still sound
-    for(const e of this.ev) if((e.type === 'note' || e.type === 'amb') && e.s < fromSec && e.s + e.dur > fromSec + 0.05){ const s = fire(this.G, song, e, this.segs[0].ctx0, fromSec - e.s); if(s){ this.srcs.add(s); s.onended = () => this.srcs.delete(s); } }
+    for(const e of this.ev) if((e.type === 'note' || e.type === 'amb' || e.type === 'clip') && e.s < fromSec && e.s + e.dur > fromSec + 0.05){ const s = fire(this.G, song, e, this.segs[0].ctx0, fromSec - e.s); if(s){ this.srcs.add(s); s.onended = () => this.srcs.delete(s); } }
     this.timer = setInterval(() => this.tick(), 25); this.tick();
   }
   refresh(song){ if(!this.playing) return; const p = this.position(); this.start(song, p); }   // after edits
@@ -744,6 +750,25 @@ function compose(o){
   return song;
 }
 
-window.VG_STUDIO = {ambLoad, MOODS, compose, sections,SR, KEYS, SCALES, SWARA, NAMES, noteName, INSTRUMENTS, KITS, RHYTHMS, velOf, load, fetchBuf, prepare, events, graph, mixAll, mixTrack, preview, previewHit,
+// repeat or delete bars (all tracks move together)
+function editBars(song, a, b, mode, times = 1){
+  const bpb = beatsPerBar(song), k = spb(song), A = (a - 1) * bpb, B = b * bpb, L = B - A;
+  if(!(L > 0)) return;
+  const shift = mode === 'repeat' ? L * times : -L;
+  for(const tr of song.tracks){
+    if(tr.type === 'inst'){
+      if(mode === 'repeat'){ const seg = tr.notes.filter(n => n.t >= A && n.t < B); tr.notes.forEach(n => { if(n.t >= B) n.t += shift; });
+        for(let r = 1; r <= times; r++) tr.notes.push(...seg.map(n => ({...n, t:n.t + L * r}))); }
+      else { tr.notes = tr.notes.filter(n => n.t < A || n.t >= B); tr.notes.forEach(n => { if(n.t >= B) n.t += shift; }); }
+    } else if(tr.type === 'drum'){
+      const barsShift = shift / bpb, a0 = a - 1, b0 = b;   // bar indexes (0-based)
+      if(tr.off){ let off = tr.off.filter(x => mode === 'repeat' || x < a0 || x >= b0).map(x => x >= b0 ? x + barsShift : x); if(mode === 'repeat') for(let r = 1; r <= times; r++) off.push(...tr.off.filter(x => x >= a0 && x < b0).map(x => x + (b0 - a0) * r)); tr.off = [...new Set(off)].sort((x, y) => x - y); }
+      if(tr.hits){ let h = tr.hits.filter(x => mode === 'repeat' || x.t < A || x.t >= B).map(x => x.t >= B ? {...x, t:x.t + shift} : x); if(mode === 'repeat') for(let r = 1; r <= times; r++) h.push(...tr.hits.filter(x => x.t >= A && x.t < B).map(x => ({...x, t:x.t + L * r}))); tr.hits = h; }
+      if(tr.to && tr.to >= b) tr.to += barsShift; if(tr.from && tr.from > b) tr.from += barsShift;
+    } else if(tr.type === 'audio'){ if((tr.start || 0) >= B * k) tr.start += shift * k; }
+  }
+  song.bars = Math.max(1, song.bars + shift / bpb); delete song.sections; delete song.seconds;
+}
+window.VG_STUDIO = {editBars, setClipLoader, clipLoad, clipBufs, ambLoad, MOODS, compose, sections,SR, KEYS, SCALES, SWARA, NAMES, noteName, INSTRUMENTS, KITS, RHYTHMS, velOf, load, fetchBuf, prepare, events, graph, mixAll, mixTrack, preview, previewHit,
   Player, render, wavBlob, m4aBlob, auto, scaleMidis, beatsPerBar, totalBeats, spb, songSeconds, rootOf, hz};
 })();

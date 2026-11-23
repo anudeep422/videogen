@@ -2,6 +2,10 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<link rel="manifest" href="../manifest.webmanifest">
+<meta name="theme-color" content="#1b1829">
+<link rel="apple-touch-icon" href="../icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>VideoGen Animator</title>
 <style>
@@ -1360,8 +1364,29 @@ function setActButtons(acts){
   const btn = ([id, label, icon]) => `<button data-act="${id}" title="${label}">${icon} ${label}</button>`;
   $('cActs').innerHTML = acts.map(btn).join('');
   $('charBar').querySelectorAll('[data-act]').forEach(b => b.remove());
+  $('charBar').insertAdjacentHTML('beforeend', `<button data-say="1" style="flex:0 0 auto;padding:4px 8px;font-size:12px;border-color:var(--acc)">💬 Say</button>`);
   $('charBar').insertAdjacentHTML('beforeend', acts.map(([id, label, icon]) => `<button data-act="${id}" style="flex:0 0 auto;padding:4px 8px;font-size:12px">${icon} ${label}</button>`).join(''));
   document.querySelectorAll('[data-act]').forEach(b => b.onclick = e => { e.stopPropagation(); addAction(b.dataset.act); });
+  document.querySelectorAll('[data-say]').forEach(b => b.onclick = e => { e.stopPropagation(); sayBubble(); });
+}
+// speech bubble above the selected character, shown for a few seconds from now
+function sayBubble(){
+  const o = selChar(); if(!o) return toast('Select a character first');
+  const txt = prompt('What does the character say? (Telugu or English)', ''); if(!txt || !txt.trim()) return;
+  const item = VG_LIBRARY.find(i => i.name === 'Speech bubble'); if(!item) return;
+  pushUndo(); const g = item.make(P.width, P.height); g.id = uid(); g.name = 'Says: ' + txt.trim().slice(0, 20);
+  // put the words in the bubble: wrap into short lines, fit the width, grow the bubble for more lines
+  const texts = [], rects = [], polys = []; const walk = n => { if(n.type === 'text') texts.push(n); if(n.type === 'rect') rects.push(n); if(n.type === 'path') polys.push(n); (n.children || []).forEach(walk); }; walk(g);
+  const tn = texts[0], words = txt.trim().split(/\s+/), lines = []; let cur = '';
+  for(const w of words){ if(cur && (cur + ' ' + w).length > 16){ lines.push(cur); cur = w; } else cur = cur ? cur + ' ' + w : w; } if(cur) lines.push(cur);
+  if(tn){ tn.text = lines.slice(0, 4).join('\n'); tn.size = 34; measureText(tn); if(tn._w > 262) tn.size = Math.floor(tn.size * 262 / tn._w); measureText(tn);
+    const r = rects[0]; if(r){ const h = Math.max(140, tn._h + 50); const dy = (h - r.h) / 2; r.h = h; polys.forEach(pl => { pl.y = (pl.y || 0) + dy; }); } }
+  const sc = Math.abs(o.scaleY || 1), face = o.face || 1, B = VG_CHAR.box(o);
+  g.scaleX = g.scaleY = Math.max(0.45, sc * 0.75); g.x = o.x + face * 120 * sc; g.y = o.y + B[1] * sc - 60 * sc;
+  g.x = Math.max(160, Math.min(P.width - 160, g.x)); g.y = Math.max(90, g.y);
+  const dur = Math.min(6, Math.max(2.5, txt.length * 0.12)); g.show = [+T.toFixed(2), Math.min(P.duration, +(T + dur).toFixed(2))];
+  touch(g); const L = P.layers.find(L => L.objects.includes(o)) || P.layers[curLayer]; L.objects.push(g);
+  if(window.VG_ANIM_POP) VG_ANIM_POP(g); refreshAll(); autosave(); toast(`Bubble shows for ${dur.toFixed(1)} s. Drag it to move`);
 }
 (function buildCharUI(){
   if(!window.VG_CHAR) return;
@@ -1400,7 +1425,7 @@ function openFx(){
     html = `<div class="f" style="grid-column:1/-1"><label>Move takes</label><select id="camDur">${[0.5, 1, 2, 3, 5].map(v => `<option ${v === 2 ? 'selected' : ''}>${v}</option>`).join('')}</select></div>`
       + CAM_ACTIONS.map(([id, n, ic, sub]) => card('cam:' + id, ic, n + (id === 'preview' ? (camPreview ? ' (on)' : ' (off)') : ''), sub)).join(''); }
   else if(fxCat === 'Scenes'){ $('fxHint').textContent = 'Split your video into scenes';
-    html = card('scene:new', '✂️', 'New scene here', 'Everything now ends here with a fade. New things belong to the next scene') + card('scene:list', '📋', 'Scene list', (P.cuts || []).length + ' cut(s)'); }
+    html = card('scene:new', '✂️', 'New scene here', 'Everything now ends here with a fade. New things belong to the next scene') + card('scene:dup', '⧉', 'Copy this scene to the end', 'Makes the video longer with a copy you can change') + card('scene:list', '📋', 'Scene list', (P.cuts || []).length + ' cut(s)'); }
   else { $('fxHint').textContent = fxCat === 'Transitions' ? 'Transitions are centred on the current time' : 'Effects start at the current time';
     html = Object.entries(K).filter(([, k]) => k[1] === fxCat).map(([id, k]) => card(id, k[2], k[0], k[3] + ' s')).join(''); }
   $('fxGrid').innerHTML = html;
@@ -1423,6 +1448,7 @@ function addFx(kind){
 function fxAction(id){
   if(id.startsWith('cam:')) return camAction(id.slice(4));
   if(id === 'scene:new') return newScene();
+  if(id === 'scene:dup'){ $('fxModal').style.display = 'none'; return duplicateScene(); }
   if(id === 'scene:list'){ const c = (P.cuts || []).slice().sort((a, b) => a - b); toast(c.length ? 'Scenes start at: 0s, ' + c.map(x => x.toFixed(1) + 's').join(', ') : 'Only one scene so far'); return; }
   const o = addFx(id); $('fxModal').style.display = 'none';
   toast(`${VG_FX.KINDS[id][0]} added at ${T.toFixed(1)}s. Tap ▶ to see it`);
@@ -1443,6 +1469,21 @@ function camAction(a){
   else if(a === 'reset'){ C.keys = {}; C.shakes = []; C.x = P.width / 2; C.y = P.height / 2; C.zoom = 1; C.rotation = 0; }
   autosave(); draw(); $('fxModal').style.display = 'none';
   toast({zoomin:'Zoom in', zoomout:'Zoom out', pan:'Pan', slow:'Slow zoom', shake:'Shake', reset:'Camera reset'}[a] + (a === 'reset' ? '' : ` at ${t0.toFixed(1)}s. Tap ▶ to see it`));
+}
+function duplicateScene(){
+  const cuts = (P.cuts || []).slice().sort((a, b) => a - b), prev = cuts.filter(c => c <= T + 1e-6).pop() ?? 0, next = cuts.find(c => c > T + 1e-6) ?? P.duration, len = next - prev;
+  if(len < 0.5) return toast('This scene is too short to copy', true);
+  pushUndo(); const off = P.duration - prev, start = P.duration; let n = 0;
+  const reid = x => { x.id = uid(); (x.children || []).forEach(reid); };
+  for(const L of P.layers) for(const o of L.objects.slice()){
+    if(!o.show) continue; const a = o.show[0], b = o.show[1] ?? P.duration; if(!(a < next - 0.01 && b > prev + 0.01)) continue;
+    const c = JSON.parse(JSON.stringify(o)); reid(c); c.show = [+(Math.max(a, prev) + off).toFixed(2), +(Math.min(b, next) + off).toFixed(2)];
+    if(c.keys) for(const k of Object.values(c.keys)) k.forEach(q => q.t = +(q.t + off).toFixed(3));
+    if(c.actions) c.actions.forEach(q => { q.t0 = +(q.t0 + off).toFixed(3); q.t1 = +(q.t1 + off).toFixed(3); });
+    touch(c); L.objects.push(c); n++;
+  }
+  P.cuts = [...cuts, start]; P.duration = +(P.duration + len).toFixed(2); T = start; RT = T;
+  refreshAll(); autosave(); toast(`Scene copied (${n} items). The video is now ${P.duration.toFixed(1)} s. Change the copy as you like`);
 }
 function newScene(){
   const t = snapT(T); if(t <= 0.05 || t >= P.duration - 0.05) return toast('Move the time slider to where the new scene should start', true);
@@ -1522,5 +1563,6 @@ try{ const ps = JSON.parse(localStorage.getItem('videogen_pending_studio') || 'n
   addClip({id:ps.id, name:`🎹 ${ps.name}`, kind:'file', start:0, len:ps.len, volume:0.9}).then(() => toast('Music from the Studio added to your video')); } }catch(e){}
 document.fonts && Promise.all(['700 40px "Noto Sans Telugu"', '700 40px "Noto Sans"'].map(f => document.fonts.load(f))).then(draw).catch(() => {});
 </script>
+<script>if('serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('../sw.js', {scope:'../'}).catch(() => {}));</script>
 </body>
 </html>

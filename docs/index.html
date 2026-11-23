@@ -2,6 +2,10 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#1b1829">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>VideoGen — make videos and music without AI</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎬</text></svg>">
@@ -51,6 +55,10 @@
       <span class="go">Open →</span></a>
   </div>
 
+  <div id="installBox" style="display:none;margin-top:18px;background:#1b1829;border:1px solid #f0a830;border-radius:16px;padding:14px 16px;align-items:center;gap:12px">
+    <span style="font-size:30px">📲</span><div style="flex:1"><b>Install VideoGen as an app</b><div style="color:#b0a9cc;font-size:13px">Opens full screen from your home screen and works offline.</div></div>
+    <button id="installBtn" style="background:#f0a830;color:#1a1300;border:0;border-radius:10px;padding:10px 14px;font-weight:700;font:inherit;cursor:pointer">Install</button></div>
+  <div id="iosHint" style="display:none;margin-top:18px;color:#b0a9cc;font-size:13px">📲 To install on iPhone: tap the Share button, then "Add to Home Screen".</div>
   <div class="how">
     <h2>Make a video in 3 steps</h2>
     <ol>
@@ -63,7 +71,12 @@
   <footer>Made by Anudeep Kumar with free, open tools. Instrument recordings: VSCO 2 Community Edition (public domain). ·
     <a href="https://github.com/anudeep422/videogen">Source on GitHub</a></footer>
 </main>
+<script>
+let deferred = null;
+addEventListener('beforeinstallprompt', e => { e.preventDefault(); deferred = e; document.getElementById('installBox').style.display = 'flex'; });
+document.getElementById('installBtn').onclick = async () => { if(!deferred) return; deferred.prompt(); await deferred.userChoice; deferred = null; document.getElementById('installBox').style.display = 'none'; };
+if(/iphone|ipad/i.test(navigator.userAgent) && !navigator.standalone) document.getElementById('iosHint').style.display = 'block';
+</script>
+<script>if('serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('sw.js', {scope:'./'}).catch(() => {}));</script>
 </body>
 </html>
-<!-- deploy -->
-<!-- redeploy -->

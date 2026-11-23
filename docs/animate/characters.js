@@ -193,6 +193,13 @@ function draw(c, o, t){
   c.restore();
   // front arm (+ weapon)
   const fa = limb(c, S[0] + 2, S[1], p.shF + p.lean, 30, p.shF + p.lean + p.elF, 28, 9, 8, armUp, armLow);
+  // sword trail: a light swoosh behind the blade while attacking
+  if(L.weapon === 'sword' && (act === 'attack' || act === 'thrust')){
+    const pts = []; for(let k = 0; k <= 6; k++){ const pp = k === 0 ? p : poseAt(o, t - k * 0.028), a1 = pp.shF + pp.lean, a2 = a1 + pp.elF, [h1x, h1y] = dir(a1), [h2x, h2y] = dir(a2);
+      const hx = S[0] + 2 + h1x * 30 + h2x * 28, hy = S[1] + h1y * 30 + h2y * 28, [sx, sy] = dir(a2 + 75); pts.push([hx + sx * 22, hy + sy * 22, hx + sx * 64, hy + sy * 64]); }
+    const moved = Math.hypot(pts[0][2] - pts[6][2], pts[0][3] - pts[6][3]);
+    if(moved > 18){ c.save(); const g = c.createLinearGradient(pts[0][2], pts[0][3], pts[6][2], pts[6][3]); g.addColorStop(0, 'rgba(255,255,255,0.75)'); g.addColorStop(1, 'rgba(180,220,255,0)');
+      c.fillStyle = g; c.beginPath(); c.moveTo(pts[0][2], pts[0][3]); for(const q of pts) c.lineTo(q[2], q[3]); for(let k = pts.length - 1; k >= 0; k--) c.lineTo(pts[k][0], pts[k][1]); c.closePath(); c.fill(); c.restore(); } }
   if(L.weapon === 'sword'){ const [dx, dy] = dir(fa[4] + 75); if(TOON){ c.strokeStyle = OUT; c.lineWidth = 6.5; c.lineCap = 'round'; c.beginPath(); c.moveTo(fa[2], fa[3]); c.lineTo(fa[2] + dx * 63, fa[3] + dy * 63); c.stroke(); } c.strokeStyle = '#E8EDEF'; c.lineWidth = 4; c.lineCap = 'butt'; c.beginPath(); c.moveTo(fa[2], fa[3]); c.lineTo(fa[2] + dx * 62, fa[3] + dy * 62); c.stroke();
     c.strokeStyle = '#7E5109'; c.lineWidth = 3; const [px, py] = dir(fa[4] - 15); c.beginPath(); c.moveTo(fa[2] - px * 8, fa[3] - py * 8); c.lineTo(fa[2] + px * 8, fa[3] + py * 8); c.stroke(); c.lineCap = 'round'; }
   if(L.weapon === 'bow'){ const [dx, dy] = dir(fa[4]); const nx = -dy, ny = dx; c.strokeStyle = '#6E2C00'; c.lineWidth = 3.5;
