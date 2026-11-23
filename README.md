@@ -94,6 +94,7 @@ fireflies, bubbles, birds, twinkling stars, confetti, sparkles, falling ₹ coin
 explosion, arrow volley, speed lines and lightning. Transitions: fade, white flash, wipe, circle (iris) and colour slide.
 Colour filters: day to night, warm sunset, old film, black and white, and dark corners.
 **Camera:** zoom in, zoom out, pan to an object, slow zoom and shake. Titles on 📌 fixed layers stay still.
+**Templates (48):** spiritual (guru and disciple in 3D, Upanishad story in 3 scenes, Om chanting, Vedic quiz Shorts…), insurance (term plan, child education, retirement, client testimonial — all with 3D families), greetings (Ugadi, Krishna Janmashtami, good night…), stories (village morning with animals, jungle adventure, tiger and deer, sword duel) and YouTube (3D presenter intro, like-and-subscribe Shorts).
 **3D characters (first version):** boy, girl, woman in saree, man, grandfather and sage, built in 3D with code (three.js) with soft light and shading; they use the same actions, lip sync and colours as the 2D people. Library → 3D characters.
 **Cartoon style:** people and animals have dark outlines, soft shading, big shiny eyes, eyebrows, thumbs, and hair and clothes that swing when they move; fierce eyes while fighting. (Character → Drawing style → Simple gives the old flat look.)
 **Fighting:** sword attack, sword thrust, block, dodge, get hit, fall, victory; "Sword sparks" effect; ready template "Sword duel (fight)" with clashes, sounds and camera shake.

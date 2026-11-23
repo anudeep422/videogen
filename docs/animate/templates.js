@@ -177,6 +177,136 @@ function p_cam(p, keys, shakes){ p.cam = {x:p.width / 2, y:p.height / 2, zoom:1,
   keys.forEach(([t, x, y, z]) => { key(p.cam, 'x', t, x); key(p.cam, 'y', t, y); key(p.cam, 'zoom', t, z); });
   shakes.forEach(([t, d, amp]) => p.cam.shakes.push({t0:t, t1:t + d, amp})); }
 
+// ================================================================= NEW: 3D, animals, stories
+const fadeCuts = (b, ts) => ts.forEach(t => b.fx('fade', t - 0.5, t + 0.5));
+const says = (b, x, y, w, h, txt, t0, t1, size = 34, col = '#3E2723') => { const bx = b.box(x, y, w, h, '#FFFFFF', {op:.9, r:22, stroke:'#E0B45A', lw:3}); const tx = b.text(txt, x, y, size, col, {anim:'typewriter', at:t0, dur:Math.min(2.5, (t1 - t0) * 0.6)}); bx.show = [t0, t1]; tx.show = [t0, t1]; anim(bx, 'pop', t0, 0.4); return [bx, tx]; };
+
+tpl('Spiritual', 'Guru teaches disciple (3D)', '16:9', () => { const b = Builder('16:9', 20), W = b.W, H = b.H;
+  b.bg('Forest'); b.el('Banyan tree', 250, 400, 460); b.amb('forest', 0, 20, 0.45); b.gen('bansuri', 'mohanam', 0.35);
+  b.char('sage3d', 470, 660, 1.45, [['namaste', 0, 2], ['talk', 2.5, 9], ['point', 9, 10.5], ['talk', 11, 15], ['namaste', 17.5, 20]], {face:1});
+  b.char('boy3d', 850, 660, 1.45, [['namaste', 0, 2], ['idle', 2, 10], ['talk', 10.6, 13], ['clap', 15.2, 17], ['namaste', 17.5, 20]], {face:-1});
+  anim(b.text('గురు – శిష్య సంవాదం', 640, 80, 54, '#FFF3D6', {anim:'words', at:0.2, dur:1.5}), 'fadein', 0, 0.6, W, H).show = [0, 3];
+  says(b, 640, 110, 900, 110, 'గురువు: నాయనా, నిజమైన జ్ఞానం నీలోనే ఉంది.', 2.6, 9);
+  says(b, 640, 110, 900, 110, 'శిష్యుడు: గురువర్యా, దాన్ని ఎలా తెలుసుకోవాలి?', 10.6, 13);
+  says(b, 640, 110, 900, 110, 'గురువు: మౌనంగా నిన్ను నువ్వు గమనించు.', 13.2, 17.3);
+  b.fx('sparkles', 15.5, 17.5, {density:0.4}); b.sfx('bell', 17.6, 0.6); return b.p; });
+
+tpl('Spiritual', 'Upanishad story in 3 scenes', '16:9', () => { const b = Builder('16:9', 30), W = b.W, H = b.H; b.p.cuts = [10, 20];
+  const s1 = [b.bg('Himalaya snow peaks'), b.el('Rishi meditating', 640, 520, 300), b.box(640, 110, 1000, 120, '#FFFFFF', {op:.85, r:22}),
+    b.text('ఒకప్పుడు హిమాలయాల్లో ఒక మహర్షి తపస్సు చేస్తున్నారు.', 640, 110, 38, '#1B4F72', {anim:'typewriter', at:0.8, dur:3})];
+  anim(s1[1], 'up', 0.2, 1.2, W, H); b.scene(s1, null, 10); b.fx('snow', 0, 10, {density:0.4}); b.amb('wind', 0, 10, 0.4);
+  const s2 = [b.bg('River ghat'), b.char('sage3d', 300, 660, 1.4, [['walk', 10, 15], ['talk', 15.5, 20]]), b.char('boy3d', 1000, 660, 1.4, [['namaste', 15.2, 17], ['idle', 17, 20]], {face:-1}),
+    b.box(640, 110, 1000, 120, '#FFFFFF', {op:.85, r:22}), b.text('ఒక బాలుడు జ్ఞానం కోసం ఆయన దగ్గరకు వచ్చాడు.', 640, 110, 38, '#1B4F72', {anim:'typewriter', at:10.8, dur:3})];
+  walkAcross(s2[1], 300, 700, 10, 15); b.scene(s2, 10, 20); b.amb('river', 10, 20, 0.5);
+  const s3 = [b.bg('Green fields'), b.el('Ashram', 640, 420, 240), b.el('Diya lamp', 300, 600, 130), b.el('Diya lamp', 980, 600, 130),
+    b.box(640, 110, 1100, 130, '#FFF8E7', {op:.9, r:22, stroke:'#E67E22', lw:3}), b.text('సారాంశం: జ్ఞానం గురువు ద్వారా, సాధన ద్వారా వస్తుంది.', 640, 110, 38, '#7B241C', {anim:'words', at:20.8, dur:3})];
+  anim(s3[1], 'pop', 20.2, 0.8, W, H); b.scene(s3, 20, null); b.fx('petals', 20, 30, {density:0.5}); b.sfx('bell', 20.3, 0.6);
+  fadeCuts(b, [10, 20]); b.gen('bansuri', 'kalyani', 0.4); return b.p; });
+
+tpl('Spiritual', 'Om chanting (meditation)', '16:9', () => { const b = Builder('16:9', 20), W = b.W, H = b.H;
+  b.bg('Space (cosmos)'); const sun = b.el('Sun with rays', 640, 340, 520, {op:.35}); const om = b.el('Om symbol', 640, 330, 260);
+  anim(sun, 'turn', 0, 20, W, H); anim(om, 'zoomout', 0.3, 2, W, H); [5, 9, 13, 17].forEach(t => anim(om, 'pulse', t, 1.6, W, H));
+  anim(b.text('ఓం శాంతిః శాంతిః శాంతిః', 640, 600, 52, '#FFE0A8', {anim:'words', at:3, dur:3}), 'fadein', 2.8, 1, W, H);
+  b.fx('stars', 0, 20, {density:0.8}); [0.2, 6, 12].forEach(t => b.sfx('bowl', t, 0.8)); b.amb('cosmic', 0, 20, 0.5); b.quiet('drone', 0.55); return b.p; });
+
+tpl('Spiritual', 'Vedic quiz (Shorts)', '9:16', () => { const b = Builder('9:16', 15), W = b.W, H = b.H;
+  b.bg('Saffron glow'); anim(b.text('ప్రశ్న 🤔', 540, 230, 90, '#7B241C'), 'bounce', 0.2, 1, W, H);
+  b.box(540, 560, 920, 300, '#FFFFFF', {op:.92, r:30, stroke:'#E67E22', lw:5});
+  b.text('ఈశావాస్య ఉపనిషత్తు\nఏ వేదంలో ఉంది?', 540, 560, 60, '#4A2C0A', {anim:'typewriter', at:0.8, dur:2});
+  const opts = ['A) ఋగ్వేదం', 'B) శుక్ల యజుర్వేదం', 'C) సామవేదం'];
+  opts.forEach((o, i) => { const y = 900 + i * 200; const bx = b.box(540, y, 820, 150, '#FFF3E0', {op:1, r:26, stroke:'#B9770E', lw:4}); const tx = b.text(o, 540, y, 54, '#4A2C0A');
+    anim(bx, 'left', 3 + i * 0.4, 0.6, W, H); anim(tx, 'left', 3 + i * 0.4, 0.6, W, H); b.sfx('pop', 3 + i * 0.4, 0.5); });
+  ['3', '2', '1'].forEach((n, i) => { const t = b.text(n, 540, 1560, 160, '#C0392B'); t.show = [6 + i, 7 + i]; anim(t, 'pop', 6 + i, 0.4, W, H); b.sfx('ding', 6 + i, 0.3); });
+  const right = b.box(540, 1100, 840, 165, '#2ECC71', {op:.35, r:28, stroke:'#1E8449', lw:7}); right.show = [9.2, 15]; anim(right, 'pop', 9.2, 0.5, W, H);
+  const ans = b.text('సరైన సమాధానం: B ✅', 540, 1560, 66, '#1E8449'); ans.show = [9.3, 15]; anim(ans, 'bounce', 9.3, 0.8, W, H);
+  b.sfx('applause', 9.4, 0.5); b.fx('confetti', 9.3, 12); b.quiet('happy', 0.35); return b.p; });
+
+tpl('Insurance & business', 'Term insurance for family (3D)', '16:9', () => { const b = Builder('16:9', 18), W = b.W, H = b.H;
+  b.bg('Home (living room)'); b.quiet('corporate', 0.4);
+  b.char('man3d', 330, 670, 1.5, [['talk', 0.5, 6], ['point', 6, 8], ['wave', 15, 18]]); b.char('woman3d', 520, 670, 1.45, [['idle', 0, 15], ['namaste', 15, 18]]); b.char('girl3d', 690, 670, 1.4, [['idle', 0, 8], ['dance', 8, 11], ['wave', 15, 18]]);
+  const sh = b.el('Shield (protection)', 500, 330, 300, {op:.85}); anim(sh, 'pop', 6.5, 0.8, W, H); b.sfx('whoosh', 6.4, 0.6);
+  b.box(1000, 330, 520, 380, '#FFFFFF', {op:.9, r:24});
+  [['మీ కుటుంబానికి పూర్తి రక్షణ', 2], ['తక్కువ ప్రీమియం – ఎక్కువ కవరేజ్', 4.5], ['ఈరోజే ప్లాన్ చేయండి', 7.5]].forEach(([tx, t], i) => {
+    const o = b.text('✔ ' + tx, 1000, 220 + i * 110, 34, '#1B4F72'); anim(o, 'right', t, 0.6, W, H); b.sfx('ding', t + 0.3, 0.4); });
+  const end = b.box(640, 600, 900, 130, '#1B4F72', {op:.95, r:24}), et = b.text('మీ పేరు · ఫోన్ నంబర్', 640, 600, 46, '#FFFFFF');
+  end.show = et.show = [12, 18]; anim(end, 'up', 12, 0.7, W, H); anim(et, 'up', 12, 0.7, W, H); return b.p; });
+
+tpl('Insurance & business', 'Child education plan (3D)', '16:9', () => { const b = Builder('16:9', 15), W = b.W, H = b.H;
+  b.bg('Green fields'); b.el('School', 1000, 420, 300); b.amb('morning', 0, 15, 0.4); b.quiet('happy', 0.4);
+  const g = b.char('girl3d', 150, 660, 1.4, [['walk', 0, 5], ['wave', 5, 7], ['dance', 11, 15]]); walkAcross(g, 150, 640, 0, 5);
+  anim(b.el('Books', 380, 470, 110), 'pop', 5.5, 0.6, W, H);
+  b.box(640, 110, 1000, 130, '#FFFFFF', {op:.88, r:24}); b.text('పిల్లల చదువు – మీ ముఖ్యమైన బాధ్యత', 640, 110, 44, '#1B4F72', {anim:'words', at:1, dur:2});
+  const t2 = b.text('ఈరోజే చైల్డ్ ఎడ్యుకేషన్ ప్లాన్ ప్రారంభించండి', 640, 230, 36, '#C0392B'); anim(t2, 'up', 7.5, 0.7, W, H);
+  b.fx('sparkles', 11, 14, {density:0.4}); return b.p; });
+
+tpl('Insurance & business', 'Retirement plan (3D)', '16:9', () => { const b = Builder('16:9', 15), W = b.W, H = b.H;
+  b.bg('River ghat'); b.amb('river', 0, 15, 0.4); b.gen('bansuri', 'kalyani', 0.35);
+  b.char('grandpa3d', 420, 660, 1.45, [['idle', 0, 4], ['talk', 4, 9], ['namaste', 12, 15]]); b.char('woman3d', 640, 660, 1.4, [['idle', 0, 9], ['clap', 9, 11], ['namaste', 12, 15]]);
+  b.box(960, 260, 560, 300, '#FFFFFF', {op:.9, r:24});
+  b.text('ప్రశాంతమైన\nవిశ్రాంత జీవితం', 960, 220, 48, '#7B241C', {anim:'words', at:1, dur:2});
+  const t2 = b.text('ఇప్పుడే పెన్షన్ ప్లాన్ చేయండి', 960, 350, 32, '#1B4F72'); anim(t2, 'fadein', 4, 1, W, H);
+  b.fx('coins', 6, 9, {density:0.5}); return b.p; });
+
+tpl('Insurance & business', 'Client testimonial (fill in)', '16:9', () => { const b = Builder('16:9', 12), W = b.W, H = b.H;
+  b.bg('Office'); b.quiet('corporate', 0.35);
+  b.char('man3d', 330, 670, 1.5, [['talk', 0.8, 8], ['namaste', 9, 12]]);
+  const q = setText(b.el('Quote card', 860, 330, 330), null, 'క్లయింట్ మాటలు\nఇక్కడ రాయండి', '– క్లయింట్ పేరు'); anim(q, 'pop', 0.5, 0.7, W, H); return b.p; });
+
+tpl('Greetings', 'Ugadi greeting', '16:9', () => { const b = Builder('16:9', 10), W = b.W, H = b.H;
+  b.bg('Saffron glow'); const k = b.el('Kalasham', 640, 330, 300); anim(k, 'pop', 0.3, 0.9, W, H);
+  anim(b.el('Diya lamp', 300, 560, 150), 'up', 0.8, 0.8, W, H); anim(b.el('Diya lamp', 980, 560, 150), 'up', 1, 0.8, W, H);
+  anim(b.text('ఉగాది శుభాకాంక్షలు', 640, 600, 72, '#7B241C', {anim:'bounce', at:1.6, dur:1.5}), 'fadein', 1.5, 0.6, W, H);
+  anim(b.text('కొత్త సంవత్సరం మీకు ఆనందం, ఆరోగ్యం తేవాలి', 640, 680, 32, '#A04000'), 'fadein', 3.2, 1, W, H);
+  b.fx('petals', 0, 10, {density:0.7}); b.sfx('bell', 0.4, 0.7); b.quiet('festival', 0.45); return b.p; });
+
+tpl('Greetings', 'Krishna Janmashtami greeting', '16:9', () => { const b = Builder('16:9', 10), W = b.W, H = b.H;
+  b.bg('Night sky'); const f = b.el('Peacock feather', 640, 340, 300); anim(f, 'pop', 0.3, 0.8, W, H); anim(f, 'pulse', 3, 1.4, W, H);
+  b.char('peacock', 300, 640, 1.3, [['dance', 0, 10]]); b.char('peacock', 980, 640, 1.3, [['dance', 0, 10]], {face:-1});
+  anim(b.text('శ్రీ కృష్ణ జన్మాష్టమి శుభాకాంక్షలు', 640, 110, 54, '#FFE082', {anim:'words', at:1.4, dur:2}), 'fadein', 1.3, 0.6, W, H);
+  b.fx('stars', 0, 10, {density:0.6}); b.fx('sparkles', 2, 8, {density:0.4}); b.gen('bansuri', 'mohanam', 0.5); return b.p; });
+
+tpl('Greetings', 'Good night (Reel)', '9:16', () => { const b = Builder('9:16', 8), W = b.W, H = b.H;
+  b.bg('Night sky');
+  anim(b.text('శుభ రాత్రి', 540, 1100, 120, '#FFF3C4', {anim:'words', at:1, dur:1.5}), 'fadein', 1, 0.6, W, H);
+  anim(b.text('మంచి కలలు కనండి 🌙', 540, 1260, 56, '#D6E4FF'), 'fadein', 2.5, 1, W, H);
+  b.fx('stars', 0, 8, {density:0.9}); b.fx('fireflies', 0, 8, {density:0.6}); b.amb('night', 0, 8, 0.5); b.quiet('drone', 0.35); return b.p; });
+
+tpl('Scenes', 'Village morning with animals', '16:9', () => { const b = Builder('16:9', 15), W = b.W, H = b.H;
+  b.bg('Green fields'); b.el('Village hut', 200, 430, 220); b.el('Coconut palm', 1120, 380, 380); b.amb('village', 0, 15, 0.5); b.amb('morning', 0, 15, 0.4); b.quiet('happy', 0.3);
+  const c1 = b.char('cow', 1300, 640, 0.9, [['walk', 0, 7], ['eat', 7, 15]], {face:-1}); walkAcross(c1, 1300, 820, 0, 7);
+  const fm = b.char('farmer', -60, 650, 1.2, [['walk', 0, 6], ['wave', 6, 8], ['idle', 8, 15]]); walkAcross(fm, -60, 520, 0, 6);
+  b.char('peacock', 380, 640, 0.9, [['idle', 0, 8], ['dance', 8, 15]]); b.char('dog', 640, 655, 0.9, [['sit', 0, 10], ['dance', 10, 15]]);
+  b.fx('birds', 0, 15); b.sfx('cowbells', 1, 0.5);
+  anim(b.text('పల్లెటూరి ఉదయం', 640, 90, 60, '#5D4037', {anim:'bounce', at:0.5, dur:1.5}), 'fadein', 0.4, 0.6, W, H); return b.p; });
+
+tpl('Scenes', 'Jungle adventure (3D boy and animals)', '16:9', () => { const b = Builder('16:9', 16), W = b.W, H = b.H;
+  b.bg('Jungle'); b.amb('forest', 0, 16, 0.6); b.gen('bansuri', 'hindolam', 0.35);
+  const boy = b.char('boy3d', -80, 670, 1.45, [['walk', 0, 6], ['wave', 6, 8], ['run', 11, 16]]); walkAcross(boy, -80, 420, 0, 6); key(boy, 'x', 11, 420, 'linear'); key(boy, 'x', 16, 1400);
+  const el = b.char('elephant', 1450, 650, 0.85, [['walk', 0, 6], ['talk', 6.5, 8], ['eat', 8, 16]], {face:-1}); walkAcross(el, 1450, 920, 0, 6);
+  b.char('monkey', 180, 640, 0.9, [['idle', 0, 4], ['jump', 4, 6], ['talk', 6, 9]]); b.char('peacock', 700, 650, 0.85, [['idle', 0, 8], ['dance', 8, 12]]);
+  const pr = b.char('parrot', -40, 260, 0.9, [['walk', 0, 16]]); key(pr, 'x', 0, -40, 'linear'); key(pr, 'x', 16, 1350);
+  b.sfx('birds', 0.5, 0.6); anim(b.text('అడవిలో సాహసం', 640, 90, 60, '#FFF3D6', {anim:'words', at:0.4, dur:1.5}), 'fadein', 0.3, 0.6, W, H); return b.p; });
+
+tpl('Scenes', 'Tiger and the deer (story)', '16:9', () => { const b = Builder('16:9', 12), W = b.W, H = b.H;
+  b.bg('Forest'); b.amb('forest', 0, 12, 0.5); b.quiet('epic', 0.4);
+  const d = b.char('deer', 820, 650, 1, [['eat', 0, 5.6], ['idle', 5.6, 6.2], ['run', 6.2, 12]]); key(d, 'x', 6.2, 820, 'linear'); key(d, 'x', 9.5, 1450);
+  const tg = b.char('tiger', -160, 655, 1, [['walk', 0, 5], ['idle', 5, 5.8], ['jump', 5.8, 7], ['run', 7, 12]]); walkAcross(tg, -160, 380, 0, 5); key(tg, 'x', 5.8, 380, 'out'); key(tg, 'x', 7, 640, 'linear'); key(tg, 'x', 10, 1450);
+  b.sfx('whoosh', 5.9, 0.7); b.p.cam = {x:640, y:360, zoom:1, rotation:0, keys:{}, shakes:[{t0:6, t1:6.6, amp:14}]};
+  const t1 = b.text('జాగ్రత్త!', 640, 110, 70, '#C0392B'); t1.show = [5.6, 8]; anim(t1, 'pop', 5.6, 0.4, W, H);
+  const t2 = b.text('అప్రమత్తంగా ఉంటే ప్రమాదం తప్పుతుంది', 640, 110, 42, '#FFFFFF'); t2.show = [8.5, 12]; anim(t2, 'fadein', 8.5, 0.8, W, H); return b.p; });
+
+tpl('YouTube & social', 'Channel intro with 3D presenter', '16:9', () => { const b = Builder('16:9', 8), W = b.W, H = b.H;
+  b.bg('Blue gradient'); b.char('man3d', 330, 680, 1.6, [['wave', 0.3, 2.5], ['talk', 2.5, 6], ['namaste', 6, 8]]);
+  const tb = setText(b.el('Title bar', 860, 330, 130), 'మీ ఛానెల్ పేరు'); anim(tb, 'right', 0.6, 0.7, W, H); b.sfx('whoosh', 0.6, 0.6);
+  anim(b.text('నమస్కారం! స్వాగతం 🙏', 860, 460, 44, '#FFFFFF', {anim:'words', at:1.6, dur:1.5}), 'fadein', 1.5, 0.5, W, H);
+  b.fx('sparkles', 0.5, 4, {density:0.5}); b.quiet('happy', 0.4); return b.p; });
+
+tpl('YouTube & social', 'Like and subscribe (3D kids, Shorts)', '9:16', () => { const b = Builder('9:16', 7), W = b.W, H = b.H;
+  b.bg('Purple gradient'); b.char('boy3d', 330, 1780, 4.4, [['wave', 0, 7]]); b.char('girl3d', 760, 1780, 4.4, [['wave', 0.3, 4], ['dance', 4, 7]], {face:-1});
+  const sb = b.el('Subscribe button', 540, 560, 260); anim(sb, 'pop', 0.6, 0.6, W, H); anim(sb, 'pulse', 2, 0.8, W, H); anim(sb, 'pulse', 4, 0.8, W, H);
+  anim(b.text('లైక్ · షేర్ · సబ్‌స్క్రైబ్', 540, 330, 86, '#FFFFFF', {anim:'bounce', at:0.2, dur:1}), 'fadein', 0.1, 0.4, W, H);
+  b.sfx('ding', 0.7, 0.6); b.fx('confetti', 2, 5); b.quiet('happy', 0.4); return b.p; });
+
 // ================================================================= SPIRITUAL
 tpl('Spiritual', 'Upanishad intro', '16:9', () => { const b = Builder('16:9', 8), W = b.W, H = b.H;
   b.bg('Saffron glow');
