@@ -333,7 +333,8 @@ function graph(ctx, song){
   const comp = ctx.createDynamicsCompressor(); comp.threshold.value = -12; comp.ratio.value = 3; comp.attack.value = 0.01; comp.release.value = 0.2;
   const verb = ctx.createConvolver(); verb.buffer = impulse(ctx); const verbOut = ctx.createGain(); verbOut.gain.value = 0.7;
   verb.connect(verbOut); verbOut.connect(master);
-  if(song.polish === false){ master.connect(comp); comp.connect(ctx.destination); }
+  const meter = ctx.createAnalyser(); meter.fftSize = 512;
+  if(song.polish === false){ master.connect(comp); comp.connect(ctx.destination); comp.connect(meter); }
   else {   // mastering: clean lows, less mud, a little air, gentle warmth, glue compression, then a limiter
     const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 32; hp.Q.value = 0.7;
     const mud = ctx.createBiquadFilter(); mud.type = 'peaking'; mud.frequency.value = 320; mud.Q.value = 0.9; mud.gain.value = -2.5;
@@ -344,24 +345,33 @@ function graph(ctx, song){
     const glue = ctx.createDynamicsCompressor(); glue.threshold.value = -20; glue.ratio.value = 2.2; glue.knee.value = 8; glue.attack.value = 0.025; glue.release.value = 0.3;
     const lim = ctx.createDynamicsCompressor(); lim.threshold.value = -3; lim.ratio.value = 20; lim.knee.value = 0; lim.attack.value = 0.002; lim.release.value = 0.08;
     const post = ctx.createGain(); post.gain.value = 1.15;
-    master.connect(hp); hp.connect(mud); mud.connect(low); low.connect(air); air.connect(pre); pre.connect(sat); sat.connect(glue); glue.connect(post); post.connect(lim); lim.connect(ctx.destination);
+    master.connect(hp); hp.connect(mud); mud.connect(low); low.connect(air); air.connect(pre); pre.connect(sat); sat.connect(glue); glue.connect(post); post.connect(lim); lim.connect(ctx.destination); lim.connect(meter);
   }
-  const G = {ctx, master, comp, verb, tracks:{}};
+  const G = {ctx, master, comp, verb, meter, tracks:{}};
   for(const tr of song.tracks) trackNode(G, song, tr);
   return G;
 }
 function trackNode(G, song, tr){
   if(G.tracks[tr.id]) return G.tracks[tr.id];
   const ctx = G.ctx, input = ctx.createGain(), vol = ctx.createGain(), pan = ctx.createStereoPanner ? ctx.createStereoPanner() : ctx.createGain(), send = ctx.createGain();
-  input.connect(vol); vol.connect(pan); pan.connect(G.master); vol.connect(send); send.connect(G.verb);
-  const n = G.tracks[tr.id] = {input, vol, pan, send}; mixTrack(G, song, tr); return n;
+  const bass = ctx.createBiquadFilter(); bass.type = 'lowshelf'; bass.frequency.value = 200;
+  const treble = ctx.createBiquadFilter(); treble.type = 'highshelf'; treble.frequency.value = 4000;
+  const meter = ctx.createAnalyser(); meter.fftSize = 512;
+  input.connect(bass); bass.connect(treble); treble.connect(vol); vol.connect(pan); pan.connect(G.master); vol.connect(send); send.connect(G.verb); pan.connect(meter);
+  const n = G.tracks[tr.id] = {input, vol, pan, send, bass, treble, meter}; mixTrack(G, song, tr); return n;
 }
 function mixTrack(G, song, tr){
   const n = G.tracks[tr.id]; if(!n) return;
   n.vol.gain.value = audible(song, tr) ? (tr.vol ?? 0.8) : 0;
   if(n.pan.pan) n.pan.pan.value = tr.pan || 0;
   n.send.gain.value = tr.verb ?? 0.25;
+  if(n.bass) n.bass.gain.value = tr.bass || 0;
+  if(n.treble) n.treble.gain.value = tr.treble || 0;
+  if(G.master) G.master.gain.value = song.master ?? 0.9;
 }
+// loudness 0..1 of an analyser right now (peak of the last few milliseconds)
+const _lv = new Float32Array(512);
+function level(an){ if(!an) return 0; an.getFloatTimeDomainData(_lv); let p = 0; for(let i = 0; i < _lv.length; i++){ const a = Math.abs(_lv[i]); if(a > p) p = a; } return p; }
 function mixAll(G, song){ for(const tr of song.tracks){ trackNode(G, song, tr); mixTrack(G, song, tr); } }
 // play one event at context time `when`; returns the source node
 function fire(G, song, e, when, offset = 0){
@@ -823,6 +833,6 @@ function editBars(song, a, b, mode, times = 1){
   }
   song.bars = Math.max(1, song.bars + shift / bpb); delete song.sections; delete song.seconds;
 }
-window.VG_STUDIO = {editBars, setClipLoader, clipLoad, clipBufs, ambLoad, MOODS, compose, sections,SR, KEYS, SCALES, SWARA, NAMES, noteName, INSTRUMENTS, KITS, RHYTHMS, velOf, load, fetchBuf, prepare, events, graph, mixAll, mixTrack, preview, previewHit,
+window.VG_STUDIO = {editBars, setClipLoader, clipLoad, clipBufs, ambLoad, MOODS, compose, sections,SR, KEYS, SCALES, SWARA, NAMES, noteName, INSTRUMENTS, KITS, RHYTHMS, velOf, load, fetchBuf, prepare, events, graph, mixAll, mixTrack, level, preview, previewHit,
   Player, render, wavBlob, m4aBlob, auto, scaleMidis, beatsPerBar, totalBeats, spb, songSeconds, rootOf, hz};
 })();
