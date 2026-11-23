@@ -663,7 +663,7 @@ function compose(o){
   for(let n = Math.max(4, bars - 6); n <= bars + 6; n++){ const sc = sections(n); if((sc.some(x => x.n < 4 && /^[ABC]$/.test(x.type)) || sc[sc.length - 1].n > 3) && n >= 6) continue;
     const b = n * meter * 60 / secs, cost = Math.abs(Math.log(b / bpm0)); if(!best || cost < best.cost) best = {n, cost}; }
   if(best) bars = best.n; const bpm = Math.round(bars * meter * 60 / secs * 100) / 100;
-  const song = {v:1, name:`${M.name.replace(/^\S+\s/, '')} · ${SCALES[scale].name.split(' ')[0]} · ${Math.round(secs)}s`, bpm, key, scale, bars, meter, tracks:[], mood:o.mood, seed:o.seed || 1, seconds:secs};
+  const song = {v:1, name:`${M.name.replace(/^\S+\s/, '')} · ${SCALES[scale].name.split(' ')[0]} · ${Math.round(secs)}s · tune ${o.seed || 1}`, bpm, key, scale, bars, meter, tracks:[], mood:o.mood, seed:o.seed || 1, seconds:secs};
   const secs_ = sections(bars), seedA = R() * 1e6 | 0, seedB = R() * 1e6 | 0, seedC = R() * 1e6 | 0;
   const has = (sec, role) => ({intro:['pad', 'arp', 'drone', 'bowls', 'hum'], A:['melody', 'pad', 'bass', 'drone', 'bowls', 'hum', 'sparkle'], B:['melody', 'counter', 'pad', 'bass', 'arp', 'drone', 'bowls', 'hum', 'sparkle'],
     C:['counter', 'pad', 'arp', 'drone', 'bass', 'bowls', 'hum', 'sparkle'], outro:['melody', 'pad', 'drone', 'arp', 'bowls', 'hum']}[sec.type].includes(role));

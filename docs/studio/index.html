@@ -88,7 +88,7 @@
   <label>Feel</label><select id="feel" title="Human feel: small timing and loudness changes like real players"><option value="0">Machine</option><option value="0.6">Natural</option><option value="1">Loose</option></select>
   <select id="meter"><option value="4">4/4</option><option value="3">3/4</option><option value="2">2/4</option><option value="6">6/8</option><option value="7">7 beats</option></select>
 </div>
-<div style="padding:8px 8px 0"><button id="oneTap" style="width:100%;padding:11px;font-size:15px;font-weight:700;background:linear-gradient(90deg,#f0a830,#e5534b);border:0;color:#1a0d00">✨ Make a full song in one tap</button></div>
+<div style="padding:8px 8px 0;display:flex;gap:6px"><button id="oneTap" style="flex:1;padding:11px;font-size:15px;font-weight:700;background:linear-gradient(90deg,#f0a830,#e5534b);border:0;color:#1a0d00">✨ Make a full song in one tap</button><button id="nextTune" title="Same mood, next tune number" style="padding:11px 12px;font-weight:700">🎲 Next tune</button></div>
 <div id="tracks"></div>
 <div id="edWrap">
   <div id="edTools"></div>
@@ -552,9 +552,9 @@ function oneTapSheet(){
   });
 }
 async function makeOneTap(){
-  if($('ocMel')) OT.custom = {melody:$('ocMel').value, counter:$('ocCnt').value, rhythm:$('ocRhy').value, bowls:$('ocBowl').value, drone:$('ocDrone').checked, chimes:$('ocChime').checked, speed:$('ocSpd').value};
-  if($('otNat')) OT.nature = $('otNat').value; if($('otLead')){ OT.lead = $('otLead').value; OT.support = $('otSup').value; }
-  OT.key = $('otKey') ? $('otKey').value : OT.key; OT.seed = $('otSeed') ? +$('otSeed').value || 1 : OT.seed; if($('otSec')) OT.seconds = Math.max(8, Math.min(900, +$('otSec').value || 60));
+  if($('ocMel') && $('sheet').classList.contains('show')) OT.custom = {melody:$('ocMel').value, counter:$('ocCnt').value, rhythm:$('ocRhy').value, bowls:$('ocBowl').value, drone:$('ocDrone').checked, chimes:$('ocChime').checked, speed:$('ocSpd').value};
+  if($('otNat') && $('sheet').classList.contains('show')) OT.nature = $('otNat').value; if($('otLead') && $('sheet').classList.contains('show')){ OT.lead = $('otLead').value; OT.support = $('otSup').value; }
+  OT.key = $('otKey') && $('sheet').classList.contains('show') ? $('otKey').value : OT.key; OT.seed = $('otSeed') && $('sheet').classList.contains('show') ? +$('otSeed').value || 1 : OT.seed; if($('otSec') && $('sheet').classList.contains('show')) OT.seconds = Math.max(8, Math.min(900, +$('otSec').value || 60));
   try{ localStorage.setItem('vg_studio_onetap', JSON.stringify(OT)); }catch(e){}
   closeSheet(); pushUndo();
   const s = S.compose({mood:OT.mood, seconds:OT.seconds, key:OT.key || null, seed:OT.seed, nature:OT.nature || null, lead:OT.lead || null, support:OT.support || null, custom:OT.custom});
@@ -563,6 +563,8 @@ async function makeOneTap(){
   toast(`${S.MOODS[OT.mood].name} · ${OT.seconds}s · tune ${OT.seed}`);
 }
 $('oneTap').onclick = oneTapSheet;
+$('nextTune').onclick = () => { OT.seed = (OT.seed || 1) + 1; makeOneTap(); };
+function syncNextTune(){ $('nextTune').textContent = '🎲 Next tune' + (song && song.mood ? ` (${(OT.seed || 1) + 1})` : ''); }
 
 // ------------------------------------------------------------ example songs
 const DEMOS = {
@@ -595,7 +597,7 @@ function demoSheet(){ sheet('Example songs', `<p class="hint">Open one, listen, 
   box => box.querySelectorAll('[data-d]').forEach(b => b.onclick = () => { closeSheet(); undoStack = []; loadSong(DEMOS[b.dataset.d].make()); toast('Press ▶ to listen'); })); }
 
 // ------------------------------------------------------------ start
-function renderAll(){ syncTop(); renderTracks(); renderEditor(); }
+function renderAll(){ syncTop(); renderTracks(); renderEditor(); if(window.syncNextTune) syncNextTune(); }
 (async () => {
   fillTop();
   try{ await S.load('./samples/'); }catch(e){ toast('Could not load instruments. Check the internet.', true); }
