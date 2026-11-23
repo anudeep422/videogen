@@ -655,7 +655,7 @@ function customMood(c = {}){
     keys:['C#', 'D', 'C'], indian:true, parts, rhythm:c.rhythm || null, verb:0.45};
 }
 function compose(o){
-  const M = o.mood === 'custom' ? customMood(o.custom) : MOODS[o.mood] || MOODS.spiritual, R = rng((o.seed || 1) * 104729 + o.mood.length * 31), meter = 4;
+  const M = o.mood === 'custom' ? customMood(o.custom) : MOODS[o.mood] || MOODS.spiritual, R = rng((o.seed || 1) * 104729 + strHash(o.mood + '|' + JSON.stringify(o.custom || '') + '|' + (o.lead || '') + (o.support || ''))), meter = 4;
   const scale = o.scale || R.pick(M.scales), key = o.key || R.pick(M.keys);
   const bpm0 = M.bpm[0] + R() * (M.bpm[1] - M.bpm[0]), secs = Math.max(8, o.seconds || 60);
   // pick bars so the middle is whole 4-bar phrases, then set the tempo so the song lasts exactly `secs`
