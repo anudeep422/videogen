@@ -84,6 +84,7 @@
   <label>Key (Sa)</label><select id="key"></select>
   <label>Scale / raga</label><select id="scale" style="max-width:150px"></select>
   <label>Bars</label><input id="bars" type="number" min="1" max="200" value="8" style="width:56px">
+  <label>Gamaka</label><select id="gam" title="Slides and shakes on veena, sitar, flute, violin, shehnai, voice"><option value="0">Off</option><option value="0.5">Light</option><option value="1">Rich</option></select>
   <label>Feel</label><select id="feel" title="Human feel: small timing and loudness changes like real players"><option value="0">Machine</option><option value="0.6">Natural</option><option value="1">Loose</option></select>
   <select id="meter"><option value="4">4/4</option><option value="3">3/4</option><option value="2">2/4</option><option value="6">6/8</option><option value="7">7 beats</option></select>
 </div>
@@ -118,7 +119,7 @@ function drumTrack(rhythm, name){ const R = S.RHYTHMS[rhythm]; const t = {id:uid
   setRhythm(t, rhythm); return t; }
 function setRhythm(t, rhythm){ const R = S.RHYTHMS[rhythm]; t.rhythm = rhythm; t.kit = R.kit; t.steps = R.steps; t.stepBeats = R.stepBeats; t.grid = {};
   for(const [row, p] of Object.entries(R.pat)) t.grid[row] = [...p].map(S.velOf); }
-function newSong(){ return {v:1, feel:0.6, name:'My song', bpm:90, key:'D', scale:'mohanam', bars:8, meter:4, tracks:[instTrack('r:piano'), drumTrack('keherwa')]}; }
+function newSong(){ return {v:1, feel:0.6, gamaka:0.5, name:'My song', bpm:90, key:'D', scale:'mohanam', bars:8, meter:4, tracks:[instTrack('r:piano'), drumTrack('keherwa')]}; }
 const sel = () => song.tracks.find(t => t.id === selId) || song.tracks[0];
 
 function snapshot(){ return JSON.stringify(song); }
@@ -133,7 +134,7 @@ function fillTop(){
   const groups = {}; for(const [k, v] of Object.entries(S.SCALES)) (groups[v.g || 'Other'] = groups[v.g || 'Other'] || []).push([k, v]);
   $('scale').innerHTML = Object.entries(groups).map(([g, list]) => `<optgroup label="${g}">${list.map(([k, v]) => `<option value="${k}">${v.name}</option>`).join('')}</optgroup>`).join('');
 }
-function syncTop(){ $('songName').textContent = song.name; $('bpm').value = song.bpm; $('key').value = song.key; $('scale').value = song.scale; $('bars').value = song.bars; $('meter').value = song.meter; $('feel').value = String(song.feel ?? 0.6);
+function syncTop(){ $('songName').textContent = song.name; $('bpm').value = song.bpm; $('key').value = song.key; $('scale').value = song.scale; $('bars').value = song.bars; $('meter').value = song.meter; $('feel').value = String(song.feel ?? 0.6); $('gam').value = String((song.gamaka ?? 0) >= 0.85 ? 1 : (song.gamaka ?? 0) > 0 ? 0.5 : 0);
   $('loopBtn').classList.toggle('on', player.loop); $('metroBtn').classList.toggle('on', player.metro); }
 $('bpm').onchange = () => { pushUndo(); song.bpm = Math.max(30, Math.min(240, +$('bpm').value || 90)); changed({keepUI:true}); };
 $('key').onchange = () => { pushUndo(); const d = S.KEYS[$('key').value] - S.KEYS[song.key];
@@ -141,6 +142,7 @@ $('key').onchange = () => { pushUndo(); const d = S.KEYS[$('key').value] - S.KEY
   song.key = $('key').value; changed(); };
 $('scale').onchange = () => { pushUndo(); song.scale = $('scale').value; changed(); };
 $('bars').onchange = () => { pushUndo(); song.bars = Math.max(1, Math.min(200, +$('bars').value || 8)); delete song.sections; changed(); };
+$('gam').onchange = () => { pushUndo(); song.gamaka = +$('gam').value; changed({keepUI:true}); toast(song.gamaka ? 'Gamakas on: slides and shakes on Indian-style instruments' : 'Gamakas off'); };
 $('feel').onchange = () => { pushUndo(); song.feel = +$('feel').value; changed({keepUI:true}); toast(song.feel ? 'Human feel on' : 'Exact machine timing'); };
 $('meter').onchange = () => { pushUndo(); song.meter = +$('meter').value; changed(); };
 $('undo').onclick = () => { if(!undoStack.length) return; redoStack.push(snapshot()); song = JSON.parse(undoStack.pop()); player.G = null; if(!song.tracks.find(t => t.id === selId)) selId = song.tracks[0]?.id; changed(); };
@@ -437,7 +439,7 @@ addEventListener('resize', () => { if(sel()?.type === 'inst'){ sizeRoll(); drawR
 
 // ------------------------------------------------------------ auto-fill
 function autoSheet(t){
-  const kinds = [['melody', '🎶 Melody', 'a tune in the raga'], ['chords', '🎹 Chords', 'long chords, one per bar'], ['bass', '🎸 Bass line', 'low notes on beats'], ['arp', '🌊 Arpeggio', 'broken chords (harp, guitar, piano)'], ['drone', '🪕 Drone', 'tanpura style Pa-Sa-Sa-Sa']];
+  const kinds = [['raga', '🪷 Raga melody', 'built from real phrases of this raga'], ['melody', '🎶 Simple melody', 'a free tune using the raga notes'], ['chords', '🎹 Chords', 'long chords, one per bar'], ['bass', '🎸 Bass line', 'low notes on beats'], ['arp', '🌊 Arpeggio', 'broken chords (harp, guitar, piano)'], ['drone', '🪕 Drone', 'tanpura style Pa-Sa-Sa-Sa']];
   sheet('✨ Auto-fill ' + esc(t.name), `<p class="hint">Makes notes using music rules and dice — no AI. Uses the key and raga at the top. Press again for a different version.</p>
     <div class="opts">${kinds.map(([k, l, h]) => `<button data-k="${k}" title="${h}">${l}</button>`).join('')}</div>
     <p style="margin-top:12px"><label><input type="checkbox" id="keepOld"> Keep existing notes (add on top)</label></p>`, box => box.querySelectorAll('[data-k]').forEach(b => b.onclick = () => {
@@ -516,12 +518,16 @@ async function idbPut(id, blob){ const db = await idb(); return new Promise((res
 // ------------------------------------------------------------ one-tap song
 const OT = (() => { try{ return JSON.parse(localStorage.getItem('vg_studio_onetap') || 'null') || {}; }catch(e){ return {}; } })();
 OT.mood = OT.mood || 'spiritual'; OT.seconds = OT.seconds || 60; OT.key = OT.key || ''; OT.seed = OT.seed || 1;
+function instOptions(sel){ const groups = {}; for(const [id, I] of Object.entries(S.INSTRUMENTS)) (groups[I.group] = groups[I.group] || []).push([id, I]);
+  return Object.entries(groups).map(([g, l]) => `<optgroup label="${g}">${l.map(([id, I]) => `<option value="${id}"${id === sel ? ' selected' : ''}>${esc(I.label)}</option>`).join('')}</optgroup>`).join(''); }
 function oneTapSheet(){
   sheet('✨ Make a full song', `<p class="hint" style="margin-top:0">Choose a mood and the length of your video. The song gets an intro, verse, chorus and ending, with real instruments. No AI — music rules and dice.</p>
     <h4>1 · Mood</h4><div class="opts" id="otMood">${Object.entries(S.MOODS).map(([k, m]) => `<button data-mood="${k}" class="${k === OT.mood ? 'on' : ''}">${esc(m.name)}</button>`).join('')}</div>
     <h4>2 · Length (seconds)</h4><div class="opts" id="otLen">${[30, 45, 60, 90, 120, 180, 300].map(n => `<button data-len="${n}" class="${n === OT.seconds ? 'on' : ''}">${n < 60 ? n + ' s' : (n / 60) + ' min'}</button>`).join('')}
       <input id="otSec" type="number" min="8" max="900" value="${OT.seconds}" style="width:80px" title="Exact seconds"></div>
     <h4>3 · Key (Sa)</h4><select id="otKey"><option value="">Automatic</option>${Object.keys(S.KEYS).map(k => `<option${k === OT.key ? ' selected' : ''}>${k}</option>`).join('')}</select>
+    <h4>Instruments (optional)</h4><div class="opts"><label class="hint">Lead</label><select id="otLead" style="max-width:170px"><option value="">Automatic</option>${instOptions(OT.lead)}</select>
+      <label class="hint">Support</label><select id="otSup" style="max-width:170px"><option value="">Automatic</option>${instOptions(OT.support)}</select></div>
     <h4>4 · Nature sound (optional)</h4><select id="otNat"><option value="">None</option>${window.VG_AMB ? VG_AMB.LIST.map(a => `<option value="${a.id}"${a.id === OT.nature ? ' selected' : ''}>${a.icon} ${esc(a.name)}</option>`).join('') : ''}</select>
     <h4>5 · Tune number</h4><div class="opts"><input id="otSeed" type="number" min="1" max="99999" value="${OT.seed}" style="width:90px"><button id="otDice">🎲 Another tune</button></div>
     <button id="otGo" class="on" style="width:100%;margin-top:16px;padding:12px;font-size:16px">✨ Make song</button>
@@ -534,11 +540,11 @@ function oneTapSheet(){
   });
 }
 async function makeOneTap(){
-  if($('otNat')) OT.nature = $('otNat').value;
+  if($('otNat')) OT.nature = $('otNat').value; if($('otLead')){ OT.lead = $('otLead').value; OT.support = $('otSup').value; }
   OT.key = $('otKey') ? $('otKey').value : OT.key; OT.seed = $('otSeed') ? +$('otSeed').value || 1 : OT.seed; if($('otSec')) OT.seconds = Math.max(8, Math.min(900, +$('otSec').value || 60));
   try{ localStorage.setItem('vg_studio_onetap', JSON.stringify(OT)); }catch(e){}
   closeSheet(); pushUndo();
-  const s = S.compose({mood:OT.mood, seconds:OT.seconds, key:OT.key || null, seed:OT.seed, nature:OT.nature || null});
+  const s = S.compose({mood:OT.mood, seconds:OT.seconds, key:OT.key || null, seed:OT.seed, nature:OT.nature || null, lead:OT.lead || null, support:OT.support || null});
   loadSong(s); PR.sx = 0; PR.sy = -1; renderEditor();
   await togglePlay();
   toast(`${S.MOODS[OT.mood].name} · ${OT.seconds}s · tune ${OT.seed}`);

@@ -82,6 +82,7 @@ const SYN = {
   tanpura:{label:'Tanpura', range:[36, 62]}, guitar:{label:'Acoustic guitar', range:[40, 80]}, kalimba:{label:'Kalimba', range:[60, 88]},
   vibraphone:{label:'Vibraphone', range:[53, 89]}, organ:{label:'Organ', range:[36, 84], sustain:true},
 };
+const GAMAKA_OK = new Set(['veena', 'sitar', 'bansuri', 'violin', 'violins', 'flute', 'shehnai', 'sitar_rec', 'oboe', 'clarinet', 'voice', 'cellos', 'violas', 'panflute', 'harmonium', 'reedorgan']);
 const SYNGAIN = {veena:0.9, sitar:0.8, santoor:0.7, bansuri:0.7, harmonium:0.55, tanpura:0.5, guitar:0.8, kalimba:0.8, vibraphone:0.7, organ:0.45};
 const INSTRUMENTS = {};   // id -> {label, group, range, kind:'real'|'synth', ...}
 let manifest = null;
@@ -195,9 +196,16 @@ function events(song){
       const order = tr.notes.map((n, i) => i).sort((a, b) => tr.notes[a].t - tr.notes[b].t), leg = new Set();
       for(let j = 1; j < order.length; j++){ const p = tr.notes[order[j - 1]], n = tr.notes[order[j]];
         if(starts.get(Math.round(n.t * 100)) === 1 && starts.get(Math.round(p.t * 100)) === 1 && p.t < n.t && p.t + p.d >= n.t - 0.08 && p.t + p.d <= n.t + 0.3 && Math.abs(p.m - n.m) <= 12) leg.add(order[j]); }
+      // gamaka: meend (slide in from the note before) and kampita (shake on long Ri / Ga / Dha / Ni)
+      const gam = song.gamaka ?? 0, GI = INSTRUMENTS[tr.inst], canG = gam > 0 && GI && GAMAKA_OK.has(GI.id), prev = new Map(), root = rootOf(song) % 12;
+      for(let j = 1; j < order.length; j++){ const p = tr.notes[order[j - 1]], n = tr.notes[order[j]]; if(n.t - (p.t + p.d) < 0.6 && n.t > p.t) prev.set(order[j], p); }
       tr.notes.forEach((n, i) => { if(n.t >= TB) return;
         const dt = feel * (hsh(th, i * 2 + 1) - 0.5) * 0.036, dv = feel * ((hsh(th, i * 2 + 2) - 0.5) * 0.16 + accent(n.t)), dur = Math.min(n.d, TB + 4 - n.t) * k;
-        ev.push({s:Math.max(0, n.t * k + (n.t > 0 ? dt : 0)), dur, tr, type:'note', m:n.m, v:Math.max(0.12, Math.min(1, (n.v ?? 0.8) + dv)), short:dur < 0.3 && !n.long, legato:leg.has(i) && dur >= 0.3}); }); }
+        let g = null;
+        if(canG && dur >= 0.3){ const p = prev.get(i), iv = p ? p.m - n.m : 0, rel = ((n.m - root) % 12 + 12) % 12;
+          if(p && Math.abs(iv) >= 1 && Math.abs(iv) <= 5 && dur >= 0.42 && hsh(th, i * 7 + 3) < 0.35 + 0.35 * gam) g = {from:iv, slide:Math.min(0.2, dur * 0.3)};
+          if(dur >= 0.75 && [1, 2, 3, 4, 8, 9, 10, 11].includes(rel) && hsh(th, i * 7 + 5) < 0.4 + 0.4 * gam) (g = g || {}).kamp = 0.6 + 0.6 * gam; }
+        ev.push({s:Math.max(0, n.t * k + (n.t > 0 ? dt : 0)), dur, tr, type:'note', m:n.m, v:Math.max(0.12, Math.min(1, (n.v ?? 0.8) + dv)), short:dur < 0.3 && !n.long, legato:leg.has(i) && dur >= 0.3, g}); }); }
     else if(tr.type === 'amb'){ ev.push({s:0, dur:TB * k, tr, type:'amb'}); }
     else if(tr.type === 'drum'){
       const from = (tr.from || 1) - 1, to = Math.min(tr.to || song.bars, song.bars), b0 = from * beatsPerBar(song), b1 = to * beatsPerBar(song);
@@ -303,6 +311,11 @@ function fire(G, song, e, when, offset = 0){
     if(info.sustain && e.dur > len - 0.5 && info.buf.duration > 2){ src.loop = true; src.loopStart = 1.0; src.loopEnd = info.buf.duration - 0.45; }
     const end = when + e.dur - offset, rel = info.release || 0.3;
     if(!info.synth || SYN[INSTRUMENTS[e.tr.inst].id].sustain){ g.gain.setValueAtTime(info.gain * vel, Math.max(when, end - 0.001)); g.gain.setTargetAtTime(0, Math.max(when, end), rel / 3); }
+    if(e.g && offset === 0){ const r = info.rate, pr = src.playbackRate; let t0 = when;
+      if(e.g.from){ pr.setValueAtTime(r * Math.pow(2, e.g.from / 12), when); pr.linearRampToValueAtTime(r, when + e.g.slide); t0 = when + e.g.slide + 0.01; }
+      if(e.g.kamp){ const st = Math.max(t0, when + Math.min(0.3, e.dur * 0.3)), len2 = Math.max(0.1, e.dur - (st - when) - 0.05), n = Math.max(4, Math.floor(len2 * 80)), cv = new Float32Array(n), f = 5.2;
+        for(let q = 0; q < n; q++){ const tt = q / 80, ramp = Math.min(1, tt / 0.15); cv[q] = r * Math.pow(2, e.g.kamp * ramp * (0.5 - 0.5 * Math.cos(2 * Math.PI * f * tt)) / 12); }
+        try{ pr.setValueCurveAtTime(cv, st, len2); }catch(err){} } }
     src.start(when, offset * info.rate + skip * info.rate); src.stop(Math.max(when, end) + rel * 2 + 0.05);
   } else src.start(when, offset);
   return src;
@@ -440,6 +453,26 @@ function auto(song, tr, kind, seed = 1, bars, opts = {}){
   } else if(kind === 'arp'){
     for(let bar = 0; bar < nb; bar++){ const ch = fit(chordAt(song, bar, Math.max(lo + 3, Math.min(hi - 14, 62))), [lo, hi]); const seq = [ch[0], ch[1] ?? ch[0] + 7, ch[2] ?? ch[0] + 12, ch[0] + 12, ch[2] ?? ch[0] + 7, ch[1] ?? ch[0] + 12];
       for(let i = 0; i < bpb * 2; i++) out.push({t:bar * bpb + i * 0.5, d:0.9, m:fit([seq[i % seq.length]], [lo, hi])[0], v:i % 2 ? 0.55 : 0.7}); }
+  } else if(kind === 'raga'){   // melody made from the raga's own phrases, landing on Sa / Pa every 4 bars
+    const sc = (SCALES[song.scale] || SCALES.major).s, map = swaraMap(sc), list = phraseList(song);
+    let sa = r + 12; while(sa < lo + 5) sa += 12; while(sa > hi - 10) sa -= 12;
+    const total = nb * bpb; let t = 0, last = sa, nextCad = Math.min(total, 4 * bpb), cadN = 0;
+    while(t < total - 0.25){
+      const cands = [0, 1, 2].map(() => phrasePitches(R.pick(list), map, sa)).filter(c => c.length);
+      if(!cands.length) break;
+      let ph = cands.reduce((b, c) => Math.abs(c[0] - last) < Math.abs(b[0] - last) ? c : b, cands[0]);
+      if(Math.abs(ph[0] - last) > 7) ph = ph.map(m => m + (ph[0] > last ? -12 : 12) * (Math.abs(ph[0] - last) > 9 ? 1 : 0));
+      ph = ph.map(m => { while(m < lo) m += 12; while(m > hi) m -= 12; return m; });
+      for(let i = 0; i < ph.length && t < nextCad - 0.25; i++){
+        const lastOne = i === ph.length - 1, d = lastOne ? R.pick([1, 1, 1.5, 2]) : R.pick([0.5, 0.5, 0.5, 1, 0.5]);
+        const dd = Math.min(d, nextCad - t); out.push({t, d:dd * 0.95, m:ph[i], v:i === 0 ? 0.82 : 0.7 + R() * 0.1}); last = ph[i]; t += dd; }
+      if(R() < 0.3) t += 0.5;
+      if(t >= nextCad - 1.01){   // cadence: long Sa (or Pa) to end the 4-bar phrase
+        const land = cadN % 2 === 1 && map.P !== undefined ? sa + 7 : sa; const lt = Math.max(t, nextCad - 1.5);
+        if(lt < nextCad){ out.push({t:lt, d:(nextCad - lt) * 0.95, m:land, v:0.78}); last = land; }
+        t = nextCad; nextCad = Math.min(total, nextCad + 4 * bpb); cadN++; }
+    }
+    if(out.length){ const e = out[out.length - 1]; e.m = sa; }
   } else if(kind === 'alap'){   // slow free opening: grows upward from Sa, phrase by phrase, returns to Sa
     const pool = scaleMidis(song, Math.max(lo, mid - 12), Math.min(hi, mid + 12)); if(!pool.length) return out;
     const sa = pool.reduce((b, m) => (m - r) % 12 === 0 && Math.abs(m - mid) < Math.abs(b - mid) ? m : b, pool[0]), si = pool.indexOf(sa), end = nb * bpb;
@@ -472,6 +505,44 @@ function auto(song, tr, kind, seed = 1, bars, opts = {}){
   }
   return out;
 }
+
+// ---------------------------------------------------------------- raga phrases (S R G M P D N; ' = upper octave, , = lower octave)
+const PHRASES = {
+  mohanam:['G P D S\'', 'S\' D P G R', 'G R S D, S', 'P D S\' R\' S\' D P', 'G P D P G R S', 'R G P G R S', 'D, S R G P', 'P G R G P D'],
+  hamsadhwani:['S R G P N S\'', 'S\' N P G R S', 'G P N P G R', 'R G P G R S', 'P N S\' R\' S\' N P', 'N, S R G R S', 'G R S N, S'],
+  hindolam:['S G M D N S\'', 'S\' N D M G S', 'G M D M G S', 'M D N D M', 'N, S G M G S', 'D N S\' N D M G', 'G M G S N, S'],
+  kalyani:['S R G M P D N S\'', 'S\' N D P M G R S', 'N, R G M P', 'G M D N D P', 'P M G R S', 'D N S\' N D P M G', 'M D N S\' N D'],
+  mayamalavagowla:['S R G M P D N S\'', 'S\' N D P M G R S', 'G M P D P M G', 'R G M G R S', 'D N S\' N D P', 'M G R S N, S'],
+  kharaharapriya:['S R G M P D N S\'', 'S\' N D P M G R S', 'R G M P M G R', 'P D N D P M', 'G R S N, S', 'M P D N D P'],
+  abheri:['S G M P N S\'', 'S\' N D P M G R S', 'G M P N P M G', 'M G R S', 'N, S G M P', 'P N S\' N D P'],
+  major:['S R G M P D N S\'', 'S\' N D P M G R S', 'G M P M G R S', 'P D N S\'', 'R G M G R S', 'G P D P M G'],
+  minor:['S R G M P D N S\'', 'S\' N D P M G R S', 'G M P M G R S', 'P D N D P', 'R G M G R S', 'D P M G R'],
+  bhairavi:['S R G M P D N S\'', 'G M P D P M G R', 'R G M G R S', 'D N S\' N D P', 'S\' N D P M G R S', 'N, S R G R S'],
+  shivaranjani:['S R G P D S\'', 'S\' D P G R S', 'G R S D, S', 'P D S\' D P G', 'R G R S', 'D, S R G P'],
+  revati:['S R M P N S\'', 'S\' N P M R S', 'M P N P M R', 'R M R S', 'N, S R M P', 'P N S\' N P'],
+  madhyamavati:['S R M P N S\'', 'S\' N P M R S', 'R M P N P M R', 'M R S N, S', 'P N S\' R\' S\' N P'],
+  durga:['S R M P D S\'', 'S\' D P M R S', 'R M P D P M', 'M R S D, S', 'P D S\' D P'],
+  harikambhoji:['S R G M P D N S\'', 'S\' N D P M G R S', 'G M P D N D P', 'M G R S', 'P D S\' N D P'],
+  charukesi:['S R G M P D N S\'', 'S\' N D P M G R S', 'G M P D P M G', 'D N S\' N D P', 'R G M G R S'],
+  keeravani:['S R G M P D N S\'', 'S\' N D P M G R S', 'G M P D N D P', 'M G R S N, S', 'D N S\' R\' S\' N D'],
+};
+function swaraMap(sc){
+  const has = x => sc.includes(x), m = {};
+  for(const pc of sc){ let l;
+    if(pc === 0) l = 'S'; else if(pc === 1) l = 'R'; else if(pc === 2) l = has(1) ? 'G' : 'R'; else if(pc === 3) l = has(4) ? 'R' : 'G'; else if(pc === 4) l = 'G';
+    else if(pc === 5 || pc === 6) l = m.M !== undefined ? null : 'M'; else if(pc === 7) l = 'P'; else if(pc === 8) l = 'D'; else if(pc === 9) l = has(8) ? 'N' : 'D'; else l = 'N';
+    if(l && m[l] === undefined) m[l] = pc; }
+  return m;
+}
+function phraseList(song){
+  const sc = (SCALES[song.scale] || SCALES.major).s; if(PHRASES[song.scale]) return PHRASES[song.scale];
+  // other ragas: build phrases from the scale itself (runs up, runs down, turns)
+  const L = Object.keys(swaraMap(sc)).sort((a, b) => 'SRGMPDN'.indexOf(a) - 'SRGMPDN'.indexOf(b));
+  const out = [L.join(' ') + " S'", "S' " + L.slice().reverse().join(' ')];
+  for(let i = 1; i < L.length - 2; i++) out.push([L[i], L[i + 1], L[i + 2], L[i + 1], L[i]].join(' '));
+  out.push([L[2] || 'G', L[1] || 'R', 'S'].join(' ')); return out;
+}
+function phrasePitches(ph, map, sa){ return ph.split(' ').map(tok => { const l = tok[0], pc = map[l]; if(pc === undefined) return null; return sa + pc + (tok.includes("'") ? 12 : 0) - (tok.includes(',') ? 12 : 0); }).filter(x => x != null); }
 
 // ---------------------------------------------------------------- one-tap songs with sections, fitted to a length in seconds
 // roles: melody, counter (chorus only), pad (chords), bass, arp, drone; rhythm (+ rhythm2 in chorus)
@@ -542,14 +613,15 @@ function compose(o){
   const secs_ = sections(bars), seedA = R() * 1e6 | 0, seedB = R() * 1e6 | 0, seedC = R() * 1e6 | 0;
   const has = (sec, role) => ({intro:['pad', 'arp', 'drone'], A:['melody', 'pad', 'bass', 'drone'], B:['melody', 'counter', 'pad', 'bass', 'arp', 'drone'],
     C:['counter', 'pad', 'arp', 'drone', 'bass'], outro:['melody', 'pad', 'drone', 'arp']}[sec.type].includes(role));
-  for(const [role, inst] of Object.entries(M.parts)){
+  const parts = {...M.parts}; if(o.lead) parts.melody = o.lead; if(o.support){ if(parts.counter) parts.counter = o.support; else if(parts.pad) parts.pad = o.support; else parts.counter = o.support; }
+  for(const [role, inst] of Object.entries(parts)){
     if(!INSTRUMENTS[inst]) continue;
     const tr = {id:tid(), type:'inst', inst, name:`${ROLE_NAME[role]} · ${INSTRUMENTS[inst].label}`, notes:[], vol:ROLE_VOL[role], pan:ROLE_PAN[role], verb:M.verb};
     const bpb = meter;
     for(const sec of secs_){
       if(!has(sec, role)) continue;
       // when a mood has no pad/arp, let the melody instrument play the intro softly
-      let kind = role === 'pad' ? 'chords' : role === 'melody' ? (M.melodyKind || 'melody') : role;
+      let kind = role === 'pad' ? 'chords' : role === 'melody' ? (M.melodyKind || (M.indian ? 'raga' : 'melody')) : role;
       if(sec.type === 'outro'){
         const I = INSTRUMENTS[inst], r = rootOf(song); let sa = r + 12; while(sa < I.range[0] + 3) sa += 12; while(sa > I.range[1] - 3) sa -= 12;
         if(role === 'melody'){ tr.notes.push({t:sec.b0 * bpb, d:sec.n * bpb - 0.2, m:sa, v:0.75}); continue; }
@@ -590,7 +662,7 @@ function compose(o){
     }
   }
   if(o.nature && window.VG_AMB) song.tracks.push({id:tid(), type:'amb', amb:o.nature, name:'Nature · ' + ((window.VG_AMB.LIST.find(a => a.id === o.nature) || {}).name || o.nature), vol:0.4, pan:0, verb:0});
-  song.feel = 0.6;
+  song.feel = 0.6; song.gamaka = M.indian ? 0.7 : 0;
   song.sections = secs_.map(s => ({type:s.type, b0:s.b0, n:s.n}));
   return song;
 }
