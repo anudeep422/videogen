@@ -122,6 +122,7 @@
       <div id="cActs" class="presets"></div>
       <div class="row" style="margin-top:6px"><button id="cTurn">Turn ↔</button><button id="cDelAct">Remove action here</button><button id="cClearAct">Remove all actions</button></div>
       <div class="f"><label>Face</label><select id="cExpr"><option value="happy">😊 Happy</option><option value="sad">😢 Sad</option><option value="surprised">😮 Surprised</option><option value="angry">😠 Angry</option></select></div>
+      <div class="f"><label>Drawing style</label><select id="cStyle"><option value="">Cartoon (outlines, big eyes)</option><option value="simple">Simple (flat)</option></select></div>
       <div class="f"><label>Lip sync</label><select id="cLip" title="Mouth moves with a voice recording"><option value="">Off</option></select></div>
       <div class="f"><label>Skin</label><input type="color" id="cSkin"></div>
       <div class="f"><label>Hair</label><input type="color" id="cHair"></div>
@@ -1343,7 +1344,7 @@ function syncCharUI(){
   if(!o) return; const L = Object.assign({}, VG_CHAR.PRESETS[o.preset], o.look || {});
   const vcs = (P.audio || []).filter(c => c.kind === 'voice' || c.kind === 'file');
   $('cLip').innerHTML = '<option value="">Off</option><option value="voice">🎙️ All my voice recordings</option>' + vcs.map(c => `<option value="clip:${c.id}">${KIND[c.kind]} ${c.name.replace(/</g, '&lt;')}</option>`).join('');
-  $('cLip').value = o.lip || '';
+  $('cLip').value = o.lip || ''; $('cStyle').value = (o.look && o.look.style2) || '';
   $('cExpr').value = o.expr || 'happy'; $('cSkin').value = L.skin; $('cHair').value = L.hair; $('cTop').value = L.top; $('cBot').value = L.bottom;
   // animals: their own action buttons; hide face and hair settings
   const acts = VG_CHAR.actionsFor ? VG_CHAR.actionsFor(o.preset) : VG_CHAR.ACTIONS, key = acts.map(a => a[0] + a[1]).join();
@@ -1373,6 +1374,7 @@ function setActButtons(acts){
   $('cTurn').onclick = () => { const o = selChar(); if(!o) return; pushUndo(); o.face = -(o.face || 1); o.autoFace = false; draw(); autosave(); toast('Turned around'); };
   $('cDelAct').onclick = () => { const o = selChar(); if(!o) return; pushUndo(); o.actions = (o.actions || []).filter(s => !(T >= s.t0 && T <= s.t1)); afterEdit(); draw(); };
   $('cClearAct').onclick = () => { const o = selChar(); if(!o) return; pushUndo(); o.actions = []; afterEdit(); draw(); };
+  $('cStyle').onchange = e => { const o = selChar(); if(!o) return; pushUndo(); o.look = {...(o.look || {}), style2:e.target.value || undefined}; draw(); autosave(); };
   $('cLip').onchange = e => { const o = selChar(); if(!o) return; pushUndo(); o.lip = e.target.value || undefined; (P.audio || []).forEach(c => (c.kind === 'voice' || c.kind === 'file') && loadClip(c)); draw(); autosave();
     if(o.lip) toast('Lip sync on: the mouth follows the voice. Press ▶ to see it'); };
   $('cExpr').onchange = e => { const o = selChar(); if(!o) return; pushUndo(); o.expr = e.target.value; draw(); autosave(); };

@@ -8,6 +8,7 @@
 const C = window.VG_CHAR; if(!C) return;
 const D2R = Math.PI / 180, clamp = (v, a, b) => Math.max(a, Math.min(b, v)), TAU = Math.PI * 2;
 const dir = a => [Math.sin(a * D2R), Math.cos(a * D2R)];
+const OUT = '#24160f';   // cartoon outline colour (same as the people)
 function shade(c, f){ const n = parseInt(c.slice(1, 7), 16); return '#' + [n >> 16 & 255, n >> 8 & 255, n & 255].map(v => Math.min(255, Math.round(v * f)).toString(16).padStart(2, '0')).join(''); }
 
 // kind: quad | elephant | bird | snake.  top = main colour, bottom = second colour (patches, stripes, mane), skin = snout / hooves
@@ -51,9 +52,10 @@ C.SPEED.fly = C.SPEED.walk;
 // ---------------------------------------------------------------- four-legged animals
 function legSeg(c, x, y, a1, l1, a2, l2, w, col, hoof){
   const [dx1, dy1] = dir(a1), kx = x + dx1 * l1, ky = y + dy1 * l1, [dx2, dy2] = dir(a2), ex = kx + dx2 * l2, ey = ky + dy2 * l2;
-  c.strokeStyle = col; c.lineCap = 'round'; c.lineWidth = w; c.beginPath(); c.moveTo(x, y); c.lineTo(kx, ky); c.stroke();
+  c.lineCap = 'round'; c.strokeStyle = OUT; c.lineWidth = w + 3; c.beginPath(); c.moveTo(x, y); c.lineTo(kx, ky); c.stroke(); c.lineWidth = w * 0.8 + 3; c.beginPath(); c.moveTo(kx, ky); c.lineTo(ex, ey); c.stroke();
+  c.strokeStyle = col; c.lineWidth = w; c.beginPath(); c.moveTo(x, y); c.lineTo(kx, ky); c.stroke();
   c.lineWidth = w * 0.8; c.beginPath(); c.moveTo(kx, ky); c.lineTo(ex, ey); c.stroke();
-  if(hoof){ c.fillStyle = hoof; c.beginPath(); c.ellipse(ex + 2, ey - 1, w * 0.55, w * 0.38, 0, 0, TAU); c.fill(); }
+  if(hoof){ c.fillStyle = hoof; c.beginPath(); c.ellipse(ex + 2, ey - 1, w * 0.55, w * 0.38, 0, 0, TAU); c.strokeStyle = OUT; c.lineWidth = 2; c.stroke(); c.fill(); }
 }
 function gait(act, t){
   // returns per-leg [upper angle, knee bend] for BL, FL, BR, FR plus body bob, and neck/head offsets
@@ -90,8 +92,13 @@ function drawQuad(c, L, o, t, act){
   if(L.tailUp){ const sw = g.tail; c.quadraticCurveTo(tx - L.tail * 0.5, ty - L.tail * 0.2 + sw * 0.3, tx - L.tail * 0.45 + sw * 0.4, ty - L.tail * 0.9); }
   else { const ey = Math.min(ty + L.tail, -4), ex = tx - 8 + g.tail * 0.6 - (ty + L.tail - ey) * 0.8; c.quadraticCurveTo(tx - 14 + g.tail * 0.2, (ty + ey) / 2, ex, ey); L._te = [ex, ey]; }
   c.stroke(); if(!L.tailUp && !L.cat && !L.longTail && L._te){ c.fillStyle = L.bottom; c.beginPath(); c.ellipse(L._te[0], L._te[1] + 3, 5, 8, 0, 0, TAU); c.fill(); }
-  // body
-  c.save(); c.fillStyle = body; c.beginPath(); c.ellipse(0, y0, L.L / 2, L.bh / 2, 0, 0, TAU); c.fill(); c.strokeStyle = shade(body, 0.82); c.lineWidth = 2; c.stroke(); c.clip();
+  // neck and head
+  const nx0 = L.L * 0.4, ny0 = y0 - L.bh * 0.12, na = (L.monkey ? 160 : 140) - g.neck - (L.cat ? 20 : 0), [ndx, ndy] = dir(na);
+  const hx = nx0 + ndx * L.neck, hy = ny0 + ndy * L.neck;
+  c.strokeStyle = OUT; c.lineWidth = L.bh * (L.cat ? 0.6 : 0.5) + 4; c.lineCap = 'round'; c.beginPath(); c.moveTo(nx0 - 6, ny0); c.lineTo(hx, hy); c.stroke();
+  c.strokeStyle = body; c.lineWidth = L.bh * (L.cat ? 0.6 : 0.5); c.beginPath(); c.moveTo(nx0 - 6, ny0); c.lineTo(hx, hy); c.stroke();
+  // body (drawn over the bottom of the neck)
+  c.save(); c.fillStyle = body; c.beginPath(); c.ellipse(0, y0, L.L / 2, L.bh / 2, 0, 0, TAU); c.strokeStyle = OUT; c.lineWidth = 5; c.stroke(); c.fill(); c.clip();
   if(L.patches){ c.fillStyle = L.bottom; [[-30, -10, 22, 16], [25, 6, 18, 12], [-5, 18, 14, 9], [45, -16, 12, 10]].forEach(([x, y, rx, ry]) => { c.beginPath(); c.ellipse(x, y0 + y, rx, ry, 0.4, 0, TAU); c.fill(); }); }
   if(L.stripes){ c.strokeStyle = L.bottom; c.lineWidth = L.L * 0.035; for(let k = -4; k <= 4; k++){ const x = k * L.L * 0.1; c.beginPath(); c.moveTo(x - 4, y0 - L.bh / 2); c.quadraticCurveTo(x + 6, y0 - L.bh * 0.1, x - 2, y0 + L.bh * 0.2); c.stroke(); } }
   if(L.spots){ c.fillStyle = L.bottom; for(let k = 0; k < 12; k++){ c.beginPath(); c.arc(-L.L * 0.35 + (k * 37 % 70) / 70 * L.L * 0.7, y0 - L.bh * 0.25 + (k * 13 % 10) / 10 * L.bh * 0.3, 2.6, 0, TAU); c.fill(); } }
@@ -100,10 +107,6 @@ function drawQuad(c, L, o, t, act){
   if(L.hump){ c.fillStyle = body; c.beginPath(); c.ellipse(shX * 0.9, y0 - L.bh * 0.45, L.hump === 'big' ? 26 : 18, L.hump === 'big' ? 22 : 14, -0.2, 0, TAU); c.fill(); }
   // near legs
   leg(hipX, 0, false); leg(shX, 1, false);
-  // neck and head
-  const nx0 = L.L * 0.4, ny0 = y0 - L.bh * 0.12, na = (L.monkey ? 160 : 140) - g.neck - (L.cat ? 20 : 0), [ndx, ndy] = dir(na);
-  const hx = nx0 + ndx * L.neck, hy = ny0 + ndy * L.neck;
-  c.strokeStyle = body; c.lineWidth = L.bh * (L.cat ? 0.6 : 0.5); c.lineCap = 'round'; c.beginPath(); c.moveTo(nx0 - 6, ny0); c.lineTo(hx, hy); c.stroke();
   if(L.mane){ c.strokeStyle = L.bottom; c.lineWidth = 8; c.beginPath(); c.moveTo(nx0 - 10, ny0 - L.bh * 0.22); c.lineTo(hx - 6, hy - 12); c.stroke(); }
   if(L.dewlap){ c.fillStyle = body; c.beginPath(); c.moveTo(nx0, ny0 + 4); c.quadraticCurveTo((nx0 + hx) / 2, (ny0 + hy) / 2 + 30, hx + 4, hy + 8); c.lineTo(hx, hy); c.fill(); }
   if(L.lionMane){ c.fillStyle = L.bottom; c.beginPath(); c.arc(hx - 4, hy, L.head[1] * 1.25, 0, TAU); c.fill(); }
@@ -118,7 +121,7 @@ function drawQuad(c, L, o, t, act){
   if(L.horns === 'goat'){ c.strokeStyle = '#8D6E63'; c.lineWidth = 4; c.beginPath(); c.moveTo(-2, -hh * 0.6); c.quadraticCurveTo(-14, -hh * 1.6, -20, -hh * 0.7); c.stroke(); }
   if(L.antlers){ c.strokeStyle = '#8D6E63'; c.lineWidth = 3; c.beginPath(); c.moveTo(-2, -hh * 0.6); c.lineTo(-6, -hh * 2.4); c.moveTo(-4, -hh * 1.4); c.lineTo(6, -hh * 2.1); c.moveTo(-5, -hh * 1.9); c.lineTo(-16, -hh * 2.5); c.stroke(); }
   // head shape + snout
-  c.fillStyle = body; c.strokeStyle = shade(body, 0.82); c.lineWidth = 1.5; c.beginPath(); c.ellipse(0, 0, hw * 0.55, hh * 0.62, 0, 0, TAU); c.fill(); c.stroke();
+  c.fillStyle = body; c.strokeStyle = OUT; c.lineWidth = 2.6; c.beginPath(); c.ellipse(0, 0, hw * 0.55, hh * 0.62, 0, 0, TAU); c.fill(); c.stroke();
   c.beginPath(); c.ellipse(hw * 0.42, hh * 0.12, hw * 0.42, hh * 0.45, 0.15, 0, TAU); c.fill(); c.stroke(); c.beginPath(); c.ellipse(0, 0, hw * 0.5, hh * 0.56, 0, 0, TAU); c.fill();
   c.fillStyle = L.cat || L.monkey ? L.skin : shade(L.skin, 1); c.beginPath(); c.ellipse(hw * 0.72, hh * 0.22, hw * 0.2, hh * 0.32, 0, 0, TAU); c.fill();
   if(L.beard){ c.fillStyle = '#E0E0E0'; c.beginPath(); c.moveTo(hw * 0.5, hh * 0.5); c.lineTo(hw * 0.45, hh * 1.2); c.lineTo(hw * 0.62, hh * 0.5); c.fill(); }
@@ -126,8 +129,10 @@ function drawQuad(c, L, o, t, act){
   if(g.mouth > 0.08){ c.fillStyle = '#4E342E'; c.beginPath(); c.ellipse(hw * 0.7, hh * 0.5, hw * 0.16, 1 + hh * 0.22 * g.mouth, 0, 0, TAU); c.fill(); }
   // eye with blink
   const blink = g.closed || ((t + (o.blinkOff || 0)) % 4) < 0.12;
-  c.fillStyle = '#111'; c.beginPath(); if(blink) c.rect(hw * 0.1, -hh * 0.18, 7, 1.6); else c.arc(hw * 0.14, -hh * 0.16, Math.max(2.4, hh * 0.12), 0, TAU); c.fill();
-  if(!blink){ c.fillStyle = '#fff'; c.beginPath(); c.arc(hw * 0.14 + 1, -hh * 0.16 - 1, 0.9, 0, TAU); c.fill(); }
+  const er = Math.max(3, hh * 0.17);
+  if(blink){ c.fillStyle = '#111'; c.beginPath(); c.rect(hw * 0.06, -hh * 0.18, er * 2, 1.8); c.fill(); }
+  else { c.fillStyle = '#fff'; c.beginPath(); c.ellipse(hw * 0.14, -hh * 0.16, er, er * 1.15, 0, 0, TAU); c.fill(); c.strokeStyle = OUT; c.lineWidth = 1.3; c.stroke();
+    c.fillStyle = '#1d120c'; c.beginPath(); c.arc(hw * 0.14 + er * 0.3, -hh * 0.14, er * 0.62, 0, TAU); c.fill(); c.fillStyle = '#fff'; c.beginPath(); c.arc(hw * 0.14 + er * 0.5, -hh * 0.2, er * 0.24, 0, TAU); c.fill(); }
   if(L.cat || L.lionMane){ c.strokeStyle = 'rgba(255,255,255,0.7)'; c.lineWidth = 1; for(const k of [-1, 0, 1]){ c.beginPath(); c.moveTo(hw * 0.8, hh * 0.25); c.lineTo(hw * 1.25, hh * 0.25 + k * 6); c.stroke(); } }
   c.restore();
 }
