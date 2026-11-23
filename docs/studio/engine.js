@@ -81,9 +81,11 @@ const SYN = {
   bansuri:{label:'Bansuri (flute)', range:[60, 88], sustain:true}, harmonium:{label:'Harmonium', range:[48, 84], sustain:true},
   tanpura:{label:'Tanpura', range:[36, 62]}, guitar:{label:'Acoustic guitar', range:[40, 80]}, kalimba:{label:'Kalimba', range:[60, 88]},
   vibraphone:{label:'Vibraphone', range:[53, 89]}, organ:{label:'Organ', range:[36, 84], sustain:true},
+  bowl_tibetan:{label:'Singing bowl (struck)', range:[43, 72], g:'Bowls & bells'}, bowl_rubbed:{label:'Singing bowl (rubbed hum)', range:[43, 72], g:'Bowls & bells'},
+  crystal:{label:'Crystal bowl', range:[55, 84], g:'Bowls & bells'}, gong:{label:'Gong', range:[33, 55], g:'Bowls & bells'}, chimes:{label:'Wind chimes / bells', range:[72, 98], g:'Bowls & bells'},
 };
 const GAMAKA_OK = new Set(['veena', 'sitar', 'bansuri', 'violin', 'violins', 'flute', 'shehnai', 'sitar_rec', 'oboe', 'clarinet', 'voice', 'cellos', 'violas', 'panflute', 'harmonium', 'reedorgan']);
-const SYNGAIN = {veena:0.9, sitar:0.8, santoor:0.7, bansuri:0.7, harmonium:0.55, tanpura:0.5, guitar:0.8, kalimba:0.8, vibraphone:0.7, organ:0.45};
+const SYNGAIN = {bowl_tibetan:0.75, bowl_rubbed:0.6, crystal:0.6, gong:0.8, chimes:0.45, veena:0.9, sitar:0.8, santoor:0.7, bansuri:0.7, harmonium:0.55, tanpura:0.5, guitar:0.8, kalimba:0.8, vibraphone:0.7, organ:0.45};
 const INSTRUMENTS = {};   // id -> {label, group, range, kind:'real'|'synth', ...}
 let manifest = null;
 
@@ -105,6 +107,7 @@ const KITS = {
 const RHYTHMS = {
   teentaal:{name:'Teentaal (16 beats, tabla)', kit:'tabla', steps:16, stepBeats:1, pat:{'s:tabla:dha':'x--xx------o---x', 's:tabla:dhin':'-xx--xx-------x-', 's:tabla:tin':'---------xx-----', 's:tabla:na':'-----------xx---'}},
   keherwa:{name:'Keherwa (8, tabla)', kit:'tabla', steps:8, stepBeats:0.5, pat:{'s:tabla:dha':'x-------', 's:tabla:ge':'-x------', 's:tabla:na':'--x-x--x', 's:tabla:te':'---x----', 's:tabla:ke':'-----x--', 's:tabla:dhin':'------x-'}},
+  tabla_soft:{name:'Soft tabla (meditation)', kit:'tabla', steps:8, stepBeats:0.5, pat:{'s:tabla:dha':'o-------', 's:tabla:ge':'----o---', 's:tabla:na':'--o---o-', 's:tabla:tin':'------o-'}},
   dadra:{name:'Dadra (6, tabla) — for 3/4', kit:'tabla', steps:6, stepBeats:0.5, pat:{'s:tabla:dha':'x--x--', 's:tabla:dhin':'-x----', 's:tabla:na':'--x--x', 's:tabla:tun':'----x-'}},
   rupak:{name:'Rupak (7, tabla)', kit:'tabla', steps:7, stepBeats:0.5, pat:{'s:tabla:tin':'xxx----', 's:tabla:na':'---x-x-', 's:tabla:dha':'----x-x'}},
   adi:{name:'Adi talam (8 beats, mridangam)', kit:'mridangam', steps:16, stepBeats:0.5, pat:{'s:mri:dheem':'x-------x-------', 's:mri:tha':'--x-------------', 's:mri:ki':'---x---x---x----', 's:mri:dhi':'----x-------xx--', 's:mri:nam':'-----x----x-----', 's:mri:thom':'------x-------x-', 's:ghatam:ta':'-o-o-o-o-o-o-o-o'}},
@@ -140,7 +143,7 @@ async function load(base = './samples/'){
     INSTRUMENTS['r:' + id] = {label:v.label, group:'Real · ' + v.group, kind:'real', id, layers:v.layers, short:v.short, nlay:Object.keys(v.layers).length, sustain:v.sustain,
       range:[Math.min(...all), Math.max(...all)], gain:GAIN[id] ?? 0.6, release:RELEASE[id] ?? (v.sustain ? 0.3 : 0.6)};
   }
-  for(const [id, v] of Object.entries(SYN)) INSTRUMENTS['s:' + id] = {label:v.label, group:'Indian & synth', kind:'synth', id, range:v.range, sustain:!!v.sustain, gain:SYNGAIN[id] ?? 0.6};
+  for(const [id, v] of Object.entries(SYN)) INSTRUMENTS['s:' + id] = {label:v.label, group:v.g || 'Indian & synth', kind:'synth', id, range:v.range, sustain:!!v.sustain, gain:SYNGAIN[id] ?? 0.6};
   return manifest;
 }
 function fetchBuf(key){
@@ -163,7 +166,34 @@ function sampleFor(inst, m, v, short){
 // synth notes and strokes rendered once and cached as AudioBuffers
 const synCache = new Map();
 function toBuf(x){ const b = new AudioBuffer({length:Math.max(1, x.length), numberOfChannels:1, sampleRate:SR}); b.copyToChannel(x, 0); return b; }
+// ---- singing bowls, crystal bowl, gong and chimes: partials (frequency ratio, loudness, ring time) with gentle beating
+const BOWLS = {
+  bowl_tibetan:{len:9, p:[[1, 1, 9], [2.71, 0.55, 5], [5.12, 0.3, 2.8], [8.26, 0.15, 1.6], [12.2, 0.07, 1]], click:0.25},
+  crystal:{len:12, p:[[1, 1, 14], [2, 0.05, 7], [3, 0.03, 4]], click:0.04, attack:0.03},
+  gong:{len:10, p:[[1, 1, 8], [1.52, 0.6, 6], [2.03, 0.5, 5], [2.4, 0.45, 4.5], [2.97, 0.4, 4], [3.45, 0.35, 3.5], [4.1, 0.3, 3], [4.8, 0.25, 2.5], [5.6, 0.2, 2], [6.3, 0.15, 1.8], [7.4, 0.1, 1.5]], click:0.15, bloom:true},
+  chimes:{len:5, p:[[1, 1, 4], [2.76, 0.5, 2.5], [5.4, 0.25, 1.4], [8.93, 0.12, 0.8]], click:0.12},
+};
+function renderBowl(id, f, dur, vel){
+  let s0 = 7 + Math.round(f); const rnd = () => (s0 = (s0 * 16807) % 2147483647) / 2147483647;
+  if(id === 'bowl_rubbed'){   // stick circling the rim: slow swell, wobbling hum, then a long fade
+    const hold = Math.max(1.5, dur), len = hold + 5, n = Math.floor(len * SR), x = new Float32Array(n), rise = Math.min(2.5, hold * 0.4);
+    const P = [[1, 1], [2.71, 0.35], [5.12, 0.08]];
+    for(const [r, a] of P){ const fr = f * r, beat = 0.7 + rnd() * 1.4, ph = rnd() * 6.28;
+      for(let i = 0; i < n; i++){ const t = i / SR, env = t < rise ? Math.pow(t / rise, 1.5) : t < hold ? 1 : Math.exp(-(t - hold) * 6.9 / 5),
+        wob = 1 + 0.18 * Math.sin(2 * Math.PI * 4.6 * t + ph); x[i] += a * env * wob * (Math.sin(2 * Math.PI * fr * t + ph) + 0.6 * Math.sin(2 * Math.PI * (fr + beat) * t)); } }
+    let pk = 0; for(const v of x) pk = Math.max(pk, Math.abs(v)); for(let i = 0; i < n; i++) x[i] *= 0.9 * vel / (pk || 1); return x;
+  }
+  const B = BOWLS[id], n = Math.floor(B.len * SR), x = new Float32Array(n), att = B.attack || 0.003;
+  for(const [r, a, T] of B.p){ const fr = f * r; if(fr > SR * 0.45) continue; const beat = 0.4 + rnd() * 2.2, ph = rnd() * 6.28, k = 6.9 / T;
+    for(let i = 0; i < n; i++){ const t = i / SR; let env = Math.exp(-k * t) * Math.min(1, t / att); if(B.bloom && r > 1.2) env *= Math.min(1, t / (0.25 + r * 0.12));
+      x[i] += a * env * (Math.sin(2 * Math.PI * fr * t + ph) + 0.5 * Math.sin(2 * Math.PI * (fr + beat) * t)); } }
+  // strike: a short soft knock
+  for(let i = 0; i < Math.floor(0.03 * SR); i++){ x[i] += B.click * (rnd() * 2 - 1) * Math.exp(-i / (0.004 * SR)); }
+  let pk = 0; for(const v of x) pk = Math.max(pk, Math.abs(v)); for(let i = 0; i < n; i++) x[i] *= 0.9 * vel / (pk || 1); return x;
+}
 function synNote(id, m, dur, v){
+  if(id === 'bowl_rubbed' || BOWLS[id]){ const d = id === 'bowl_rubbed' ? Math.round(dur * 2) / 2 : 0, vv = Math.round(v * 4) / 4 || 0.25, key = 'b|' + id + '|' + m + '|' + d + '|' + vv;
+    let b = synCache.get(key); if(b) return b; b = toBuf(renderBowl(id, hz(m), dur, vv)); synCache.set(key, b); return b; }
   const d = Math.max(0.15, Math.round(dur * 20) / 20), vv = Math.round(v * 4) / 4 || 0.25, key = 'n|' + id + '|' + m + '|' + d + '|' + vv;
   let b = synCache.get(key); if(b) return b;
   b = toBuf(window.VG_SYNTH.note(id, hz(m), d, {vel:vv, seed:1 + m % 3})); synCache.set(key, b); return b;
@@ -473,6 +503,17 @@ function auto(song, tr, kind, seed = 1, bars, opts = {}){
         t = nextCad; nextCad = Math.min(total, nextCad + 4 * bpb); cadN++; }
     }
     if(out.length){ const e = out[out.length - 1]; e.m = sa; }
+  } else if(kind === 'bowls'){   // bowls tuned to Sa, Pa and upper Sa, one strike every two bars
+    const sc = (SCALES[song.scale] || SCALES.major).s; let sa = r; while(sa < lo) sa += 12; while(sa + 12 > hi) sa -= 12;
+    const pa = sc.includes(7) ? sa + 7 : sa + (sc[Math.floor(sc.length / 2)] || 7), seq = [sa, pa, sa + 12, pa];
+    for(let bar = 0, k = 0; bar < nb; bar += 2, k++){ out.push({t:bar * bpb, d:bpb * 2, m:seq[k % 4], v:0.8});
+      if(R() < 0.35 && bar + 1 < nb) out.push({t:bar * bpb + bpb * 1.5, d:bpb, m:seq[(k + 2) % 4], v:0.45}); }
+  } else if(kind === 'hum'){     // rubbed bowl: one long hum on low Sa every four bars
+    let sa = r; while(sa < lo) sa += 12; while(sa - 12 >= lo) sa -= 12;
+    for(let bar = 0; bar < nb; bar += 4) out.push({t:bar * bpb, d:Math.min(4, nb - bar) * bpb * 0.98, m:sa, v:0.6});
+  } else if(kind === 'sparkle'){  // chimes: a few soft high notes from the raga
+    const pool = scaleMidis(song, lo, hi);
+    for(let bar = 0; bar < nb; bar++){ const k = R() < 0.5 ? 1 : R() < 0.5 ? 2 : 0; for(let j = 0; j < k; j++) out.push({t:bar * bpb + Math.floor(R() * bpb * 2) / 2, d:1, m:R.pick(pool), v:0.35 + R() * 0.25}); }
   } else if(kind === 'alap'){   // slow free opening: grows upward from Sa, phrase by phrase, returns to Sa
     const pool = scaleMidis(song, Math.max(lo, mid - 12), Math.min(hi, mid + 12)); if(!pool.length) return out;
     const sa = pool.reduce((b, m) => (m - r) % 12 === 0 && Math.abs(m - mid) < Math.abs(b - mid) ? m : b, pool[0]), si = pool.indexOf(sa), end = nb * bpb;
@@ -585,12 +626,17 @@ const MOODS = {
     parts:{melody:'r:epiano', bass:'r:basses', arp:'r:steel'}, rhythm:'pop', verb:0.3},
   spanish:{name:'💃 Spanish guitar', scales:['vakulabharanam', 'minor'], bpm:[96, 112], keys:['E', 'A'],
     parts:{melody:'r:nylon', counter:'r:violin', bass:'r:cellos', arp:'r:steel'}, rhythm:'latin', verb:0.3},
+  meditation:{name:'🧘 Meditation (bansuri + tabla)', scales:['mohanam', 'kalyani', 'shivaranjani', 'hindolam', 'madhyamavati'], bpm:[60, 68], keys:['C#', 'D', 'C'], indian:true,
+    parts:{melody:'s:bansuri', drone:'s:tanpura'}, rhythm:'tabla_soft', verb:0.5},
+  bowls:{name:'🔔 Singing bowls meditation', scales:['mohanam', 'major', 'durga', 'madhyamavati'], bpm:[54, 62], keys:['C#', 'D', 'C', 'F'], indian:false,
+    parts:{bowls:'s:bowl_tibetan', hum:'s:bowl_rubbed', sparkle:'s:chimes'}, verb:0.55},
+  custom:{name:'🎛️ My own choice', scales:['mohanam'], bpm:[70, 80], keys:['C#'], indian:true, parts:{}, verb:0.4},
   orchestra:{name:'🎻 Orchestra', scales:['major', 'minor'], bpm:[84, 96], keys:['D', 'G', 'C'],
     parts:{melody:'r:flute', counter:'r:oboe', pad:'r:violins', bass:'r:basses', arp:'r:harp'}, rhythm:'march', verb:0.45},
 };
-const ROLE_NAME = {melody:'Melody', counter:'Second melody', pad:'Chords', bass:'Bass', arp:'Arpeggio', drone:'Drone'};
-const ROLE_VOL = {melody:0.85, counter:0.55, pad:0.5, bass:0.7, arp:0.5, drone:0.45};
-const ROLE_PAN = {melody:0, counter:0.3, pad:-0.25, bass:0, arp:0.35, drone:-0.15};
+const ROLE_NAME = {bowls:'Singing bowls', hum:'Rubbed bowl (hum)', sparkle:'Chimes', melody:'Melody', counter:'Second melody', pad:'Chords', bass:'Bass', arp:'Arpeggio', drone:'Drone'};
+const ROLE_VOL = {bowls:0.6, hum:0.45, sparkle:0.32, melody:0.85, counter:0.55, pad:0.5, bass:0.7, arp:0.5, drone:0.45};
+const ROLE_PAN = {bowls:-0.2, hum:0, sparkle:0.4, melody:0, counter:0.3, pad:-0.25, bass:0, arp:0.35, drone:-0.15};
 let idn = 0; const tid = () => 'g' + Date.now().toString(36) + (idn++);
 function sections(nb){
   let intro = nb >= 14 ? 4 : nb >= 8 ? 2 : 1, outro = nb >= 10 ? 2 : 1, mid = Math.max(1, nb - intro - outro);
@@ -600,8 +646,16 @@ function sections(nb){
   while(b < intro + mid){ const n = Math.min(4, intro + mid - b); out.push({type:order[i % order.length], b0:b, n}); b += n; i++; }
   out.push({type:'outro', b0:b, n:outro}); return out;
 }
+// "My own choice": only the instruments the person picked
+function customMood(c = {}){
+  const parts = {}; if(c.melody) parts.melody = c.melody; if(c.counter) parts.counter = c.counter; if(c.drone) parts.drone = 's:tanpura';
+  if(c.bowls === 'struck' || c.bowls === 'both') parts.bowls = 's:bowl_tibetan'; if(c.bowls === 'crystal') parts.bowls = 's:crystal';
+  if(c.bowls === 'rubbed' || c.bowls === 'both') parts.hum = 's:bowl_rubbed'; if(c.chimes) parts.sparkle = 's:chimes';
+  return {name:'🎛️ My own choice', scales:c.scale ? [c.scale] : ['mohanam', 'kalyani', 'shivaranjani', 'hindolam'], bpm:c.speed === 'slow' ? [56, 64] : c.speed === 'fast' ? [100, 112] : [72, 84],
+    keys:['C#', 'D', 'C'], indian:true, parts, rhythm:c.rhythm || null, verb:0.45};
+}
 function compose(o){
-  const M = MOODS[o.mood] || MOODS.spiritual, R = rng((o.seed || 1) * 104729 + o.mood.length * 31), meter = 4;
+  const M = o.mood === 'custom' ? customMood(o.custom) : MOODS[o.mood] || MOODS.spiritual, R = rng((o.seed || 1) * 104729 + o.mood.length * 31), meter = 4;
   const scale = o.scale || R.pick(M.scales), key = o.key || R.pick(M.keys);
   const bpm0 = M.bpm[0] + R() * (M.bpm[1] - M.bpm[0]), secs = Math.max(8, o.seconds || 60);
   // pick bars so the middle is whole 4-bar phrases, then set the tempo so the song lasts exactly `secs`
@@ -611,8 +665,8 @@ function compose(o){
   if(best) bars = best.n; const bpm = Math.round(bars * meter * 60 / secs * 100) / 100;
   const song = {v:1, name:`${M.name.replace(/^\S+\s/, '')} · ${SCALES[scale].name.split(' ')[0]} · ${Math.round(secs)}s`, bpm, key, scale, bars, meter, tracks:[], mood:o.mood, seed:o.seed || 1, seconds:secs};
   const secs_ = sections(bars), seedA = R() * 1e6 | 0, seedB = R() * 1e6 | 0, seedC = R() * 1e6 | 0;
-  const has = (sec, role) => ({intro:['pad', 'arp', 'drone'], A:['melody', 'pad', 'bass', 'drone'], B:['melody', 'counter', 'pad', 'bass', 'arp', 'drone'],
-    C:['counter', 'pad', 'arp', 'drone', 'bass'], outro:['melody', 'pad', 'drone', 'arp']}[sec.type].includes(role));
+  const has = (sec, role) => ({intro:['pad', 'arp', 'drone', 'bowls', 'hum'], A:['melody', 'pad', 'bass', 'drone', 'bowls', 'hum', 'sparkle'], B:['melody', 'counter', 'pad', 'bass', 'arp', 'drone', 'bowls', 'hum', 'sparkle'],
+    C:['counter', 'pad', 'arp', 'drone', 'bass', 'bowls', 'hum', 'sparkle'], outro:['melody', 'pad', 'drone', 'arp', 'bowls', 'hum']}[sec.type].includes(role));
   const parts = {...M.parts}; if(o.lead) parts.melody = o.lead; if(o.support){ if(parts.counter) parts.counter = o.support; else if(parts.pad) parts.pad = o.support; else parts.counter = o.support; }
   for(const [role, inst] of Object.entries(parts)){
     if(!INSTRUMENTS[inst]) continue;

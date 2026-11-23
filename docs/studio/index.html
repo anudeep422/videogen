@@ -523,6 +523,17 @@ function instOptions(sel){ const groups = {}; for(const [id, I] of Object.entrie
 function oneTapSheet(){
   sheet('✨ Make a full song', `<p class="hint" style="margin-top:0">Choose a mood and the length of your video. The song gets an intro, verse, chorus and ending, with real instruments. No AI — music rules and dice.</p>
     <h4>1 · Mood</h4><div class="opts" id="otMood">${Object.entries(S.MOODS).map(([k, m]) => `<button data-mood="${k}" class="${k === OT.mood ? 'on' : ''}">${esc(m.name)}</button>`).join('')}</div>
+    <div id="otCustom" style="display:${OT.mood === 'custom' ? 'block' : 'none'};background:#0d0b14;border:1px solid var(--line);border-radius:10px;padding:8px 10px;margin-top:8px">
+      <div class="hint" style="margin-bottom:6px">Pick only the instruments you want. Leave "None" for the ones you don't.</div>
+      <div class="opts" style="align-items:center">
+        <label class="hint">Melody</label><select id="ocMel" style="max-width:160px"><option value="">None</option>${instOptions((OT.custom || {}).melody ?? 's:bansuri')}</select>
+        <label class="hint">Second melody</label><select id="ocCnt" style="max-width:160px"><option value="">None</option>${instOptions((OT.custom || {}).counter)}</select>
+        <label class="hint">Rhythm</label><select id="ocRhy" style="max-width:170px"><option value="">None</option>${Object.entries(S.RHYTHMS).map(([k, R]) => `<option value="${k}"${k === ((OT.custom || {}).rhythm ?? 'tabla_soft') ? ' selected' : ''}>${esc(R.name)}</option>`).join('')}</select>
+        <label class="hint">Bowls</label><select id="ocBowl"><option value="">None</option><option value="struck">Struck bowls</option><option value="rubbed">Rubbed bowl hum</option><option value="both">Struck + hum</option><option value="crystal">Crystal bowl</option></select>
+        <label class="hint"><input type="checkbox" id="ocDrone" ${(OT.custom || {}).drone === false ? '' : 'checked'}> Tanpura drone</label>
+        <label class="hint"><input type="checkbox" id="ocChime" ${(OT.custom || {}).chimes ? 'checked' : ''}> Chimes</label>
+        <label class="hint">Speed</label><select id="ocSpd"><option value="slow">Slow</option><option value="medium">Medium</option><option value="fast">Fast</option></select>
+      </div></div>
     <h4>2 · Length (seconds)</h4><div class="opts" id="otLen">${[30, 45, 60, 90, 120, 180, 300].map(n => `<button data-len="${n}" class="${n === OT.seconds ? 'on' : ''}">${n < 60 ? n + ' s' : (n / 60) + ' min'}</button>`).join('')}
       <input id="otSec" type="number" min="8" max="900" value="${OT.seconds}" style="width:80px" title="Exact seconds"></div>
     <h4>3 · Key (Sa)</h4><select id="otKey"><option value="">Automatic</option>${Object.keys(S.KEYS).map(k => `<option${k === OT.key ? ' selected' : ''}>${k}</option>`).join('')}</select>
@@ -532,7 +543,8 @@ function oneTapSheet(){
     <h4>5 · Tune number</h4><div class="opts"><input id="otSeed" type="number" min="1" max="99999" value="${OT.seed}" style="width:90px"><button id="otDice">🎲 Another tune</button></div>
     <button id="otGo" class="on" style="width:100%;margin-top:16px;padding:12px;font-size:16px">✨ Make song</button>
     <p class="hint">Your current song will be replaced. Same mood + same tune number = same song again.</p>`, box => {
-    box.querySelectorAll('[data-mood]').forEach(b => b.onclick = () => { OT.mood = b.dataset.mood; box.querySelectorAll('[data-mood]').forEach(x => x.classList.toggle('on', x === b)); });
+    box.querySelectorAll('[data-mood]').forEach(b => b.onclick = () => { OT.mood = b.dataset.mood; box.querySelectorAll('[data-mood]').forEach(x => x.classList.toggle('on', x === b)); $('otCustom').style.display = OT.mood === 'custom' ? 'block' : 'none'; });
+    if($('ocBowl')){ $('ocBowl').value = (OT.custom || {}).bowls || ''; $('ocSpd').value = (OT.custom || {}).speed || 'slow'; }
     box.querySelectorAll('[data-len]').forEach(b => b.onclick = () => { OT.seconds = +b.dataset.len; $('otSec').value = OT.seconds; box.querySelectorAll('[data-len]').forEach(x => x.classList.toggle('on', x === b)); });
     $('otSec').onchange = () => { OT.seconds = Math.max(8, Math.min(900, +$('otSec').value || 60)); box.querySelectorAll('[data-len]').forEach(x => x.classList.toggle('on', +x.dataset.len === OT.seconds)); };
     $('otDice').onclick = () => { $('otSeed').value = OT.seed = (+$('otSeed').value || 1) + 1; makeOneTap(); };
@@ -540,11 +552,12 @@ function oneTapSheet(){
   });
 }
 async function makeOneTap(){
+  if($('ocMel')) OT.custom = {melody:$('ocMel').value, counter:$('ocCnt').value, rhythm:$('ocRhy').value, bowls:$('ocBowl').value, drone:$('ocDrone').checked, chimes:$('ocChime').checked, speed:$('ocSpd').value};
   if($('otNat')) OT.nature = $('otNat').value; if($('otLead')){ OT.lead = $('otLead').value; OT.support = $('otSup').value; }
   OT.key = $('otKey') ? $('otKey').value : OT.key; OT.seed = $('otSeed') ? +$('otSeed').value || 1 : OT.seed; if($('otSec')) OT.seconds = Math.max(8, Math.min(900, +$('otSec').value || 60));
   try{ localStorage.setItem('vg_studio_onetap', JSON.stringify(OT)); }catch(e){}
   closeSheet(); pushUndo();
-  const s = S.compose({mood:OT.mood, seconds:OT.seconds, key:OT.key || null, seed:OT.seed, nature:OT.nature || null, lead:OT.lead || null, support:OT.support || null});
+  const s = S.compose({mood:OT.mood, seconds:OT.seconds, key:OT.key || null, seed:OT.seed, nature:OT.nature || null, lead:OT.lead || null, support:OT.support || null, custom:OT.custom});
   loadSong(s); PR.sx = 0; PR.sy = -1; renderEditor();
   await togglePlay();
   toast(`${S.MOODS[OT.mood].name} · ${OT.seconds}s · tune ${OT.seed}`);

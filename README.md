@@ -146,6 +146,8 @@ Open `https://<your-name>.github.io/videogen/studio/`. It works like a small Gar
 - **Raga phrases**: Indian moods and "🪷 Raga melody" build tunes from real phrases of the raga (Mohanam, Kalyani, Hamsadhwani, Hindolam, Mayamalavagowla and more), landing on Sa or Pa every 4 bars.
 - **Gamaka** (Off / Light / Rich): automatic meend (slides) and kampita (shakes) on veena, sitar, bansuri, violin, flute, shehnai, voice.
 - **Lead and Support** instrument choice on the one-tap screen.
+- **Meditation**: "🧘 Meditation (bansuri + tabla)", "🔔 Singing bowls meditation", and "🎛️ My own choice" (pick only the melody, second melody, rhythm, bowls, drone and chimes you want).
+- **Bowls - **Lead and Support** instrument choice on the one-tap screen. bells** (made with code, tuned to your Sa): struck Tibetan bowl, rubbed bowl hum, crystal bowl, gong, wind chimes.
 - **Feel**: Machine, Natural or Loose. Natural adds small timing and loudness changes and accents, like real players.
 - **Nature tracks**: rain, storm, river, sea, forest, birds, village, night, fire, city, temple and more, under the music.
 - **✨ Auto-fill** (rules and dice, no AI): melody, chords, bass, arpeggio, drone.
