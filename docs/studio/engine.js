@@ -498,10 +498,29 @@ async function m4aBlob(b){
 function rng(seed){ let s = seed | 0 || 1; const f = () => { s = s + 0x6D2B79F5 | 0; let t = Math.imul(s ^ s >>> 15, 1 | s); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
   f.pick = a => a[Math.floor(f() * a.length)]; return f; }
 function scaleMidis(song, lo, hi){ const sc = (SCALES[song.scale] || SCALES.major).s, r = rootOf(song) % 12, out = []; for(let m = lo; m <= hi; m++) if(sc.includes((m - r + 120) % 12)) out.push(m); return out; }
-function chordDegrees(song){ const n = (SCALES[song.scale] || SCALES.major).s.length;
+// chord progressions (scale steps, 0 = Sa / home chord). Verse, chorus and bridge each get their own.
+const PROGS = {
+  major:[[0, 4, 5, 3], [0, 5, 3, 4], [0, 3, 4, 3], [0, 3, 0, 4], [5, 3, 0, 4], [0, 2, 3, 4], [0, 4, 3, 4], [0, 3, 5, 4], [0, 5, 1, 4], [3, 4, 0, 0], [0, 0, 3, 4],
+    [0, 4, 5, 2, 3, 0, 3, 4], [0, 3, 4, 0, 5, 3, 1, 4], [0, 1, 3, 4], [3, 0, 4, 5], [0, 5, 3, 4, 0, 5, 1, 4], [3, 4, 2, 5], [0, 2, 5, 4]],
+  minor:[[0, 5, 2, 6], [0, 3, 4, 0], [0, 6, 5, 4], [0, 3, 6, 2], [0, 5, 3, 4], [5, 6, 0, 0], [0, 6, 5, 6], [0, 2, 3, 4], [0, 3, 0, 4], [0, 5, 6, 0],
+    [0, 3, 6, 2, 5, 1, 4, 4], [0, 0, 5, 6], [3, 4, 0, 0], [0, 6, 3, 4]],
+  modal:[[0, 0, 3, 0], [0, 3, 0, 4], [0, 6, 0, 3], [0, 0, 6, 6], [0, 3, 4, 0], [0, 4, 3, 0], [0, 0, 4, 3], [0, 1, 0, 6], [0, 3, 3, 0], [0, 0, 1, 0], [0, 4, 0, 3, 0, 6, 0, 0]],
+  penta:[[0, 3, 2, 0], [0, 2, 3, 0], [0, 0, 3, 3], [0, 4, 3, 0], [0, 1, 0, 3], [0, 3, 4, 0], [0, 2, 0, 4], [0, 0, 2, 0], [0, 3, 0, 2, 0, 4, 3, 0]],
+};
+function progFamily(song){ const s = (SCALES[song.scale] || SCALES.major).s; if(s.length < 5) return null; if(s.length < 7) return 'penta';
+  if(s.includes(4) && s.includes(11) && s.includes(7)) return 'major'; if(s.includes(3) && s.includes(8) && s.includes(7)) return 'minor'; return 'modal'; }
+// choose verse / chorus / bridge progressions for a song (different ones where possible)
+function pickProgs(song, R, indian){
+  const fam = progFamily(song); if(!fam) return null; let list = PROGS[indian && fam !== 'penta' ? 'modal' : fam];
+  if(indian && fam === 'major') list = list.concat(PROGS.major.slice(0, 6));
+  const A = R.pick(list); let B = R.pick(list), C = R.pick(list), k = 0; while(B === A && k++ < 9) B = R.pick(list); k = 0; while((C === A || C === B) && k++ < 9) C = R.pick(list);
+  return {A, B, C};
+}
+function chordDegrees(song, sec){ const P = song.progs && (song.progs[sec] || song.progs.A); if(P) return P;
+  const n = (SCALES[song.scale] || SCALES.major).s.length;
   if(song.scale === 'major') return [0, 4, 5, 3]; if(song.scale === 'minor') return [0, 5, 2, 6]; if(n >= 7) return [0, 3, 4, 0]; if(n === 5) return [0, 3, 2, 0]; return [0, 0, 0, 0]; }
-function chordAt(song, bar, center){
-  const sc = (SCALES[song.scale] || SCALES.major).s, deg = chordDegrees(song)[bar % 4], r = rootOf(song), n = sc.length;
+function chordAt(song, bar, center, sec){
+  const sc = (SCALES[song.scale] || SCALES.major).s, P = chordDegrees(song, sec), r = rootOf(song), n = sc.length, deg = P[bar % P.length] % Math.max(1, n);
   const pick = k => { const i = deg + k; return r + sc[i % n] + 12 * Math.floor(i / n); };
   let ch = n >= 5 ? [pick(0), pick(2), pick(4)] : [pick(0), pick(0) + 7];
   while(ch[0] < center - 6) ch = ch.map(m => m + 12); while(ch[0] > center + 6) ch = ch.map(m => m - 12);
@@ -513,33 +532,54 @@ function fit(arr, range){ const [lo, hi] = range; return arr.map(m => { while(m 
 function auto(song, tr, kind, seed = 1, bars, opts = {}){
   const I = INSTRUMENTS[tr.inst] || {range:[48, 84]}, R = rng(seed * 7919 + kind.length), bpb = beatsPerBar(song), nb = bars || song.bars, out = [];
   const lo = I.range[0], hi = I.range[1], mid = Math.max(lo + 6, Math.min(hi - 6, Math.round((lo + hi) / 2) + (opts.shift || 0))), r = rootOf(song);
-  if(kind === 'melody'){
+  const CH = (bar, c) => chordAt(song, bar, c, opts.sec), acc = song.acc || {};
+  if(kind === 'melody'){   // a short hook, its answer, the hook again a step higher or lower, then a cadence home
     const pool = scaleMidis(song, Math.max(lo, mid - 9), Math.min(hi, mid + 10)); if(!pool.length) return out;
-    const home = pool.reduce((b, m) => (m - r) % 12 === 0 && Math.abs(m - mid) < Math.abs(b - mid) ? m : b, pool[0]);
-    let idx = pool.indexOf(home); const motif = [];
+    const home = pool.indexOf(pool.reduce((b, m) => (m - r) % 12 === 0 && Math.abs(m - mid) < Math.abs(b - mid) ? m : b, pool[0]));
+    const RH = bpb === 3 ? RHY3 : opts.style === 'flow' ? [[2, 1, 1], [3, 1], [1.5, 1.5, 1], [2, 2], [1, 1, 2], [1.5, 0.5, 2]] : opts.style === 'lively' ? [[0.5, 0.5, 0.5, 0.5, 1, 1], [1, 0.5, 0.5, 1, 1], [0.5, 0.5, 1, 0.5, 0.5, 1], [0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 1], [0.5, 1, 0.5, 1, 1]] : RHY4;
+    const STEP = opts.style === 'flow' ? [-1, -1, 1, 1, 2, -2, 0] : [-2, -1, -1, 0, 1, 1, 2, 3, -3];
+    const hookR = [R.pick(RH), R.pick(RH)], hookS = hookR.map(rh => rh.map(() => R.pick(STEP)));
+    const start = home + R.pick([0, 2, 4, -1, 1]), seq = R.pick([1, 2, -1, 2, -2]);
+    const tones = bar => new Set(CH(bar, 60).map(m => (m % 12 + 12) % 12));
+    const snap = (i, bar) => { const T = tones(bar); let best = i; for(let d = 0; d <= 3; d++){ for(const j of [i - d, i + d]) if(j >= 0 && j < pool.length && T.has(pool[j] % 12)) return j; } return best; };
+    let idx = start;
     for(let bar = 0; bar < nb; bar++){
-      const RH = bpb === 3 ? RHY3 : opts.style === 'flow' ? [[2, 1, 1], [3, 1], [1.5, 1.5, 1], [2, 2], [1, 1, 2]] : opts.style === 'lively' ? [[0.5, 0.5, 0.5, 0.5, 1, 1], [1, 0.5, 0.5, 1, 1], [0.5, 0.5, 1, 0.5, 0.5, 1], [0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 1]] : RHY4;
-      const phrasePos = bar % 4; let rh = R.pick(RH);
-      if(phrasePos === 3) rh = bpb === 3 ? [1, 2] : [1, 1, 2];
-      const reuse = phrasePos === 2 && motif.length && R() < 0.5;
-      let t = bar * bpb;
+      const pos = bar % 4, eight = bar % 8, cl = i => Math.max(0, Math.min(pool.length - 1, i)); let rh, steps, t = bar * bpb;
+      if(pos === 3){ rh = bpb === 3 ? [1, 2] : R.pick([[1, 1, 2], [2, 2], [1.5, 0.5, 2], [1, 3]]); steps = null; }
+      else if(pos === 1 && eight === 5){ rh = R.pick(RH); steps = rh.map(() => R.pick(STEP)); }
+      else { rh = hookR[pos === 1 ? 1 : 0]; steps = hookS[pos === 1 ? 1 : 0]; }
+      if(pos === 0) idx = cl(start + (eight === 4 && R() < 0.5 ? seq : 0)); if(pos === 2) idx = cl(start + seq);
+      const goal = cl(home + (eight === 3 && pool.length > 4 ? R.pick([2, -2, 4]) : 0));
       rh.forEach((d, i) => {
-        if(reuse && motif[i] !== undefined) idx = Math.max(0, Math.min(pool.length - 1, motif[i] + (R() < 0.5 ? 1 : -1)));
-        else { const step = R.pick([-2, -1, -1, 0, 1, 1, 2, 3, -3]); idx = Math.max(0, Math.min(pool.length - 1, idx + step)); }
-        if(phrasePos === 3 && i === rh.length - 1){ idx = pool.indexOf(home) + (bar % 8 === 3 && pool.length > 4 ? (R() < 0.5 ? 2 : -2) : 0); idx = Math.max(0, Math.min(pool.length - 1, idx)); }
-        if(phrasePos === 0) motif[i] = idx;
-        if(!(R() < 0.08 && i > 0)) out.push({t, d:d * 0.95, m:pool[idx], v:i === 0 ? 0.85 : 0.72});
+        if(steps){ if(i > 0) idx = cl(idx + steps[i]); }
+        else { const left = rh.length - 1 - i; idx = left === 0 ? goal : cl(idx + Math.sign(goal - idx) * Math.min(2, Math.abs(goal - idx))); }
+        if(i === 0 || d >= 2) idx = snap(idx, bar);
+        if(!(R() < 0.06 && i > 0 && i < rh.length - 1)) out.push({t, d:d * 0.95, m:pool[idx], v:i === 0 ? 0.86 : 0.72 + (d >= 1.5 ? 0.06 : 0)});
         t += d;
       });
     }
-  } else if(kind === 'chords'){
-    for(let bar = 0; bar < nb; bar++) for(const m of fit(chordAt(song, bar, Math.max(lo + 5, Math.min(hi - 10, 60))), [lo, hi])) out.push({t:bar * bpb, d:bpb, m, v:0.6});
-  } else if(kind === 'bass'){
-    for(let bar = 0; bar < nb; bar++){ let m = chordAt(song, bar, 48)[0]; [m] = fit([m - 12], [lo, Math.min(hi, lo + 18)]);
-      if(bpb === 3) out.push({t:bar * bpb, d:2.9, m, v:0.8}); else { out.push({t:bar * bpb, d:1.9, m, v:0.85}); out.push({t:bar * bpb + 2, d:1.9, m:R() < 0.5 ? m : m + 7 <= hi ? m + 7 : m, v:0.7}); } }
-  } else if(kind === 'arp'){
-    for(let bar = 0; bar < nb; bar++){ const ch = fit(chordAt(song, bar, Math.max(lo + 3, Math.min(hi - 14, 62))), [lo, hi]); const seq = [ch[0], ch[1] ?? ch[0] + 7, ch[2] ?? ch[0] + 12, ch[0] + 12, ch[2] ?? ch[0] + 7, ch[1] ?? ch[0] + 12];
-      for(let i = 0; i < bpb * 2; i++) out.push({t:bar * bpb + i * 0.5, d:0.9, m:fit([seq[i % seq.length]], [lo, hi])[0], v:i % 2 ? 0.55 : 0.7}); }
+  } else if(kind === 'chords'){   // block, pulse, broken, alberti or off-beat
+    const pat = acc.chords || 'block';
+    for(let bar = 0; bar < nb; bar++){ const ch = fit(CH(bar, Math.max(lo + 5, Math.min(hi - 10, 60))), [lo, hi]).sort((x, y) => x - y), T = bar * bpb, [a, b2 = a + 7, c = a + 12] = ch;
+      if(pat === 'pulse') for(let k = 0; k < bpb; k++) ch.forEach(m => out.push({t:T + k, d:0.9, m, v:k === 0 ? 0.62 : 0.5}));
+      else if(pat === 'broken'){ out.push({t:T, d:bpb, m:a, v:0.62}); out.push({t:T + 1, d:bpb - 1, m:b2, v:0.52}); out.push({t:T + 2, d:bpb - 2, m:c, v:0.52}); if(bpb === 4) out.push({t:T + 3, d:1, m:b2, v:0.48}); }
+      else if(pat === 'alberti'){ const q = [a, c, b2, c]; for(let k = 0; k < bpb * 2; k++) out.push({t:T + k * 0.5, d:0.55, m:q[k % 4], v:k % 2 ? 0.45 : 0.55}); }
+      else if(pat === 'offbeat'){ out.push({t:T, d:bpb, m:a, v:0.42}); for(let k = 0; k < bpb; k++) [b2, c].forEach(m => out.push({t:T + k + 0.5, d:0.4, m, v:0.5})); }
+      else ch.forEach(m => out.push({t:T, d:bpb, m, v:0.6})); }
+  } else if(kind === 'bass'){    // root-fifth, octave, walking, syncopated or long notes
+    const pat = acc.bass || 'root5', bl = [lo, Math.min(hi, lo + 18)], root = bar => fit([CH(bar, 48)[0] - 12], bl)[0], five = m => m + 7 <= bl[1] ? m + 7 : m - 5 >= lo ? m - 5 : m;
+    for(let bar = 0; bar < nb; bar++){ const m = root(bar), T = bar * bpb;
+      if(bpb === 3 && pat !== 'walk'){ out.push({t:T, d:2.9, m, v:0.8}); continue; }
+      if(pat === 'octave'){ for(let k = 0; k < bpb * 2; k++) out.push({t:T + k * 0.5, d:0.45, m:k % 2 && m + 12 <= hi ? m + 12 : m, v:k % 2 ? 0.6 : 0.78}); }
+      else if(pat === 'walk'){ const pool = scaleMidis(song, lo, Math.min(hi, lo + 20)), nx = root(bar + 1); let i = pool.indexOf(m); if(i < 0) i = 0; const j = Math.max(0, pool.indexOf(nx));
+        for(let k = 0; k < bpb; k++){ const last = k === bpb - 1; const mm = k === 0 ? m : last ? (pool[j + (pool[i] > nx ? 1 : -1)] ?? nx) : pool[Math.max(0, Math.min(pool.length - 1, i += (j >= i ? 1 : -1)))]; out.push({t:T + k, d:0.92, m:mm, v:k === 0 ? 0.82 : 0.68}); } }
+      else if(pat === 'sync'){ out.push({t:T, d:1.4, m, v:0.85}); out.push({t:T + 1.5, d:1, m, v:0.66}); out.push({t:T + 3, d:0.9, m:five(m), v:0.7}); }
+      else if(pat === 'long'){ out.push({t:T, d:bpb - 0.1, m, v:0.8}); }
+      else { out.push({t:T, d:1.9, m, v:0.85}); out.push({t:T + 2, d:1.9, m:R() < 0.5 ? m : five(m), v:0.7}); } }
+  } else if(kind === 'arp'){     // eight different arpeggio shapes
+    const SH = [[0, 1, 2, 3, 2, 1], [0, 1, 2, 3, 4, 3, 2, 1], [0, 2, 1, 3, 1, 2], [0, 2, 3, 2], [3, 2, 1, 0], [0, 1, 2, 1], [0, 3, 1, 4, 2, 5], [0, 2, 4, 5, 4, 2]], shp = SH[(acc.arp || 0) % SH.length];
+    for(let bar = 0; bar < nb; bar++){ const ch = fit(CH(bar, Math.max(lo + 3, Math.min(hi - 14, 62))), [lo, hi]).sort((x, y) => x - y); const a = ch[0], b2 = ch[1] ?? a + 7, c = ch[2] ?? a + 12, ext = [a, b2, c, a + 12, b2 + 12, c + 12];
+      for(let i = 0; i < bpb * 2; i++) out.push({t:bar * bpb + i * 0.5, d:0.9, m:fit([ext[shp[i % shp.length]]], [lo, hi])[0], v:i % 2 ? 0.55 : 0.7}); }
   } else if(kind === 'raga'){   // melody made from the raga's own phrases, landing on Sa / Pa every 4 bars
     const sc = (SCALES[song.scale] || SCALES.major).s, map = swaraMap(sc), list = phraseList(song);
     let sa = r + 12; while(sa < lo + 5) sa += 12; while(sa > hi - 10) sa -= 12;
@@ -563,7 +603,7 @@ function auto(song, tr, kind, seed = 1, bars, opts = {}){
     }
     if(out.length){ const e = out[out.length - 1]; e.m = sa; }
   } else if(kind === 'strum'){   // guitar strumming: down on 1 and 3, lighter up-strokes on 2 and 4
-    for(let bar = 0; bar < nb; bar++){ const ch = fit(chordAt(song, bar, Math.max(lo + 4, Math.min(hi - 14, 55))), [lo, hi]); const notes = [ch[0] - 12 >= lo ? ch[0] - 12 : ch[0], ...ch, ch[0] + 12 <= hi ? ch[0] + 12 : ch[1]];
+    for(let bar = 0; bar < nb; bar++){ const ch = fit(CH(bar, Math.max(lo + 4, Math.min(hi - 14, 55))), [lo, hi]); const notes = [ch[0] - 12 >= lo ? ch[0] - 12 : ch[0], ...ch, ch[0] + 12 <= hi ? ch[0] + 12 : ch[1]];
       for(let b = 0; b < bpb; b++){ const down = b % 2 === 0, seq = down ? notes : notes.slice(1).reverse(); seq.forEach((m, i) => out.push({t:bar * bpb + b + i * 0.025, d:0.9 - i * 0.02, m, v:(down ? 0.62 : 0.42) - i * 0.02}));
         if(!down && R() < 0.4){ seq.slice(0, 3).forEach((m, i) => out.push({t:bar * bpb + b + 0.5 + i * 0.02, d:0.4, m, v:0.36})); } } }
   } else if(kind === 'bowls'){   // bowls tuned to Sa, Pa and upper Sa, one strike every two bars
@@ -598,7 +638,7 @@ function auto(song, tr, kind, seed = 1, bars, opts = {}){
       if(!last && R() < 0.3) out.push({t:t + 0.5, d:0.45, m:sa, v:0.55}); }
   } else if(kind === 'counter'){   // slow second line: one chord tone per bar, moving smoothly
     let prev = mid;
-    for(let bar = 0; bar < nb; bar++){ const ch = fit(chordAt(song, bar, mid), [lo, hi]).concat(fit(chordAt(song, bar, mid + 12), [lo, hi]));
+    for(let bar = 0; bar < nb; bar++){ const ch = fit(CH(bar, mid), [lo, hi]).concat(fit(CH(bar, mid + 12), [lo, hi]));
       const m = ch.reduce((b, x) => Math.abs(x - prev) < Math.abs(b - prev) ? x : b, ch[0]); prev = m;
       if(bpb >= 4 && R() < 0.5){ out.push({t:bar * bpb, d:bpb / 2 - 0.05, m, v:0.55}); const m2 = ch.reduce((b, x) => x !== m && Math.abs(x - m) < Math.abs(b - m) ? x : b, ch[1] ?? m); out.push({t:bar * bpb + bpb / 2, d:bpb / 2 - 0.05, m:m2, v:0.5}); prev = m2; }
       else out.push({t:bar * bpb, d:bpb - 0.05, m, v:0.55}); }
@@ -742,6 +782,10 @@ function compose(o){
     const b = n * meter * 60 / secs, cost = Math.abs(Math.log(b / bpm0)); if(!best || cost < best.cost) best = {n, cost}; }
   if(best) bars = best.n; const bpm = Math.round(bars * meter * 60 / secs * 100) / 100;
   const song = {v:1, name:`${M.name.replace(/^\S+\s/, '')} · ${SCALES[scale].name.split(' ')[0]} · ${Math.round(secs)}s · tune ${o.seed || 1}`, bpm, key, scale, bars, meter, tracks:[], mood:o.mood, seed:o.seed || 1, seconds:secs};
+  // each tune gets its own chord progressions and accompaniment patterns
+  song.progs = pickProgs(song, R, M.indian); const slow = bpm0 < 76;
+  song.acc = {chords:R.pick(slow ? ['block', 'broken', 'broken', 'alberti'] : ['block', 'pulse', 'broken', 'alberti', 'offbeat']),
+    bass:['jazz', 'blues'].includes(o.mood) ? 'walk' : R.pick(slow ? ['long', 'root5', 'walk'] : ['root5', 'octave', 'walk', 'sync', 'root5']), arp:R() * 8 | 0};
   const secs_ = sections(bars, shape), seedA = R() * 1e6 | 0, seedB = R() * 1e6 | 0, seedC = R() * 1e6 | 0;
   const has = (sec, role) => ({intro:['pad', 'arp', 'drone', 'bowls', 'hum'], A:['melody', 'pad', 'bass', 'drone', 'bowls', 'hum', 'sparkle'], B:['melody', 'counter', 'pad', 'bass', 'arp', 'drone', 'bowls', 'hum', 'sparkle'],
     C:['counter', 'pad', 'arp', 'drone', 'bass', 'bowls', 'hum', 'sparkle'], outro:['melody', 'pad', 'drone', 'arp', 'bowls', 'hum']}[sec.type].includes(role));
@@ -763,7 +807,7 @@ function compose(o){
       }
       const sd = sec.type === 'B' ? seedB : sec.type === 'C' ? seedC : seedA;
       const shift = role === 'melody' && sec.type === 'B' ? 5 : role === 'counter' ? 7 : 0;
-      let notes = auto(song, tr, kind, sd + (role === 'counter' ? 17 : 0), sec.n, {shift, style:role === 'melody' ? style : 'balanced'});
+      let notes = auto(song, tr, kind, sd + (role === 'counter' ? 17 : 0), sec.n, {shift, style:role === 'melody' ? style : 'balanced', sec:/^[ABC]$/.test(sec.type) ? sec.type : 'A'});
       if(sec.type === 'intro' && role === 'arp') notes = notes.map(x => ({...x, v:x.v * 0.8}));
       if(sec.type === 'C' && role === 'counter') notes = notes.map(x => ({...x, v:0.65}));
       const dyn = {intro:0.85, A:0.94, B:1.08, C:0.9, outro:0.9}[sec.type] || 1; notes = notes.map(x => ({...x, v:Math.min(1, x.v * dyn)}));
@@ -825,6 +869,17 @@ function compose(o){
   if(mainDr && meter === 4 && mainDr.kit !== 'calm'){ const rows = Object.entries(mainDr.grid).map(([r, a]) => [r, a.reduce((x, y) => x + y, 0)]).sort((a, b) => b[1] - a[1]).map(x => x[0]).filter(r => !/shaker|bowl|bell|manjira|taalam/.test(r));
     if(rows.length) for(let k = 1; k < secs_.length; k++){ const sec = secs_[k]; if(sec.type !== 'B' && !(sec.type === 'outro' && !(mainDr.hits || []).length)) continue;
       const t0 = sec.b0 * meter - 2, n = R() < 0.5 ? 8 : 6; for(let q = 0; q < n; q++) (mainDr.hits = mainDr.hits || []).push({t:t0 + q * 2 / n, row:rows[q % Math.min(2, rows.length)], v:0.55 + 0.45 * q / n}); } }
+  // arrangement: a short break before the last chorus (drum fill kept), and for band moods a lift up in the last chorus
+  const Bs = secs_.filter(x => x.type === 'B');
+  if(o.rich !== false && !plain && Bs.length >= 2){
+    const lastB = Bs[Bs.length - 1], brk = lastB.b0 - 1, A0 = brk * meter, A1 = A0 + meter;
+    for(const t of song.tracks){
+      if(t.type === 'drum'){ t.off = [...new Set([...(t.off || []), brk])].sort((a, b) => a - b); if(t.hits) t.hits = t.hits.filter(h => !(h.t >= A0 && h.t < A0 + 2)); }
+      else if(t.type === 'inst' && /^(Bass|Arpeggio)/.test(t.name)) t.notes = t.notes.filter(n => !(n.t >= A0 && n.t < A1));
+    }
+    const drone = song.tracks.some(t => /^(Drone|Singing bowls|Rubbed)/.test(t.name));
+    if(!M.indian && !drone && R() < 0.6){ const up = R.pick([1, 2, 2]); for(const t of song.tracks) if(t.type === 'inst' && !/^(Swells|Impact)/.test(t.name)) t.notes.forEach(n => { if(n.t >= lastB.b0 * meter) n.m += up; }); song.lift = up; }
+  }
   song.feel = 0.6; song.gamaka = M.indian ? 0.7 : 0; song.style = style;
   song.sections = secs_.map(s => ({type:s.type, b0:s.b0, n:s.n}));
   return song;
