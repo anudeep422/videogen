@@ -94,6 +94,7 @@ fireflies, bubbles, birds, twinkling stars, confetti, sparkles, falling ₹ coin
 explosion, arrow volley, speed lines and lightning. Transitions: fade, white flash, wipe, circle (iris) and colour slide.
 Colour filters: day to night, warm sunset, old film, black and white, and dark corners.
 **Camera:** zoom in, zoom out, pan to an object, slow zoom and shake. Titles on 📌 fixed layers stay still.
+**Fighting:** sword attack, sword thrust, block, dodge, get hit, fall, victory; "Sword sparks" effect; ready template "Sword duel (fight)" with clashes, sounds and camera shake.
 **Animals (17, with movement):** cow, bull (Nandi), buffalo, horse, deer, goat, dog, cat, tiger, lion, monkey, elephant, peacock (opens its tail when dancing), parrot, crow, sparrow, cobra. Each animal has its own actions: walk, run or gallop, jump or pounce, eat / graze, its own sound (moo, bark, roar, neigh, trumpet, hiss…), lie down, sleep; birds perch, fly, peck and call; the snake rises, slithers and hisses; the dog wags its tail.
 **Lip sync:** a character's mouth follows your voice recording (Character → Lip sync; turned on automatically when you record with a character selected).
 **Subtitles timed to your voice:** tap 📝 on a voice clip, type one line per sentence, and each line shows exactly while you say it.

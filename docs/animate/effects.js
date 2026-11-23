@@ -31,6 +31,7 @@ const KINDS = {
   lightning: ['Lightning', 'War & action', '⚡', 3, '#FFFFFF', 1],
   fade:      ['Fade to black', 'Transitions', '⬛', 1, '#000000', 1],
   flash:     ['White flash', 'Transitions', '⬜', 0.6, '#FFFFFF', 1],
+  clash:     ['Sword sparks (clash)', 'Fire & smoke', '💥', 0.45, '#FFD54F', 26],
   wipe:      ['Wipe', 'Transitions', '➡️', 1, '#1B2631', 1],
   iris:      ['Circle (iris)', 'Transitions', '⭕', 1.2, '#000000', 1],
   slide:     ['Colour slide', 'Transitions', '🟧', 1, '#F39C12', 1],
@@ -56,7 +57,7 @@ function draw(c, o, t, W, Hh, ui){
   const lt = Math.max(0, t - t0), dur = Math.max(0.05, t1 - t0), sp = o.speed || 1;
   const w = o.w || W, h = o.h || Hh, n = Math.max(1, Math.round(K[5] * (o.density || 1))), col = o.color || K[4], sd = o.seed || 0;
   // gentle fade in/out for continuous effects
-  const edge = isTransition(kind) || ['explosion', 'lightning', 'flash'].includes(kind) ? 1 : Math.min(1, lt / 0.4, Math.max(0, t1 - t) / 0.4 + (o.show && o.show[1] == null ? 1 : 0));
+  const edge = isTransition(kind) || ['explosion', 'lightning', 'flash', 'clash'].includes(kind) ? 1 : Math.min(1, lt / 0.4, Math.max(0, t1 - t) / 0.4 + (o.show && o.show[1] == null ? 1 : 0));
   c.save(); c.globalAlpha *= Math.max(0, edge);
   const X0 = -w / 2, Y0 = -h / 2;   // effects are drawn around their own centre
   switch(kind){
@@ -110,6 +111,13 @@ function draw(c, o, t, W, Hh, ui){
         c.globalAlpha = edge * 0.35 * (1 - ph); c.fillStyle = col; c.beginPath(); c.arc(x, y, r, 0, TAU); c.fill(); } break;
     case 'dust': for(let i = 0; i < n; i++){ const ph = ((lt * 0.7 * sp + H(i, sd)) % 1), x = X0 + w * H(i, sd + 1) + ph * 60 * (H(i, 3) - 0.3), y = Y0 + h - 10 - ph * 50 * H(i, 2), r = 12 + ph * 45;
         c.globalAlpha = edge * 0.45 * (1 - ph); c.fillStyle = col; c.beginPath(); c.arc(x, y, r, 0, TAU); c.fill(); } break;
+    case 'clash': { const u = Math.min(1, lt / dur), R = Math.min(w, h) * 0.5;   // bright flash + sparks flying out and falling
+      c.globalAlpha = edge * Math.max(0, 1 - u * 2.2); c.fillStyle = '#FFFFFF'; c.beginPath(); c.arc(0, 0, R * 0.35 * (1 - u * 0.5), 0, TAU); c.fill();
+      c.lineCap = 'round';
+      for(let i = 0; i < n; i++){ const a = H(i, sd) * TAU, s = 0.45 + H(i, sd + 1) * 0.9, r0 = R * (0.08 + u * 0.95 * s), r1 = r0 + R * 0.22 * (1 - u), g = u * u * R * 0.5;
+        c.globalAlpha = edge * Math.max(0, 1 - u); c.strokeStyle = i % 3 ? col : '#FFFFFF'; c.lineWidth = 1.5 + 1.5 * (1 - u);
+        c.beginPath(); c.moveTo(Math.cos(a) * r0, Math.sin(a) * r0 + g); c.lineTo(Math.cos(a) * r1, Math.sin(a) * r1 + g * 1.1); c.stroke(); }
+      break; }
     case 'explosion': { const u = Math.min(1, lt / (dur * 0.9)), cx = 0, cy = 0, R = Math.min(w, h) * 0.45;
       if(u < 0.18){ c.globalAlpha = (1 - u / 0.18); c.fillStyle = '#FFFDE7'; c.beginPath(); c.arc(cx, cy, R * (0.3 + u * 3), 0, TAU); c.fill(); }
       c.globalAlpha = Math.max(0, 1 - u * 1.4); c.strokeStyle = '#FFE082'; c.lineWidth = 6 * (1 - u); c.beginPath(); c.arc(cx, cy, R * u * 1.3, 0, TAU); c.stroke();

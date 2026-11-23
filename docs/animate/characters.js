@@ -25,7 +25,8 @@ const PRESETS = {
 const ACTIONS = [
   ['idle', 'Stand', '🧍'], ['walk', 'Walk', '🚶'], ['run', 'Run', '🏃'], ['jump', 'Jump', '🦘'], ['sit', 'Sit', '🪑'], ['wave', 'Wave', '👋'],
   ['namaste', 'Namaste', '🙏'], ['talk', 'Talk', '🗣️'], ['point', 'Point', '👉'], ['clap', 'Clap', '👏'], ['dance', 'Dance', '💃'], ['bow', 'Bow', '🙇'],
-  ['fall', 'Fall', '💫'], ['attack', 'Sword attack', '⚔️'], ['shoot', 'Shoot arrow', '🏹'],
+  ['fall', 'Fall', '💫'], ['attack', 'Sword attack', '⚔️'], ['thrust', 'Sword thrust', '🗡️'], ['block', 'Block', '🛡️'], ['dodge', 'Dodge', '↩️'],
+  ['hit', 'Get hit', '💥'], ['victory', 'Victory', '🏆'], ['shoot', 'Shoot arrow', '🏹'],
 ];
 const SPEED = {walk:70, run:210};   // pixels per second at size 1 (used by "move forward")
 
@@ -57,6 +58,13 @@ function pose(a, lt, t){
     case 'fall': { const u = clamp(lt / 0.55, 0, 1), e = u * u; p.rot = -88 * e; p.shF = 6 + 80 * e; p.shB = -6 - 40 * e; p.hipF = 20 * e; p.kneeF = 25 * e; p.mouth = 0.5 * (1 - e); break; }
     case 'attack': { const ph = (lt % 0.9) / 0.9, sw = ph < 0.45 ? ph / 0.45 : 1 - (ph - 0.45) / 0.55, e = sw * sw * (3 - 2 * sw);
       p.shF = lerp(160, 50, e); p.elF = lerp(40, 5, e); p.shB = -20; p.elB = 40; p.lean = 4 + 10 * e; p.hipF = 18; p.hipB = -16; p.kneeF = 14; p.kneeB = 6; p.mouth = e > 0.6 ? 0.6 : 0; break; }
+    case 'thrust': { const ph = (lt % 0.8) / 0.8, e = ph < 0.35 ? ph / 0.35 : 1 - (ph - 0.35) / 0.65, k = e * e * (3 - 2 * e);
+      p.shF = lerp(60, 92, k); p.elF = lerp(75, 0, k); p.lean = lerp(0, 14, k); p.hipF = lerp(10, 34, k); p.hipB = -22; p.kneeF = lerp(10, 28, k); p.kneeB = 6; p.shB = -30; p.elB = 40; p.mouth = k > 0.7 ? 0.5 : 0; break; }
+    case 'block': p.shF = 128; p.elF = 62; p.shB = -25; p.elB = 50; p.lean = -6; p.hipF = 22; p.hipB = -20; p.kneeF = 18; p.kneeB = 8; p.head = -4; p.yOff = 3 + br * 0.5; break;
+    case 'dodge': { const k = Math.sin(Math.PI * clamp(lt / 0.8, 0, 1)); p.lean = -30 * k; p.yOff = 12 * k; p.hipF = 30 * k; p.kneeF = 42 * k; p.hipB = -28 * k; p.kneeB = 30 * k; p.shF = 40; p.elF = 30; p.shB = -45; p.elB = 40; p.head = -6 * k; break; }
+    case 'hit': { const u = clamp(lt / 0.55, 0, 1), k = Math.sin(Math.PI * u) * (1 - u * 0.3); p.lean = -24 * k; p.head = -16 * k; p.shF = 40 + 55 * k; p.elF = 20; p.shB = -40 - 35 * k;
+      p.elB = 20; p.hipF = -12 * k; p.hipB = 10 * k; p.mouth = 0.75 * k; p.yOff = 5 * k; break; }
+    case 'victory': p.shF = 172; p.elF = 8; p.shB = -15; p.elB = 30; p.head = -8; p.mouth = 0.45 + 0.3 * Math.abs(Math.sin(t * 5)); p.yOff = br * 0.6; break;
     case 'shoot': { const ph = (lt % 1.4) / 1.4, pull = ph < 0.7 ? ph / 0.7 : 0; p.shF = 88; p.elF = 0; p.shB = 84; p.elB = lerp(20, 150, pull); p.lean = -3; p.hipF = 12; p.hipB = -12; break; }
   }
   return p;

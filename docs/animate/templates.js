@@ -155,6 +155,28 @@ tpl('Scenes', 'Waterfall in the forest', '16:9', () => { const b = Builder('16:9
   b.bg('Waterfall'); b.amb('waterfall', 0, 10, 0.6); b.amb('forest', 0, 10, 0.5); b.quiet('happy', 0.25); b.fx('birds', 0, 10);
   anim(b.text('జలపాతం', 640, 650, 60, '#FFFFFF', {anim:'bounce', at:0.8, dur:1.5}), 'fadein', 0.6, 1, W, H); return b.p; });
 
+tpl('Scenes', 'Sword duel (fight)', '16:9', () => { const b = Builder('16:9', 16), W = b.W, H = b.H, G = 660, S = 1.25;
+  b.bg('Desert'); b.amb('wind', 0, 16, 0.35); b.quiet('epic', 0.5); b.fx('dust', 0, 3, {density:0.6});
+  const A = b.char('warrior', 200, G, S, [['walk', 0, 2.2], ['attack', 2.6, 3.5], ['block', 3.8, 4.7], ['attack', 5.0, 5.9], ['dodge', 6.2, 7.0], ['attack', 7.3, 8.2], ['block', 8.4, 9.3],
+    ['thrust', 9.6, 10.4], ['attack', 11.0, 11.9], ['attack', 12.2, 13.0], ['victory', 13.4, 16]], {face:1});
+  const B = b.char('warrior', 1080, G, S, [['walk', 0, 2.2], ['block', 2.6, 3.6], ['attack', 3.8, 4.7], ['dodge', 5.1, 5.9], ['thrust', 6.2, 7.0], ['block', 7.3, 8.2], ['attack', 8.4, 9.3],
+    ['hit', 9.95, 10.6], ['block', 11.0, 11.7], ['fall', 12.6, 16]], {face:-1});
+  B.look = {top:'#922B21', bottom:'#1C2833', helmet:'#7F8C8D', extra:'#7F8C8D'}; B.actions[B.actions.length - 1].stay = true; B.name = 'Enemy warrior'; A.name = 'Hero warrior';
+  walkAcross(A, 200, 530, 0, 2.2); walkAcross(B, 1080, 750, 0, 2.2); key(B, 'x', 9.9, 750); key(B, 'x', 10.6, 800); key(B, 'x', 12.5, 800); key(B, 'x', 12.9, 840);
+  // sword sparks + clash sounds where the swords meet
+  const hitY = G - 150 * S;
+  [3.0, 4.2, 7.7, 8.8, 11.4].forEach(t => { b.fx('clash', t, t + 0.45, {x:640, y:hitY, w:220, h:220}); b.sfx('sword', t, 0.9); });
+  b.sfx('sword', 10.0, 0.6); b.fx('clash', 10.0, 10.4, {x:720, y:hitY + 40, w:160, h:160, color:'#FF7043'});
+  b.fx('flash', 12.6, 12.9); b.sfx('sword', 12.6, 1); b.fx('dust', 12.7, 14.5, {x:880, y:G - 20, w:340, h:160, density:0.8}); b.sfx('drum', 12.75, 0.8);
+  // camera: closer during the fight, shakes on hard hits, back out for the victory
+  p_cam(b.p, [[0, 640, 360, 1], [6.8, 640, 360, 1], [7.4, 640, 420, 1.45], [12.4, 640, 420, 1.45], [13.8, 600, 400, 1.2]], [[8.8, 0.35, 12], [12.6, 0.6, 22]]);
+  anim(b.text('యుద్ధం', 640, 110, 70, '#FFFFFF', {anim:'bounce', at:0.3, dur:1.2}), 'fadein', 0.2, 0.6, W, H); b.p.layers[2].objects[b.p.layers[2].objects.length - 1].show = [0, 2.4];
+  anim(b.text('విజయం!', 640, 110, 72, '#FFD54F', {anim:'bounce', at:13.6, dur:1.2}), 'fadein', 13.5, 0.5, W, H); b.p.layers[2].objects[b.p.layers[2].objects.length - 1].show = [13.5, 16];
+  return b.p; });
+function p_cam(p, keys, shakes){ p.cam = {x:p.width / 2, y:p.height / 2, zoom:1, rotation:0, keys:{}, shakes:[]};
+  keys.forEach(([t, x, y, z]) => { key(p.cam, 'x', t, x); key(p.cam, 'y', t, y); key(p.cam, 'zoom', t, z); });
+  shakes.forEach(([t, d, amp]) => p.cam.shakes.push({t0:t, t1:t + d, amp})); }
+
 // ================================================================= SPIRITUAL
 tpl('Spiritual', 'Upanishad intro', '16:9', () => { const b = Builder('16:9', 8), W = b.W, H = b.H;
   b.bg('Saffron glow');
