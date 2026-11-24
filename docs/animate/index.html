@@ -946,7 +946,12 @@ function keysAtT(o){ const out = []; if(o.keys) for(const p of ANIM) (o.keys[p] 
 function syncAnimUI(){ if(window.VG_CHAR) syncCharUI(); if(window.VG_FX && $('fxSec')) syncFxUI(); const s = selId && findObj(selId); const ks = s ? keysAtT(s.o) : [];
   $('sEase').disabled = !ks.length; if(ks.length) $('sEase').value = ks[0].e || 'inout';
   $('nIn').value = s && s.o.show && s.o.show[0] != null ? s.o.show[0] : ''; $('nOut').value = s && s.o.show && s.o.show[1] != null ? s.o.show[1] : '';
-  $('kDel').disabled = !ks.length; $('kClear').disabled = !(s && animated(s.o)); }
+  $('kDel').disabled = !ks.length; $('kClear').disabled = !(s && animated(s.o));
+  // a library element is a group of parts: make Ungroup stand out and say so once per selection
+  const grpSel = !!(s && s.o.type === 'group' && s.o.children && s.o.children.length > 1 && s.o.children.length <= 40); $('oUngroup').style.cssText = grpSel ? 'border-color:var(--acc);color:var(--acc);font-weight:700' : '';
+  if(grpSel && lastGroupHint !== s.o.id){ lastGroupHint = s.o.id; toast(`📦 "${s.o.name || 'This'}" is a group of ${s.o.children.length} parts — Duplicate copies all of them. Tap Ungroup to move or copy one part.`); }
+  if(!grpSel) lastGroupHint = null; }
+let lastGroupHint = null;
 $('sEase').onchange = e => { const s = selId && findObj(selId); if(!s) return; pushUndo(); keysAtT(s.o).forEach(k => k.e = e.target.value); draw(); autosave(); };
 function setShow(){ const s = selId && findObj(selId); if(!s) return toast('Select an object first');
   pushUndo(); const a = $('nIn').value === '' ? null : +$('nIn').value, b = $('nOut').value === '' ? null : +$('nOut').value;
@@ -1000,7 +1005,7 @@ function openLibrary(){
   const cats = [...new Set(L.map(i => i.cat))]; libCat = libCat || cats[0];
   $('libTabs').innerHTML = cats.map(c => `<button data-cat="${c}" class="${c === libCat ? 'on' : ''}">${c} <span class="hint">${L.filter(i => i.cat === c).length}</span></button>`).join('');
   $('libTabs').querySelectorAll('button').forEach(b => b.onclick = () => { libCat = b.dataset.cat; openLibrary(); });
-  $('libHint').textContent = libCat === 'Backgrounds' ? 'Backgrounds fill the whole canvas, behind everything' : 'Tap an element to add it to the current layer';
+  $('libHint').textContent = libCat === 'Backgrounds' ? 'Backgrounds fill the whole canvas, behind everything' : libCat === 'Sky' ? 'Full skies fill the canvas behind everything; sun, moon, stars and clouds are single objects you can move' : 'Tap an element to add it to the current layer';
   const items = L.filter(i => i.cat === libCat);
   $('libGrid').innerHTML = items.map((it, i) => `<button data-i="${L.indexOf(it)}" style="display:flex;flex-direction:column;gap:4px;padding:6px;align-items:center;white-space:normal;line-height:1.2"><img src="${libThumb(it)}" style="width:100%;border-radius:6px" alt=""><span style="font-size:11px">${it.name}</span></button>`).join('');
   $('libGrid').querySelectorAll('button').forEach(b => b.onclick = () => insertLib(L[+b.dataset.i]));
@@ -1012,7 +1017,7 @@ function insertLib(item){
     o.x = P.width / 2; o.y = P.height / 2; touch(o); pushUndo(); P.layers[0].objects.unshift(o); if(!P.layers[0].visible) P.layers[0].visible = true;
   } else {
     if(!layerEditable()) return;
-    const b = localBox(o), w = b[2] - b[0], h = b[3] - b[1], k = Math.min(1.6, P.height * 0.42 / h, P.width * 0.5 / w);
+    const b = localBox(o), w = b[2] - b[0], h = b[3] - b[1], k = Math.min(1.6, P.height * (item.fit || 0.42) / h, P.width * 0.5 / w);
     o.scaleX = (o.scaleX || 1) * k; o.scaleY = (o.scaleY || 1) * k;
     o.x = P.width / 2 - (b[0] + w / 2) * k; o.y = P.height / 2 - (b[1] + h / 2) * k; touch(o); pushUndo(); P.layers[curLayer].objects.push(o);
   }

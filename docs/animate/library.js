@@ -167,6 +167,37 @@ add('Nature', 'Banyan tree', () => { const ch = [rect(0, 50, 50, 140, '#5D4037',
   return grp(ch); });
 add('Nature', 'Mountains', () => grp([poly([[-200, 90], [-90, -60], [20, 90]], '#7F9DB0'), poly([[-120, 90], [40, -110], [200, 90]], '#5E7F92'),
   poly([[40, -110], [8, -68], [24, -74], [40, -62], [56, -76], [72, -66]], '#FFFFFF'), poly([[-90, -60], [-114, -28], [-98, -34], [-86, -26], [-72, -36]], '#FFFFFF')]));
+// ---------------------------------------------------------------- sky (full skies fill the canvas; the rest are single objects)
+const SKY = (W, H, cols, extra = []) => grp([rect(0, 0, W, H, lin(...cols)), ...extra]);
+const cloudShape = (x, y, s, col = '#FFFFFF', op = 1) => grp([ell(-50, 10, 50, 34, col, {op}), ell(-5, -12, 58, 46, col, {op}), ell(52, 8, 46, 34, col, {op}), rect(0, 28, 196, 28, col, {r:14, op})], {x, y, s});
+const starField = (W, H, n, seed = 1, top = .9) => Array.from({length:n}, (_, i) => { const r = .8 + R(i, seed) * 1.8; return ell((R(i, seed + 1) - .5) * W, (R(i, seed + 2) - .5) * H * top - H * (1 - top) / 2, r, r, '#FFFFFF', {op:.45 + R(i, seed + 3) * .55}); });
+const twinkle = (x, y, r, col = '#FFFFFF') => poly([[x, y - r], [x + r * .18, y - r * .18], [x + r, y], [x + r * .18, y + r * .18], [x, y + r], [x - r * .18, y + r * .18], [x - r, y], [x - r * .18, y - r * .18]], col);
+add('Sky', 'Day sky (blue)', (W, H) => SKY(W, H, ['#3D8FD6', '#8CC8F2', '#D6EEFB']), {bg:true});
+add('Sky', 'Sunrise sky', (W, H) => SKY(W, H, ['#33427F', '#9A5D86', '#E8906E', '#FFD7A0']), {bg:true});
+add('Sky', 'Sunset sky', (W, H) => SKY(W, H, ['#241F55', '#8E3F78', '#E2694A', '#FFB85C']), {bg:true});
+add('Sky', 'Night sky (plain)', (W, H) => SKY(W, H, ['#03060F', '#0E1838', '#22305E']), {bg:true});
+add('Sky', 'Starry night sky', (W, H) => SKY(W, H, ['#03060F', '#0E1838', '#22305E'], [...starField(W, H, 140, 7),
+  ...[[-.3, -.3, 9], [.25, -.38, 7], [.38, -.12, 6], [-.12, -.18, 5], [.05, -.42, 6]].map(([x, y, r]) => twinkle(W * x, H * y, r * H / 400, '#FFFDE7'))]), {bg:true});
+add('Sky', 'Cloudy sky', (W, H) => SKY(W, H, ['#7F95AA', '#B7C6D3', '#DDE5EC'], [[-.3, -.32, 1.1], [.12, -.38, 1.4], [.36, -.22, 1], [-.05, -.15, .9], [-.4, -.08, .8]].map(([x, y, k], i) => cloudShape(W * x, H * y, k * H / 400, i % 2 ? '#F4F6F8' : '#FFFFFF', .95))), {bg:true});
+add('Sky', 'Sun', () => grp([ell(0, 0, 150, 150, rad('#FFF3B0cc', '#FFD54F55', '#FFD54F00')), ell(0, 0, 70, 70, rad('#FFFDE7', '#FFE082', '#FFB300'))]), {fit:.32});
+add('Sky', 'Sun with rays', () => { const ch = []; for(let i = 0; i < 12; i++) ch.push(base({type:'path', x:0, y:0, rotation:i * 30, points:[[-14, -84], [0, -128], [14, -84]], closed:true, sharp:true, fill:'#FFB300'}));
+  return grp([...ch, ell(0, 0, 76, 76, rad('#FFF59D', '#FFCA28'))]); }, {fit:.32});
+add('Sky', 'Smiling sun (cartoon)', () => { const ch = []; for(let i = 0; i < 12; i++) ch.push(base({type:'path', x:0, y:0, rotation:i * 30, points:[[-12, -82], [0, -120], [12, -82]], closed:true, sharp:true, fill:'#FF9F1C'}));
+  return grp([...ch, ell(0, 0, 74, 74, '#FFD23F', {stroke:'#24160f', lw:4}), ell(-24, -12, 8, 10, '#24160f'), ell(24, -12, 8, 10, '#24160f'), ell(-40, 14, 10, 6, '#FF8FA3', {op:.8}), ell(40, 14, 10, 6, '#FF8FA3', {op:.8}),
+    curve([[-26, 18], [0, 38], [26, 18]], '#24160f', 5)]); }, {fit:.32});
+add('Sky', 'Rising sun (horizon)', () => { const ch = []; for(let i = 0; i < 9; i++) ch.push(base({type:'path', x:0, y:0, rotation:-80 + i * 20, points:[[-10, -96], [0, -150], [10, -96]], closed:true, sharp:true, fill:'#FFB74D', opacity:.9}));
+  return grp([...ch, poly(arc(0, 0, 86, 86, 180, 360), rad('#FFF59D', '#FF9800')), rect(0, 4, 360, 8, '#E65100', {op:.5})]); }, {fit:.3});
+add('Sky', 'Full moon', () => grp([ell(0, 0, 140, 140, rad('#FFFDE766', '#FFFDE700')), ell(0, 0, 80, 80, rad('#FFFEF5', '#F2EBC8')),
+  ell(-24, -18, 14, 12, '#DCD3AE', {op:.7}), ell(22, 14, 18, 15, '#DCD3AE', {op:.6}), ell(-10, 34, 9, 8, '#DCD3AE', {op:.6}), ell(34, -30, 8, 7, '#DCD3AE', {op:.5})]), {fit:.28});
+add('Sky', 'Half moon', () => grp([ell(0, 0, 130, 130, rad('#FFFDE755', '#FFFDE700')), poly([...arc(0, 0, 76, 76, 270, 450)], rad('#FFFEF5', '#F2EBC8'))]), {fit:.28});
+add('Sky', 'Crescent moon', () => grp([ell(0, 0, 110, 110, rad('#FFFDE7aa', '#FFF9C400')), blob([...arc(0, 0, 66, 66, 50, 310), ...arc(36, 0, 56, 60, 296, 64)], '#FFF59D')]), {fit:.28});
+add('Sky', 'Star', () => grp([ell(0, 0, 60, 60, rad('#FFF59D88', '#FFF59D00')), star(0, 0, 40, 17, 5, '#FFEB3B')]), {fit:.12});
+add('Sky', 'Twinkle star', () => grp([ell(0, 0, 50, 50, rad('#FFFFFFaa', '#FFFFFF00')), twinkle(0, 0, 46, '#FFFDE7')]), {fit:.1});
+add('Sky', 'Stars (group)', () => grp([star(0, 0, 30, 12, 5, '#FFEB3B'), star(-90, 40, 18, 7, 5, '#FFF59D'), star(80, -30, 22, 9, 5, '#FFF176'), twinkle(60, 60, 14), twinkle(-60, -50, 16), twinkle(130, 40, 10), twinkle(-130, -10, 9)]), {fit:.3});
+add('Sky', 'Shooting star', () => grp([poly([[0, -6], [-260, -60], [-262, -52], [0, 6]], lin('#FFFFFF00', '#FFFFFFdd')), ell(0, 0, 26, 26, rad('#FFFFFF', '#FFFDE700')), twinkle(0, 0, 22)]), {fit:.3});
+add('Sky', 'Cloud (soft)', () => cloudShape(0, 0, 1), {fit:.2});
+add('Sky', 'Dark rain cloud', () => grp([cloudShape(0, 0, 1.2, '#6F7C89'), ...Array.from({length:9}, (_, i) => line([[-110 + i * 27, 70], [-122 + i * 27, 110]], '#9FC3E7', 4))]), {fit:.3});
+add('Sky', 'Rainbow', () => grp(['#E53935', '#FB8C00', '#FDD835', '#43A047', '#1E88E5', '#3949AB', '#8E24AA'].map((c, i) => line(arc(0, 0, 220 - i * 14, 220 - i * 14, 180, 360, 40), c, 14, {op:.85}))), {fit:.45});
 add('Nature', 'River', () => grp([blob([[-220, -20], [-120, -40], [0, -10], [120, -40], [220, -20], [220, 30], [120, 10], [0, 40], [-120, 10], [-220, 30]], lin('#7FC4E8', '#2E86C1')),
   curve([[-160, -6], [-120, -14], [-80, -6]], '#FFFFFF', 3, {op:.6}), curve([[20, 14], [60, 6], [100, 14]], '#FFFFFF', 3, {op:.6})]));
 add('Nature', 'Cloud', () => grp([ell(-50, 10, 50, 36, '#FFFFFF'), ell(0, -10, 60, 48, '#FFFFFF'), ell(55, 8, 48, 36, '#FFFFFF'), rect(0, 30, 200, 30, '#FFFFFF', {r:15})]));
