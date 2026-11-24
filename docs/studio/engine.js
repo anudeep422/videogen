@@ -434,7 +434,40 @@ class Player {
     this.segs = [{ctx0:t0, song0:fromSec, song1:le}]; this.next = le; this.ls = ls; this.le = le;
     this.timer = setInterval(() => this.tick(), 50);
   }
+  // ---- smooth play in pieces: mix 10 seconds, start playing, mix the next piece while this one plays ----
+  async renderChunk(song, k){
+    // load recordings, but make synth notes only for this piece (they are made when fired), so the first piece is ready fast
+    await load(); for(const tr of song.tracks) if(tr.type === 'amb') await ambLoad(tr.amb, songSeconds(song)); else if(tr.type === 'audio') await clipLoad(tr.blob);
+    await Promise.all(needs(song).keys.map(fetchBuf));
+    const C = 10, a = k * C, b = Math.min(songSeconds(song), a + C), mine = []; let maxEnd = b;
+    for(const e of events(song)){
+      if(e.type === 'amb' || e.type === 'clip'){ if(e.s < b && e.s + e.dur > a){ const off = Math.max(0, a - e.s), cut = e.s + e.dur > b; mine.push([{...e, dur:cut ? b - e.s - 0.5 : e.dur}, Math.max(0, e.s - a), off]); } continue; }
+      if(e.s < a || e.s >= b) continue; mine.push([e, e.s - a, 0]); maxEnd = Math.max(maxEnd, e.s + (e.dur || 1.5) + 2.5);
+    }
+    const len = Math.min(C + 45, maxEnd - a + 3), ctx = new OfflineAudioContext(2, Math.ceil(len * SR), SR), G = graph(ctx, song);
+    for(const [e, when, off] of mine) fire(G, song, e, when, off);
+    return ctx.startRendering();
+  }
+  async startChunks(song, fromSec, carry){
+    const gen = ++this.gen, ctx = this.ctx, C = 10, key = JSON.stringify(song), exact = song.seconds && Math.abs(songSeconds(song) - song.seconds) < 0.5, end = exact ? song.seconds : songSeconds(song);
+    if(this.chunkKey !== key){ this.chunks = {}; this.chunkKey = key; }
+    const get = k => this.chunks[k] || (this.chunks[k] = this.renderChunk(song, k).catch(err => { delete this.chunks[k]; throw err; }));
+    if(fromSec >= end - 0.05) fromSec = 0;
+    const k0 = Math.floor(fromSec / C), first = await get(k0);
+    if(gen !== this.gen) return;
+    if(carry && this.playing) fromSec = Math.min(end - 0.05, this.position());   // remix while playing: carry on from where we are now
+    this.stop(); this.gen = gen; this.ensure(song); this.song = song; this.ev = []; this.playing = true; this.ls = 0; this.le = end;
+    const out = ctx.createGain(), t0 = ctx.currentTime + 0.06, lvl = 1.25; out.gain.value = lvl; out.connect(ctx.destination); if(this.G.meter) out.connect(this.G.meter);
+    this.srcs.add({stop:() => out.disconnect()});
+    if(exact){ const fo = Math.min(1.8, end / 10), te = t0 + end - fromSec; out.gain.setValueAtTime(lvl, Math.max(t0, te - fo)); out.gain.linearRampToValueAtTime(0.0001, te); }
+    this.segs = [{ctx0:t0, song0:fromSec, song1:end}]; this.next = end;
+    const play = (buf, k) => { const at = t0 + k * C - fromSec, now = ctx.currentTime + 0.02, src = ctx.createBufferSource(); src.buffer = buf; src.connect(out);
+      if(at >= now) src.start(at); else if(now - at < buf.duration) src.start(now, now - at); else return; this.srcs.add(src); };
+    play(first, k0); this.timer = setInterval(() => this.tick(), 50); if(this.onstart) this.onstart();
+    (async () => { for(let k = k0 + 1; k * C < end; k++){ let buf; try{ buf = await get(k); }catch(err){ console.error(err); return; } if(gen !== this.gen || !this.playing) return; play(buf, k); } })();   // the rest is mixed while playing
+  }
   start(song, fromSec){
+    if(this.smooth && !this.loop){ this.startChunks(song, fromSec || 0).catch(err => console.error(err)); return; }
     if(this.smooth && this.buf && this.bufSong === song && this.bufKey === JSON.stringify(song)) return this.startBuf(song, fromSec);
     this.stop(); this.ensure(song); this.song = song; this.ev = events(song); this.playing = true;
     const end = songSeconds(song), ls = this.loop ? Math.min(this.loopA ?? 0, end) : 0, le = this.loop ? Math.min(this.loopB ?? end, end) : end;
@@ -445,6 +478,7 @@ class Player {
     this.timer = setInterval(() => this.tick(), 25); this.tick();
   }
   refresh(song){ if(!this.playing) return;   // after edits
+    if(this.smooth && !this.loop){ if(this.chunkKey !== JSON.stringify(song) && this.onstale) this.onstale(); else this.start(song, this.position()); return; }   // pieces: remix from here, keep playing meanwhile
     if(this.smooth && this.buf && this.bufSong === song && this.bufKey !== JSON.stringify(song)){ if(this.onstale) this.onstale(); return; }   // keep playing; a fresh mix is made in the background
     const p = this.position(); this.start(song, p); }
   tick(){
@@ -469,7 +503,7 @@ class Player {
     for(let i = this.segs.length - 1; i >= 0; i--){ const s = this.segs[i]; if(now >= s.ctx0 || i === 0) return Math.min(s.song1, s.song0 + Math.max(0, now - s.ctx0)); }
     return 0;
   }
-  stop(ended){ if(this.playing) this.pos = ended ? 0 : this.position(); this.playing = false; clearInterval(this.timer);
+  stop(ended){ this.gen = (this.gen || 0) + 1; if(this.playing) this.pos = ended ? 0 : this.position(); this.playing = false; clearInterval(this.timer);
     for(const s of this.srcs){ try{ s.stop(); }catch(e){} } this.srcs.clear(); if(ended && this.onend) this.onend(); }
 }
 

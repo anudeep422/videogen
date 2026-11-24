@@ -170,8 +170,10 @@ $('pmode').onchange = () => { player.smooth = $('pmode').value === '1'; try{ loc
 async function ensureMix(quiet){ if(player.buf && player.bufSong === song && player.bufKey === JSON.stringify(song)) return;
   const sg = song, buf = quiet ? await S.render(sg) : await busy('🎧 Preparing smooth play…', p => S.render(sg, p)); player.buf = buf; player.bufSong = sg; player.bufKey = JSON.stringify(sg); }
 let staleT = 0, mixing = false;
+player.onstart = () => { syncPlay(); requestAnimationFrame(frame); };
 player.onstale = () => { clearTimeout(staleT); staleT = setTimeout(async () => { if(mixing || !player.playing || !player.smooth) return; mixing = true;
-  try{ await ensureMix(true); if(player.playing && player.smooth) player.start(song, player.position()); } finally { mixing = false; } if(player.playing && player.bufKey !== JSON.stringify(song)) player.onstale(); }, 900); };
+  try{ if(player.loop){ await ensureMix(true); if(player.playing && player.smooth) player.start(song, player.position()); } else if(player.playing && player.smooth) await player.startChunks(song, player.position(), true); } finally { mixing = false; }
+  if(player.playing && (player.loop ? player.bufKey : player.chunkKey) !== JSON.stringify(song)) player.onstale(); }, 700); };
 $('polish').onchange = () => { pushUndo(); song.polish = $('polish').value === '1'; player.G = null; changed({keepUI:true}); toast(song.polish ? 'Polished sound (mastering on)' : 'Natural sound (no mastering)'); };
 $('gam').onchange = () => { pushUndo(); song.gamaka = +$('gam').value; changed({keepUI:true}); toast(song.gamaka ? 'Gamakas on: slides and shakes on Indian-style instruments' : 'Gamakas off'); };
 $('feel').onchange = () => { pushUndo(); song.feel = +$('feel').value; changed({keepUI:true}); toast(song.feel ? 'Human feel on' : 'Exact machine timing'); };
@@ -183,9 +185,12 @@ $('redo').onclick = () => { if(!redoStack.length) return; undoStack.push(snapsho
 async function togglePlay(){
   if(player.playing){ player.stop(); syncPlay(); return; }
   player.ensure(song);
-  if(player.smooth) await ensureMix();
+  if(player.smooth && player.loop) await ensureMix();
+  else if(player.smooth){}   // pieces: each piece gets its own sounds ready
   else { const {keys} = needsQuick(); if(keys) await busy('Loading instruments…', p => S.prepare(song, p)); else await S.prepare(song); }
-  player.start(song, player.pos || 0); syncPlay(); requestAnimationFrame(frame);
+  if(player.smooth && !player.loop){ toast('🎧 Starting…'); await player.startChunks(song, player.pos || 0); }
+  else player.start(song, player.pos || 0);
+  syncPlay(); requestAnimationFrame(frame);
 }
 function needsQuick(){ return {keys:true}; }
 function syncPlay(){ $('play').textContent = player.playing ? '⏸' : '▶'; }
