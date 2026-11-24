@@ -772,7 +772,7 @@ function customMood(c = {}){
 }
 function compose(o){
   const M = o.mood === 'custom' ? customMood(o.custom) : MOODS[o.mood] || MOODS.spiritual, R = rng((o.seed || 1) * 104729 + strHash(o.mood + '|' + JSON.stringify(o.custom || '') + '|' + (o.lead || '') + (o.support || ''))), meter = 4;
-  const scale = o.scale || R.pick(M.scales), key = o.key || R.pick(M.keys);
+  const scale0 = R.pick(M.scales), key0 = R.pick(M.keys), scale = SCALES[o.scale] ? o.scale : scale0, key = o.key || key0;   // dice rolled either way, so the rest of the tune stays the same
   const bpm0 = M.bpm[0] + R() * (M.bpm[1] - M.bpm[0]), secs = Math.max(8, o.seconds || 60);
   // variety: song shape, melody style and how the song opens change with the tune number
   const shape = R.pick(SHAPES), style = R.pick(['balanced', 'flow', 'lively', 'motif']), introMode = M.indian ? R.pick(['alap', 'alap', 'drone', 'melody']) : R.pick(['band', 'melody', 'band']);

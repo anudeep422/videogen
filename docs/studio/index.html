@@ -143,16 +143,23 @@ function loadSong(s){ player.stop(); song = s; setTimeout(async () => { for(cons
 // ------------------------------------------------------------ top bars
 function fillTop(){
   $('key').innerHTML = Object.keys(S.KEYS).map(k => `<option>${k}</option>`).join('');
-  const groups = {}; for(const [k, v] of Object.entries(S.SCALES)) (groups[v.g || 'Other'] = groups[v.g || 'Other'] || []).push([k, v]);
-  $('scale').innerHTML = Object.entries(groups).map(([g, list]) => `<optgroup label="${g}">${list.map(([k, v]) => `<option value="${k}">${v.name}</option>`).join('')}</optgroup>`).join('');
+  $('scale').innerHTML = scaleOptions();
 }
+function scaleOptions(sel){ const groups = {}; for(const [k, v] of Object.entries(S.SCALES)) (groups[v.g || 'Other'] = groups[v.g || 'Other'] || []).push([k, v]);
+  return Object.entries(groups).map(([g, list]) => `<optgroup label="${g}">${list.map(([k, v]) => `<option value="${k}"${k === sel ? ' selected' : ''}>${v.name}</option>`).join('')}</optgroup>`).join(''); }
 function syncTop(){ $('songName').textContent = song.name; $('bpm').value = song.bpm; $('key').value = song.key; $('scale').value = song.scale; $('bars').value = song.bars; $('meter').value = song.meter; $('feel').value = String(song.feel ?? 0.6); $('polish').value = song.polish === false ? '0' : '1'; $('gam').value = String((song.gamaka ?? 0) >= 0.85 ? 1 : (song.gamaka ?? 0) > 0 ? 0.5 : 0);
   $('loopBtn').classList.toggle('on', player.loop); $('metroBtn').classList.toggle('on', player.metro); }
 $('bpm').onchange = () => { pushUndo(); song.bpm = Math.max(30, Math.min(240, +$('bpm').value || 90)); changed({keepUI:true}); };
 $('key').onchange = () => { pushUndo(); const d = S.KEYS[$('key').value] - S.KEYS[song.key];
   if(confirm('Move the notes to the new key too?')) song.tracks.forEach(t => t.type === 'inst' && t.notes.forEach(n => n.m += d));
   song.key = $('key').value; changed(); };
-$('scale').onchange = () => { pushUndo(); song.scale = $('scale').value; changed(); };
+$('scale').onchange = async () => { const sc = $('scale').value, nm = S.SCALES[sc].name;
+  // a one-tap song can be composed again in the new raga, so the music really changes
+  if(song.made && confirm(`Remake this song in ${nm}?\n\nOK = new music in this raga (same mood, length and tune number)\nCancel = only change the scale, keep the notes`)){
+    pushUndo(); const was = player.playing; if(was) await togglePlay();
+    OT.scale = sc; try{ localStorage.setItem('vg_studio_onetap', JSON.stringify(OT)); }catch(e){}
+    const s2 = S.compose({...song.made, scale:sc}); s2.made = {...song.made, scale:sc}; loadSong(s2); renderEditor(); if(was) await togglePlay(); toast('🎵 Remade in ' + nm); return; }
+  pushUndo(); song.scale = sc; changed(); };
 $('bars').onchange = () => { pushUndo(); song.bars = Math.max(1, Math.min(200, +$('bars').value || 8)); delete song.sections; changed(); };
 $('polish').onchange = () => { pushUndo(); song.polish = $('polish').value === '1'; player.G = null; changed({keepUI:true}); toast(song.polish ? 'Polished sound (mastering on)' : 'Natural sound (no mastering)'); };
 $('gam').onchange = () => { pushUndo(); song.gamaka = +$('gam').value; changed({keepUI:true}); toast(song.gamaka ? 'Gamakas on: slides and shakes on Indian-style instruments' : 'Gamakas off'); };
@@ -654,6 +661,7 @@ function oneTapSheet(){
     <h4>2 · Length (seconds)</h4><div class="opts" id="otLen">${[30, 45, 60, 90, 120, 180, 300].map(n => `<button data-len="${n}" class="${n === OT.seconds ? 'on' : ''}">${n < 60 ? n + ' s' : (n / 60) + ' min'}</button>`).join('')}
       <input id="otSec" type="number" min="8" max="900" value="${OT.seconds}" style="width:80px" title="Exact seconds"></div>
     <h4>3 · Key (Sa)</h4><select id="otKey"><option value="">Automatic</option>${Object.keys(S.KEYS).map(k => `<option${k === OT.key ? ' selected' : ''}>${k}</option>`).join('')}</select>
+    <h4>Raga / scale</h4><select id="otScale" style="max-width:230px"><option value="">Automatic (suits the mood)</option>${scaleOptions(OT.scale)}</select>
     <h4>Instruments (optional)</h4><div class="opts"><label class="hint">Lead</label><select id="otLead" style="max-width:170px"><option value="">Automatic</option>${instOptions(OT.lead)}</select>
       <label class="hint">Support</label><select id="otSup" style="max-width:170px"><option value="">Automatic</option>${instOptions(OT.support)}</select></div>
     <label class="hint" style="display:block;margin-top:8px"><input type="checkbox" id="otRich" ${OT.rich === false ? '' : 'checked'}> ✨ Rich sound: extra layers, soft pads, swells before the chorus</label>
@@ -672,12 +680,14 @@ function oneTapSheet(){
 async function makeOneTap(){
   if($('ocMel') && $('sheet').classList.contains('show')) OT.custom = {melody:$('ocMel').value, counter:$('ocCnt').value, rhythm:$('ocRhy').value, bowls:$('ocBowl').value, drone:$('ocDrone').checked, chimes:$('ocChime').checked, speed:$('ocSpd').value};
   if($('otRich') && $('sheet').classList.contains('show')) OT.rich = $('otRich').checked;
+  if($('otScale') && $('sheet').classList.contains('show')) OT.scale = $('otScale').value || '';
   if($('osInst') && $('sheet').classList.contains('show')) OT.solo = $('osInst').value;
   if($('otNat') && $('sheet').classList.contains('show')) OT.nature = $('otNat').value; if($('otLead') && $('sheet').classList.contains('show')){ OT.lead = $('otLead').value; OT.support = $('otSup').value; }
   OT.key = $('otKey') && $('sheet').classList.contains('show') ? $('otKey').value : OT.key; OT.seed = $('otSeed') && $('sheet').classList.contains('show') ? +$('otSeed').value || 1 : OT.seed; if($('otSec') && $('sheet').classList.contains('show')) OT.seconds = Math.max(8, Math.min(900, +$('otSec').value || 60));
   try{ localStorage.setItem('vg_studio_onetap', JSON.stringify(OT)); }catch(e){}
   closeSheet(); pushUndo();
-  const s = S.compose({mood:OT.mood, seconds:OT.seconds, key:OT.key || null, seed:OT.seed, nature:OT.nature || null, lead:OT.mood === 'solo' ? (OT.solo || 's:bansuri') : OT.lead || null, support:OT.mood === 'solo' ? null : OT.support || null, custom:OT.custom, rich:OT.rich !== false});
+  const opts = {mood:OT.mood, seconds:OT.seconds, key:OT.key || null, scale:OT.scale || null, seed:OT.seed, nature:OT.nature || null, lead:OT.mood === 'solo' ? (OT.solo || 's:bansuri') : OT.lead || null, support:OT.mood === 'solo' ? null : OT.support || null, custom:OT.custom, rich:OT.rich !== false};
+  const s = S.compose(opts); s.made = opts;
   loadSong(s); PR.sx = 0; PR.sy = -1; renderEditor();
   await togglePlay();
   toast(`${S.MOODS[OT.mood].name} · ${OT.seconds}s · tune ${OT.seed}`);
