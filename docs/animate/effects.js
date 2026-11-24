@@ -28,6 +28,11 @@ const KINDS = {
   explosion: ['Explosion', 'War & action', '💥', 2, '#FF7043', 60],
   arrows:    ['Arrow volley', 'War & action', '🏹', 3, '#5D4037', 40],
   speed:     ['Speed lines', 'War & action', '💨', 2, '#FFFFFF', 30],
+  slash:     ['Slash streak (cyan)', 'Comedy & action', '🌀', 0.35, '#7FE3FF', 1],
+  shocklines:['Shock lines', 'Comedy & action', '❗', 1.2, '#1d1d1d', 14],
+  sweat:     ['Sweat drops', 'Comedy & action', '💦', 1.5, '#7FC8FF', 7],
+  impact:    ['Impact stars', 'Comedy & action', '💫', 0.8, '#FFD54F', 8],
+  dizzy:     ['Dizzy stars (circling)', 'Comedy & action', '😵', 2.5, '#FFD54F', 5],
   lightning: ['Lightning', 'War & action', '⚡', 3, '#FFFFFF', 1],
   fade:      ['Fade to black', 'Transitions', '⬛', 1, '#000000', 1],
   flash:     ['White flash', 'Transitions', '⬜', 0.6, '#FFFFFF', 1],
@@ -47,7 +52,8 @@ const isFull = k => KINDS[k] && ['Transitions', 'Colour'].includes(KINDS[k][1]) 
 
 function make(kind, W, H){
   const K = KINDS[kind];
-  return {type:'fx', kind, x:W / 2, y:H / 2, w:W, h:H, rotation:0, scaleX:1, scaleY:1, opacity:1, density:1, speed:1, color:K[4], seed:Math.floor(Math.random() * 1000)};
+  const small = K[1] === 'Comedy & action', sw = small ? Math.min(W, H) * 0.4 : W, sh = small ? Math.min(W, H) * 0.4 : H;   // comedy effects start small: move them onto the character
+  return {type:'fx', kind, x:W / 2, y:H / 2, w:sw, h:sh, rotation:0, scaleX:1, scaleY:1, opacity:1, density:1, speed:1, color:K[4], seed:Math.floor(Math.random() * 1000)};
 }
 
 // ---------------------------------------------------------------- drawing
@@ -57,7 +63,7 @@ function draw(c, o, t, W, Hh, ui){
   const lt = Math.max(0, t - t0), dur = Math.max(0.05, t1 - t0), sp = o.speed || 1;
   const w = o.w || W, h = o.h || Hh, n = Math.max(1, Math.round(K[5] * (o.density || 1))), col = o.color || K[4], sd = o.seed || 0;
   // gentle fade in/out for continuous effects
-  const edge = isTransition(kind) || ['explosion', 'lightning', 'flash', 'clash'].includes(kind) ? 1 : Math.min(1, lt / 0.4, Math.max(0, t1 - t) / 0.4 + (o.show && o.show[1] == null ? 1 : 0));
+  const edge = isTransition(kind) || ['explosion', 'lightning', 'flash', 'clash', 'slash', 'impact'].includes(kind) ? 1 : Math.min(1, lt / 0.4, Math.max(0, t1 - t) / 0.4 + (o.show && o.show[1] == null ? 1 : 0));
   c.save(); c.globalAlpha *= Math.max(0, edge);
   const X0 = -w / 2, Y0 = -h / 2;   // effects are drawn around their own centre
   switch(kind){
@@ -131,6 +137,21 @@ function draw(c, o, t, W, Hh, ui){
         const ang = Math.atan2(-Math.cos(Math.min(1, ph) * Math.PI) * h * 0.35 * Math.PI, w * 1.2);
         if(ph > 1.05) continue; c.save(); c.translate(x, y); c.rotate(-ang); c.scale(1.6, 1.6); c.beginPath(); c.moveTo(-26, 0); c.lineTo(10, 0); c.stroke(); c.beginPath(); c.moveTo(16, 0); c.lineTo(8, -4); c.lineTo(8, 4); c.closePath(); c.fill();
         c.strokeStyle = '#ECF0F1'; c.beginPath(); c.moveTo(-26, 0); c.lineTo(-31, -4); c.moveTo(-26, 0); c.lineTo(-31, 4); c.stroke(); c.strokeStyle = col; c.restore(); } break;
+    case 'slash': { const u = Math.min(1, lt / dur), R = Math.min(w, h) * 0.42, a0 = -2.2, a1 = a0 + 2.9 * Math.min(1, u * 1.6), fade = Math.max(0, 1 - Math.max(0, u - 0.55) / 0.45);
+      c.lineCap = 'round'; for(let k = 0; k < 10; k++){ const f = k / 10, a = a1 - (a1 - a0) * f; if(a < a0) break; c.globalAlpha = edge * fade * (1 - f); c.strokeStyle = k < 2 ? '#FFFFFF' : col; c.lineWidth = 14 * (1 - f) + 2;
+        c.beginPath(); c.arc(0, 0, R, a - 0.3, a); c.stroke(); } break; }
+    case 'shocklines': { const pulse = 0.85 + 0.15 * Math.sin(lt * 18), R = Math.min(w, h) * 0.32; c.strokeStyle = col; c.lineCap = 'round'; c.lineWidth = 4;
+      for(let i = 0; i < n; i++){ const a = i / n * TAU - Math.PI / 2, r0 = R * pulse, r1 = r0 + R * (0.25 + 0.15 * H(i, sd)); if(Math.sin(a) > 0.35) continue; c.beginPath(); c.moveTo(Math.cos(a) * r0, Math.sin(a) * r0); c.lineTo(Math.cos(a) * r1, Math.sin(a) * r1); c.stroke(); } break; }
+    case 'sweat': { c.fillStyle = col; const R = Math.min(w, h) * 0.3;
+      for(let i = 0; i < n; i++){ const ph = (lt * 1.4 * sp + H(i, sd)) % 1, a = -Math.PI / 2 + (H(i, sd + 1) - 0.5) * 2.2, d = R * (0.5 + ph * 0.9), x = Math.cos(a) * d, y = Math.sin(a) * d + ph * ph * R * 0.9, s = 5 + 4 * H(i, 2);
+        c.globalAlpha = edge * (1 - ph); c.save(); c.translate(x, y); c.rotate(a + Math.PI / 2); c.beginPath(); c.moveTo(0, -s * 1.6); c.quadraticCurveTo(s, 0, 0, s); c.quadraticCurveTo(-s, 0, 0, -s * 1.6); c.fill(); c.restore(); } break; }
+    case 'impact': { const u = Math.min(1, lt / dur), R = Math.min(w, h) * 0.45; c.fillStyle = col; c.strokeStyle = '#1d1d1d'; c.lineWidth = 2;
+      c.globalAlpha = edge * Math.max(0, 1 - u * 3); c.fillStyle = '#FFFFFF'; c.beginPath(); c.arc(0, 0, R * 0.3, 0, TAU); c.fill(); c.fillStyle = col;
+      for(let i = 0; i < n; i++){ const a = i / n * TAU + H(i, sd), d = R * (0.2 + 0.8 * Math.sqrt(u)), s = R * 0.12 * (1 - u * 0.6); c.globalAlpha = edge * Math.max(0, 1 - u);
+        c.save(); c.translate(Math.cos(a) * d, Math.sin(a) * d); c.rotate(u * 4 + i); c.beginPath(); for(let k = 0; k < 10; k++){ const r = k % 2 ? s * 0.45 : s, b = k * Math.PI / 5 - Math.PI / 2; c.lineTo(Math.cos(b) * r, Math.sin(b) * r); } c.closePath(); c.fill(); c.stroke(); c.restore(); } break; }
+    case 'dizzy': { const R = Math.min(w, h) * 0.3; c.fillStyle = col; c.strokeStyle = '#1d1d1d'; c.lineWidth = 1.5;
+      for(let i = 0; i < n; i++){ const a = lt * 4 * sp + i / n * TAU, x = Math.cos(a) * R, y = Math.sin(a) * R * 0.32, s = R * 0.16 * (0.75 + 0.25 * Math.sin(a)); c.globalAlpha = edge * (0.6 + 0.4 * Math.sin(a));
+        c.save(); c.translate(x, y); c.beginPath(); for(let k = 0; k < 10; k++){ const r = k % 2 ? s * 0.45 : s, b = k * Math.PI / 5 - Math.PI / 2; c.lineTo(Math.cos(b) * r, Math.sin(b) * r); } c.closePath(); c.fill(); c.stroke(); c.restore(); } break; }
     case 'speed': c.strokeStyle = col; c.lineCap = 'round';
       for(let i = 0; i < n; i++){ const y = Y0 + H(i, sd) * h, len = 60 + 140 * H(i, 1), x = X0 + w - ((H(i, sd + 2) * (w + len) + lt * 1400 * sp) % (w + len)); c.globalAlpha = edge * (0.3 + 0.5 * H(i, 4)); c.lineWidth = 1.5 + 2 * H(i, 5); c.beginPath(); c.moveTo(x, y); c.lineTo(x + len, y); c.stroke(); } break;
     case 'lightning': { const k = Math.floor(lt * 2.2 * sp), ph = (lt * 2.2 * sp) % 1; if((k === 0 || H(k, sd) > 0.45) && ph < 0.26){ const a = 1 - ph / 0.26;

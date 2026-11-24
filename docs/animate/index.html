@@ -116,7 +116,7 @@
     <div class="row">
       <button id="oText" style="border-color:var(--acc)">✏️ Edit text</button><button id="oDup">Duplicate</button><button id="oDel">Delete</button>
       <button id="oUp">Forward</button><button id="oDown">Back</button>
-      <button id="oFlip">Flip ↔</button><button id="oUngroup">Ungroup</button><button id="oLayer">→ Layer…</button>
+      <button id="oPath" style="border-color:var(--acc2)">〰️ Path</button><button id="oFlip">Flip ↔</button><button id="oUngroup">Ungroup</button><button id="oLayer">→ Layer…</button>
     </div>
 
     <div id="charSec" style="display:none">
@@ -125,8 +125,8 @@
       <label class="hint" style="display:block;margin:2px 0 6px"><input type="checkbox" id="cMove" checked> Walk / Run moves the character forward</label>
       <div id="cActs" class="presets"></div>
       <div class="row" style="margin-top:6px"><button id="cTurn">Turn ↔</button><button id="cDelAct">Remove action here</button><button id="cClearAct">Remove all actions</button></div>
-      <div class="f"><label>Face</label><select id="cExpr"><option value="happy">😊 Happy</option><option value="sad">😢 Sad</option><option value="surprised">😮 Surprised</option><option value="angry">😠 Angry</option></select></div>
-      <div class="f"><label>Drawing style</label><select id="cStyle"><option value="">Cartoon (outlines, big eyes)</option><option value="simple">Simple (flat)</option></select></div>
+      <div class="f"><label>Face</label><select id="cExpr"><option value="happy">😊 Happy</option><option value="sad">😢 Sad</option><option value="surprised">😮 Surprised</option><option value="focus">😤 Serious focus</option><option value="shock">😨 Shock</option><option value="cry">😭 Crying</option><option value="scream">😱 Screaming</option><option value="angry">😠 Angry</option></select></div>
+      <div class="f"><label>Drawing style</label><select id="cStyle"><option value="">Cartoon (outlines, big eyes)</option><option value="simple">Simple (flat)</option><option value="pastel">Flat pastel (Canva style)</option></select></div>
       <div class="f"><label>Lip sync</label><select id="cLip" title="Mouth moves with a voice recording"><option value="">Off</option></select></div>
       <div class="f"><label>Skin</label><input type="color" id="cSkin"></div>
       <div class="f"><label>Hair</label><input type="color" id="cHair"></div>
@@ -261,6 +261,7 @@
     <div class="row" style="margin-top:8px;gap:6px;flex-wrap:wrap">
       <select id="subPos"><option value="bottom">Bottom</option><option value="top">Top</option></select>
       <select id="subSize"><option value="0.045">Small</option><option value="0.06" selected>Medium</option><option value="0.08">Large</option></select>
+      <select id="subMode"><option value="line">Whole line at once</option><option value="words">Word by word (pop-in)</option></select>
       <select id="subStyle"><option value="box">White on dark box</option><option value="yellow">Yellow on dark box</option><option value="plain">White with outline</option></select>
     </div>
     <label class="hint" style="display:block;margin:8px 0"><input type="checkbox" id="subReplace" checked> Replace earlier subtitles of this recording</label>
@@ -531,6 +532,13 @@ function draw(){
   FXUI = !playing; renderScene(ctx, {ghost:!playing, cam:playing || camPreview}); FXUI = false;
   if(preview){ const L = P.layers[curLayer]; ctx.globalAlpha = L.opacity ?? 1; drawObj(ctx, preview); ctx.globalAlpha = 1; }
   ctx.restore();
+  // motion path: the line being drawn, and the selected object's route
+  { const z = 1 / view.zoom; ctx.save(); ctx.lineWidth = 3 * z; ctx.lineJoin = ctx.lineCap = 'round';
+    if(pathPts && pathPts.length > 1){ ctx.strokeStyle = '#3fb27f'; ctx.setLineDash([12 * z, 8 * z]); ctx.beginPath(); pathPts.forEach(([x, y], i) => i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); ctx.stroke(); ctx.setLineDash([]); }
+    const so = !playing && selId && findObj(selId);
+    if(so && hasKeys(so.o, 'x') && hasKeys(so.o, 'y')){ const kx = so.o.keys.x, ky = so.o.keys.y, a = Math.min(kx[0].t, ky[0].t), b = Math.max(kx[kx.length - 1].t, ky[ky.length - 1].t);
+      ctx.fillStyle = '#3fb27faa'; for(let t = a; t <= b + 1e-6; t += 0.2){ ctx.beginPath(); ctx.arc(propAt(so.o, 'x', t), propAt(so.o, 'y', t), 3.5 * z, 0, 7); ctx.fill(); } }
+    ctx.restore(); }
   // selection box and handles
   const s = selId && findObj(selId);
   if(!playing && !camPreview && P.cam && P.cam.keys && Object.keys(P.cam.keys).length){   // what the camera sees right now
@@ -644,6 +652,7 @@ function addObj(o){ pushUndo(); sceneRange(o); P.layers[curLayer].objects.push(o
 function baseStyle(){ return {stroke:style.stroke, fill:style.noFill ? null : style.fill, width:style.width, opacity:style.opacity}; }
 
 function start(e, sx, sy, wx, wy){
+  if(pathMode) return startPath(wx, wy);
   if(tool === 'hand' || e.button === 1){ const o = {ox:view.ox, oy:view.oy, sx, sy};
     act = {move:(x, y) => { view.ox = o.ox + x - o.sx; view.oy = o.oy + y - o.sy; draw(); }}; return; }
 
@@ -1181,13 +1190,14 @@ function wrapLine(text, size, maxW){
   for(const w of words){ const t = cur ? cur + ' ' + w : w; if(ctx.measureText(t).width > maxW && cur){ out.push(cur); cur = w; } else cur = t; }
   if(cur) out.push(cur); ctx.restore(); return out.join('\n');
 }
-function makeSubtitles(c, text, pos, sizeK, style){
+function makeSubtitles(c, text, pos, sizeK, style, mode){
   const lines = text.split('\n').map(l => l.trim()).filter(Boolean); if(!lines.length) return 0;
   const times = fitLines(lines, speechParts(c), c), W = P.width, H = P.height, size = Math.round(H * sizeK);
   let L = P.layers.find(l => l.name === 'Subtitles'); if(!L){ L = {id:uid(), name:'Subtitles', visible:true, locked:false, opacity:1, objects:[], fixed:true}; P.layers.push(L); }
   const col = style === 'yellow' ? '#ffd54a' : '#ffffff', bg = style === 'plain' ? null : 'rgba(0,0,0,0.55)';
   lines.forEach((l, i) => {
     const t = {id:uid(), type:'text', x:0, y:0, rotation:0, scaleX:1, scaleY:1, opacity:1, text:wrapLine(l, size, W * 0.84), size, fill:col};
+    if(mode === 'words') t.tfx = {k:'words', t0:+times[i][0].toFixed(2), d:Math.max(0.3, (times[i][1] - times[i][0]) * 0.8)};   // words appear one by one as you speak
     measureText(t); const kids = [];
     if(bg) kids.push({id:uid(), type:'rect', x:0, y:0, w:t._w + size * 1.2, h:t._h + size * 0.5, rotation:0, scaleX:1, scaleY:1, opacity:1, fill:bg, stroke:null, width:0, radius:size * 0.35});
     else { t.stroke = '#000'; }
@@ -1203,7 +1213,7 @@ function openSubtitles(c){
   const parts = speechParts(c); $('subInfo').textContent = parts.length ? `Found ${parts.length} spoken part${parts.length > 1 ? 's' : ''} in this recording.` : 'Could not find clear speech; lines will be spread evenly.';
   $('subGo').onclick = () => { const txt = $('subText').value; if(!txt.trim()) return toast('Type what you say first', true); pushUndo();
     if($('subReplace').checked){ const L = P.layers.find(l => l.name === 'Subtitles'); if(L) L.objects = L.objects.filter(o => o.subOf !== c.id); }
-    const n = makeSubtitles(c, txt, $('subPos').value, +$('subSize').value, $('subStyle').value); $('subModal').style.display = 'none'; refreshAll(); autosave();
+    const n = makeSubtitles(c, txt, $('subPos').value, +$('subSize').value, $('subStyle').value, $('subMode').value); $('subModal').style.display = 'none'; refreshAll(); autosave();
     toast(`${n} subtitles added, timed to your voice. Press ▶ to check`); };
 }
 async function startRecording(){
@@ -1334,6 +1344,36 @@ $('bExport').onclick = openExport; $('expGo').onclick = runExport; $('expStop').
 $('expClose').onclick = () => { expStop = true; $('expModal').style.display = 'none'; };
 
 // ------------------------------------------------------------------ characters: actions, turning, looks
+// ------------------------------------------------------------------ motion path: draw a route, the object follows it
+let pathMode = null, pathPts = null;
+function startPathMode(){ const s = selId && findObj(selId); if(!s) return toast('Select an object or character first');
+  pathMode = s.o.id; toast('〰️ Now draw the route with your finger. The object will follow it from the current time.'); }
+function startPath(wx, wy){ pathPts = [[wx, wy]];
+  act = {move:(a, b, x, y) => { const l = pathPts[pathPts.length - 1]; if(Math.hypot(x - l[0], y - l[1]) > 4 / view.zoom){ pathPts.push([x, y]); draw(); } }, end:finishPath}; }
+function finishPath(){
+  const id = pathMode, s = id && findObj(id); pathMode = null; const pts = pathPts; pathPts = null;
+  if(!s || !pts || pts.length < 3){ draw(); return toast('Path too short — tap 〰️ Path and draw a longer line'); }
+  const o = s.o, isChar = o.type === 'char', left = +(P.duration - T).toFixed(1);
+  if(left < 0.3){ draw(); return toast('No time left. Move the time back or make the video longer', true); }
+  const ans = prompt(`How many seconds should the trip take? (up to ${left})`, String(Math.min(left, isChar ? 4 : 3))); if(ans == null){ draw(); return; }
+  const dur = clamp(+ans || 3, 0.3, left), t0 = snapT(T), t1 = snapT(T + dur);
+  // equal steps along the line, so the speed is steady
+  const cum = [0]; for(let i = 1; i < pts.length; i++) cum.push(cum[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]));
+  const len = cum[cum.length - 1], at = d => { let i = 1; while(i < cum.length - 1 && cum[i] < d) i++; const u = (d - cum[i - 1]) / ((cum[i] - cum[i - 1]) || 1); return [pts[i - 1][0] + (pts[i][0] - pts[i - 1][0]) * u, pts[i - 1][1] + (pts[i][1] - pts[i - 1][1]) * u]; };
+  // the middle of the object follows the line (characters: their feet)
+  const e0 = E(o), lb = localBox(o), mid = toWorld(e0, (lb[0] + lb[2]) / 2, isChar ? lb[3] : (lb[1] + lb[3]) / 2), dx = e0.x - mid[0], dy = e0.y - mid[1], N = Math.max(2, Math.round(dur * 6));
+  pushUndo();
+  for(const p of ['x', 'y']){ o.keys = o.keys || {}; if(!hasKeys(o, p)) setKey(o, p, 0, o[p] ?? DEF[p]); o.keys[p] = o.keys[p].filter(k => k.t < t0 - 1e-6 || k.t > t1 + 1e-6); }
+  for(let i = 0; i <= N; i++){ const [px, py] = at(len * i / N), t = t0 + (t1 - t0) * i / N; setKey(o, 'x', t, px + dx); setKey(o, 'y', t, py + dy); }
+  for(const p of ['x', 'y']) o.keys[p].forEach(k => { if(k.t >= t0 - 1e-6 && k.t < t1 - 1e-6) k.e = 'linear'; });
+  if(isChar){   // characters walk (or run when fast) along the route and face the way they go
+    const sz = (VG_CHAR.PRESETS[o.preset] || {}).size || 1, speed = len / dur / (sz * Math.abs(e0.scaleX || 1)), a = speed > VG_CHAR.SPEED.walk * 1.8 ? 'run' : 'walk';
+    o.actions = (o.actions || []).filter(q => q.t1 <= t0 + 1e-6 || q.t0 >= t1 - 1e-6); o.actions.push({a, t0, t1}); o.actions.sort((x, y) => x.t0 - y.t0);
+    const ex = pts[pts.length - 1][0] - pts[0][0]; if(Math.abs(ex) > 10) o.face = ex > 0 ? 1 : -1;
+  }
+  touch(o); afterEdit(); draw(); toast(`〰️ Route set: ${t0.toFixed(1)}s → ${t1.toFixed(1)}s${isChar ? ' (walking)' : ''}. Press ▶ to watch`);
+}
+$('oPath').onclick = startPathMode;
 function selChar(){ const s = selId && findObj(selId); return s && s.o.type === 'char' ? s.o : null; }
 function addAction(a){
   const o = selChar(); if(!o) return toast('Select a character first');
@@ -1369,6 +1409,8 @@ function setActButtons(acts){
   const btn = ([id, label, icon]) => `<button data-act="${id}" title="${label}">${icon} ${label}</button>`;
   $('cActs').innerHTML = acts.map(btn).join('');
   $('charBar').querySelectorAll('[data-act]').forEach(b => b.remove());
+  $('charBar').querySelectorAll('[data-say],[data-path]').forEach(b => b.remove());
+  $('charBar').insertAdjacentHTML('beforeend', `<button data-path="1" style="flex:0 0 auto;padding:4px 8px;font-size:12px;border-color:var(--acc2)" onclick="event.stopPropagation();startPathMode()">〰️ Path</button>`);
   $('charBar').insertAdjacentHTML('beforeend', `<button data-say="1" style="flex:0 0 auto;padding:4px 8px;font-size:12px;border-color:var(--acc)">💬 Say</button>`);
   $('charBar').insertAdjacentHTML('beforeend', acts.map(([id, label, icon]) => `<button data-act="${id}" style="flex:0 0 auto;padding:4px 8px;font-size:12px">${icon} ${label}</button>`).join(''));
   document.querySelectorAll('[data-act]').forEach(b => b.onclick = e => { e.stopPropagation(); addAction(b.dataset.act); });

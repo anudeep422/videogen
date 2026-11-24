@@ -18,6 +18,8 @@ const PRESETS = {
   office:  {name:'Office person', skin:'#9A6340', hair:'#1E1611', top:'#FDFEFE', bottom:'#2C3E50', style:'pants', tie:'#C0392B', sleeves:true},
   advisor: {name:'Insurance advisor', skin:'#9A6340', hair:'#1E1611', top:'#1B4F72', bottom:'#1B4F72', style:'pants', tie:'#F39C12', sleeves:true},
   rishi:   {name:'Rishi (standing)', skin:'#9A6340', hair:'#6d6d6d', top:'#E67E22', bottom:'#E67E22', style:'robe', beard:'#E0E0E0', topknot:true, tilak:true},
+  bean:    {name:'Stick figure (comedy)', bean:true, top:'#A3A3A3', skin:'#A3A3A3', hair:'#1d1d1d', bottom:'#A3A3A3', style:'pants'},
+  beanSword: {name:'Stick figure with sword', bean:true, top:'#A3A3A3', skin:'#A3A3A3', hair:'#1d1d1d', bottom:'#A3A3A3', style:'pants', weapon:'sword'},
   warrior: {name:'Warrior (sword)', skin:'#9A6340', hair:'#1E1611', top:'#7F8C8D', bottom:'#6E2C00', extra:'#B7950B', style:'shorts', helmet:'#B7950B', weapon:'sword', moustache:true, sleeves:false},
   archer:  {name:'Archer (bow)', skin:'#8B5A3C', hair:'#1E1611', top:'#1E8449', bottom:'#6E2C00', extra:'#D4AC0D', style:'dhoti', weapon:'bow', turban:'#1E8449'},
   king:    {name:'King', skin:'#9A6340', hair:'#1E1611', top:'#8E44AD', bottom:'#F4D03F', extra:'#F1C40F', style:'dhoti', crown:'#F1C40F', moustache:true},
@@ -27,6 +29,7 @@ const ACTIONS = [
   ['namaste', 'Namaste', '🙏'], ['talk', 'Talk', '🗣️'], ['point', 'Point', '👉'], ['clap', 'Clap', '👏'], ['dance', 'Dance', '💃'], ['bow', 'Bow', '🙇'],
   ['fall', 'Fall', '💫'], ['attack', 'Sword attack', '⚔️'], ['thrust', 'Sword thrust', '🗡️'], ['block', 'Block', '🛡️'], ['dodge', 'Dodge', '↩️'],
   ['hit', 'Get hit', '💥'], ['victory', 'Victory', '🏆'], ['shoot', 'Shoot arrow', '🏹'],
+  ['cry', 'Cry', '😭'], ['scream', 'Scream', '😱'], ['flee', 'Run away scared', '💨'],
 ];
 const SPEED = {walk:70, run:210};   // pixels per second at size 1 (used by "move forward")
 
@@ -46,6 +49,11 @@ function pose(a, lt, t){
       if(ph < 0.2){ const u = ph / 0.2; p.yOff = 14 * u; p.hipF = p.hipB = 35 * u; p.kneeF = p.kneeB = 70 * u; p.shF = p.shB = -30 * u; }
       else if(ph < 0.8){ const u = (ph - 0.2) / 0.6; p.yOff = -70 * Math.sin(Math.PI * u); p.hipF = 30; p.hipB = 15; p.kneeF = 50; p.kneeB = 40; p.shF = p.shB = 150 - 40 * u; p.elF = p.elB = 10; }
       else { const u = 1 - (ph - 0.8) / 0.2; p.yOff = 12 * u; p.hipF = p.hipB = 30 * u; p.kneeF = p.kneeB = 60 * u; } break; }
+    case 'cry': { const sob = Math.sin(t * 24); p.shF = 128; p.elF = 78; p.shB = 120; p.elB = 84; p.head = 12 + sob * 1.5; p.yOff = sob * 0.9; p.lean = 6; p.mouth = 0.55 + 0.25 * Math.abs(sob); break; }
+    case 'scream': { const j = Math.sin(t * 38); p.shF = 138 + j * 8; p.shB = -138 - j * 8; p.elF = 22; p.elB = -22; p.head = -8; p.yOff = j * 1.2; p.mouth = 1; break; }
+    case 'flee': { const w = 2 * Math.PI * t / 0.5, s2 = Math.sin(w), c2 = Math.cos(w);
+      p.hipF = 44 * s2; p.hipB = -44 * s2; p.kneeF = 12 + 80 * Math.max(0, c2); p.kneeB = 12 + 80 * Math.max(0, -c2);
+      p.shF = 135 + 30 * s2; p.shB = -135 + 30 * s2; p.elF = 25; p.elB = -25; p.yOff = -9 * Math.abs(c2); p.lean = 18; p.head = -10; p.mouth = 1; break; }
     case 'sit': p.yOff = 42; p.hipF = p.hipB = 88; p.kneeF = p.kneeB = 88; p.shF = 30 + br; p.shB = 26; p.elF = p.elB = 40; break;
     case 'wave': p.shF = 155; p.elF = 25 + 28 * Math.sin(t * 10); p.head = 4; p.yOff = br * 0.6; break;
     case 'namaste': p.shF = p.shB = 38; p.elF = p.elB = 112; p.head = 10; p.lean = 4; break;
@@ -94,15 +102,87 @@ function limb(c, x, y, a1, l1, a2, l2, w1, w2, col1, col2){
   c.strokeStyle = col2 || col1; c.lineWidth = w2; c.beginPath(); c.moveTo(kx, ky); c.lineTo(ex, ey); c.stroke();
   return [kx, ky, ex, ey, a2];
 }
+// soft pastel version of a colour: lighter and a little greyer (dusty rose, sage, denim…)
+function mixHex(a, b, k){ if(!/^#[0-9a-f]{6}/i.test(a || '')) return a; const p = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16)), A = p(a), B = p(b);
+  return '#' + A.map((v, i) => Math.round(v + (B[i] - v) * k).toString(16).padStart(2, '0')).join(''); }
+function pastel(col){ if(!/^#[0-9a-f]{6}/i.test(col || '')) return col; const [r, g, b] = [1, 3, 5].map(i => parseInt(col.slice(i, i + 2), 16)), m = (r + g + b) / 3;
+  const grey = '#' + [r, g, b].map(v => Math.round(v + (m - v) * 0.35).toString(16).padStart(2, '0')).join(''); return mixHex(grey, '#f4eee6', 0.38); }
+// ---------------------------------------------------------------- stick figure ("bean") for comedy shorts
+// big round head, small bean body, thin line arms and legs, flat grey; very expressive faces
+function drawBean(c, o, t, L, p, act, face){
+  const sz = L.size || 1, ink = '#1d1d1d', body = L.top || '#A3A3A3', TAU = Math.PI * 2;
+  let ex = o.expr || 'happy';
+  if(act === 'cry') ex = 'cry'; else if(act === 'scream' || act === 'flee') ex = 'scream'; else if(act === 'hit' || act === 'fall') ex = 'shock';
+  else if(['attack', 'thrust', 'block'].includes(act) && ex === 'happy') ex = 'focus';
+  const jit = ex === 'scream' || ex === 'shock' ? Math.sin(t * 55) * 1.3 : 0;
+  c.save(); c.scale(face * sz, sz);
+  c.save(); c.fillStyle = 'rgba(0,0,0,.14)'; c.beginPath(); c.ellipse(0, 2, 24, 4.5, 0, 0, TAU); c.fill(); c.restore();
+  if(p.rot) c.rotate(p.rot * D2R); c.translate(jit, p.yOff);
+  const Hp = [0, -56], lr = p.lean * D2R, Sh = [Hp[0] + Math.sin(lr) * 36, Hp[1] - Math.cos(lr) * 36];
+  const stick = (x, y, a1, l1, a2, l2) => { const [d1x, d1y] = dir(a1), kx = x + d1x * l1, ky = y + d1y * l1, [d2x, d2y] = dir(a2), ex2 = kx + d2x * l2, ey2 = ky + d2y * l2;
+    c.strokeStyle = ink; c.lineWidth = 4.5; c.lineCap = c.lineJoin = 'round'; c.beginPath(); c.moveTo(x, y); c.lineTo(kx, ky); c.lineTo(ex2, ey2); c.stroke(); return [kx, ky, ex2, ey2, a2]; };
+  const foot = (x, y) => { c.fillStyle = ink; c.beginPath(); c.ellipse(x + 4, y + 1, 6, 3, 0, 0, TAU); c.fill(); };
+  // back arm and leg
+  stick(Sh[0] - 7, Sh[1] + 12, p.shB + p.lean, 25, p.shB + p.lean + p.elB, 23);
+  const bl = stick(Hp[0], Hp[1], p.hipB, 28, p.hipB - p.kneeB, 28); foot(bl[2], bl[3]);
+  // bean body
+  c.save(); c.translate((Hp[0] + Sh[0]) / 2, (Hp[1] + Sh[1]) / 2); c.rotate(lr); c.fillStyle = body; c.strokeStyle = ink; c.lineWidth = 3.5;
+  c.beginPath(); c.ellipse(0, 0, 15, 23, 0, 0, TAU); c.fill(); c.stroke(); c.restore();
+  const fl = stick(Hp[0], Hp[1], p.hipF, 28, p.hipF - p.kneeF, 28); foot(fl[2], fl[3]);
+  // head
+  const Hc = [Sh[0] + Math.sin(lr) * 26, Sh[1] - Math.cos(lr) * 26 - 4];
+  c.save(); c.translate(Hc[0], Hc[1]); c.rotate((p.head || 0) * D2R);
+  c.fillStyle = body; c.strokeStyle = ink; c.lineWidth = 3.5; c.beginPath(); c.arc(0, 0, 27, 0, TAU); c.fill(); c.stroke();
+  const blink = ((t + (o.blinkOff || 0)) % 3.4) < 0.12, E1 = [3, -5], E2 = [16, -5], mouthOpen = Math.max(p.mouth || 0, 0);
+  c.strokeStyle = ink; c.fillStyle = ink; c.lineWidth = 2.6; c.lineCap = 'round';
+  const brows = (a, b) => { c.lineWidth = 3.2; c.beginPath(); c.moveTo(E1[0] - 6, E1[1] - 9 + a); c.lineTo(E1[0] + 5, E1[1] - 9 + b); c.moveTo(E2[0] - 5, E2[1] - 9 + b); c.lineTo(E2[0] + 6, E2[1] - 9 + a); c.stroke(); c.lineWidth = 2.6; };
+  const bigEyes = (pr) => { for(const E of [E1, E2]){ c.fillStyle = '#fff'; c.beginPath(); c.ellipse(E[0], E[1], 6, 7.5, 0, 0, TAU); c.fill(); c.stroke(); c.fillStyle = ink; c.beginPath(); c.arc(E[0] + 1, E[1], pr, 0, TAU); c.fill(); } };
+  if(ex === 'focus' || ex === 'angry'){   // narrow, deadly serious
+    brows(-4, 3); for(const E of [E1, E2]){ c.beginPath(); c.moveTo(E[0] - 5, E[1] + 1); c.lineTo(E[0] + 5, E[1] + 1); c.stroke(); }
+    if(mouthOpen > 0.15){ c.beginPath(); c.ellipse(10, 13, 5, 2 + 4 * mouthOpen, 0, 0, TAU); c.fill(); } else { c.beginPath(); c.moveTo(5, 14); c.lineTo(16, 13); c.stroke(); }
+  } else if(ex === 'shock' || ex === 'surprised'){
+    brows(-7, -7); bigEyes(1.6); c.beginPath(); c.ellipse(10, 15, 4.5, 6, 0, 0, TAU); c.fill();
+    if(ex === 'shock'){ c.strokeStyle = '#7FC8FF'; c.fillStyle = '#7FC8FF'; c.beginPath(); c.moveTo(-18, -14); c.quadraticCurveTo(-22, -6, -18, -4); c.quadraticCurveTo(-14, -6, -18, -14); c.fill(); }   // sweat drop
+  } else if(ex === 'cry'){
+    brows(-2, -9); for(const E of [E1, E2]){ c.beginPath(); c.arc(E[0], E[1] + 2, 4.5, Math.PI * 1.1, Math.PI * 1.9); c.stroke(); }
+    const w = Math.sin(t * 20) * 1.5; c.beginPath(); c.moveTo(1, 12); c.quadraticCurveTo(6, 8 + w, 10, 11); c.quadraticCurveTo(14, 8 - w, 19, 12); c.quadraticCurveTo(10, 26 + 4 * mouthOpen, 1, 12); c.fill();
+    c.fillStyle = '#7FC8FF'; c.globalAlpha = 0.9; for(const E of [E1, E2]) for(let k = 0; k < 4; k++){ const ph = ((t * 2.2 + k * 0.25) % 1), y = E[1] + 4 + ph * 34; c.beginPath(); c.ellipse(E[0] + (E === E1 ? -2 : 2) - ph * 3, y, 2.2, 3, 0, 0, TAU); c.fill(); }
+    c.globalAlpha = 1;
+  } else if(ex === 'scream'){
+    brows(-10, -4); bigEyes(1.3); const w = Math.sin(t * 30) * 1.2; c.beginPath(); c.moveTo(1, 9); c.quadraticCurveTo(10, 6 + w, 19, 9); c.quadraticCurveTo(21, 24, 10, 26 + w); c.quadraticCurveTo(-1, 24, 1, 9); c.fill();
+    c.fillStyle = '#e57373'; c.beginPath(); c.ellipse(10, 21, 4, 2.5, 0, 0, TAU); c.fill();
+  } else if(ex === 'sad'){
+    brows(-2, -7); if(!blink) for(const E of [E1, E2]){ c.beginPath(); c.arc(E[0], E[1], 2.6, 0, TAU); c.fill(); }
+    c.beginPath(); c.arc(10, 19, 6, Math.PI * 1.15, Math.PI * 1.85); c.stroke();
+  } else {   // happy
+    if(blink){ for(const E of [E1, E2]){ c.beginPath(); c.moveTo(E[0] - 3, E[1]); c.lineTo(E[0] + 3, E[1]); c.stroke(); } }
+    else for(const E of [E1, E2]){ c.beginPath(); c.arc(E[0], E[1], 2.6, 0, TAU); c.fill(); }
+    if(mouthOpen > 0.12){ c.beginPath(); c.ellipse(10, 12, 5, 1.5 + 5 * mouthOpen, 0, 0, TAU); c.fill(); } else { c.beginPath(); c.arc(10, 8, 7, Math.PI * 0.2, Math.PI * 0.8); c.stroke(); }
+  }
+  c.restore();
+  // front arm (+ sword)
+  const fa = stick(Sh[0] + 7, Sh[1] + 12, p.shF + p.lean, 25, p.shF + p.lean + p.elF, 23);
+  if(L.weapon === 'sword'){ const [dx, dy] = dir(fa[4] + 75);
+    if(act === 'attack' || act === 'thrust'){   // cyan slash streak behind the blade
+      const pts = []; for(let k = 0; k <= 6; k++){ const pp = k === 0 ? p : poseAt(o, t - k * 0.028), a1 = pp.shF + pp.lean, a2 = a1 + pp.elF, [h1x, h1y] = dir(a1), [h2x, h2y] = dir(a2), [sx, sy] = dir(a2 + 75);
+        const hx = Sh[0] + 7 + h1x * 25 + h2x * 23, hy = Sh[1] + 12 + h1y * 25 + h2y * 23; pts.push([hx + sx * 60, hy + sy * 60]); }
+      c.strokeStyle = '#7FE3FF'; c.lineCap = 'round'; for(let k = 0; k < 6; k++){ c.globalAlpha = 0.7 * (1 - k / 6); c.lineWidth = 9 * (1 - k / 7); c.beginPath(); c.moveTo(pts[k][0], pts[k][1]); c.lineTo(pts[k + 1][0], pts[k + 1][1]); c.stroke(); } c.globalAlpha = 1; }
+    c.strokeStyle = ink; c.lineWidth = 6; c.lineCap = 'round'; c.beginPath(); c.moveTo(fa[2] - dx * 8, fa[3] - dy * 8); c.lineTo(fa[2] + dx * 62, fa[3] + dy * 62); c.stroke();
+    c.strokeStyle = '#E8EEF2'; c.lineWidth = 3; c.beginPath(); c.moveTo(fa[2] + dx * 6, fa[3] + dy * 6); c.lineTo(fa[2] + dx * 60, fa[3] + dy * 60); c.stroke();
+    const [px, py] = dir(fa[4] - 15); c.strokeStyle = ink; c.lineWidth = 4; c.beginPath(); c.moveTo(fa[2] + dx * 4 - px * 7, fa[3] + dy * 4 - py * 7); c.lineTo(fa[2] + dx * 4 + px * 7, fa[3] + dy * 4 + py * 7); c.stroke(); }
+  c.restore();
+}
 function draw(c, o, t){
   const L = Object.assign({}, PRESETS[o.preset] || PRESETS.man, o.look || {});
   const p = poseAt(o, t), act = actionAt(o, t);
-  TOON = L.style2 !== 'simple'; OW = 3;
+  TOON = L.style2 !== 'simple' && L.style2 !== 'pastel'; OW = 3;
+  if(L.style2 === 'pastel'){ L.top = pastel(L.top); L.bottom = pastel(L.bottom); if(L.hair && !/^#(9E9E9E|6d6d6d)/i.test(L.hair)) L.hair = mixHex(L.hair, '#5a4636', 0.35); }   // soft "Canva" colours
   const sway = (act === 'run' ? 6 : act === 'walk' ? 3.5 : act === 'dance' ? 7 : 1.2) * Math.sin(t * (act === 'run' ? 10 : act === 'walk' ? 6.3 : 2.4));   // hair and cloth swing
   // lip sync: mouth opens with the loudness of the chosen voice recording, head moves a little
   if(o.lip && window.VG_CHAR.lip){ const lv = window.VG_CHAR.lip(o, t); if(lv > 0.06){ p.mouth = Math.max(p.mouth, Math.min(1, lv * 1.15)); p.head = (p.head || 0) + lv * 4 * Math.sin(t * 4.3); } }
   let face = o.face || 1;
   if(o.autoFace !== false && o.keys && o.keys.x && o.keys.x.length > 1 && window.propAt){ const v = window.propAt(o.__base || o, 'x', t + 0.05) - window.propAt(o.__base || o, 'x', t - 0.05); if(Math.abs(v) > 0.3) face = Math.sign(v) * Math.sign(o.scaleX || 1); }
+  if(L.bean) return drawBean(c, o, t, L, p, act, face);
   const sz = L.size || 1; c.save(); c.scale(face * sz, sz);
   if(p.rot) c.rotate(p.rot * D2R);
   c.translate(0, p.yOff);
@@ -162,7 +242,7 @@ function draw(c, o, t){
   if(L.topknot){ c.fillStyle = L.hair; c.beginPath(); c.arc(-4, -19, 8, 0, Math.PI * 2); ol(2.2); c.fill(); }
   c.fillStyle = sk2; c.beginPath(); c.ellipse(-3, 1, 3.5, 5, 0, 0, Math.PI * 2); c.fill();   // ear
   // eyes (blink every few seconds) and eyebrows by expression
-  const ex = o.expr || 'happy', blink = ((t + (o.blinkOff || 0)) % 3.7) < 0.13;
+  const ex = act === 'cry' ? 'sad' : act === 'scream' || act === 'flee' ? 'surprised' : ({focus:'angry', shock:'surprised', cry:'sad', scream:'surprised'})[o.expr] || o.expr || 'happy', blink = ((t + (o.blinkOff || 0)) % 3.7) < 0.13;
   c.fillStyle = '#1b1210'; c.strokeStyle = '#1b1210'; c.lineWidth = TOON ? 2.2 : 1.8;
   const fierce = ex === 'angry' || ['attack', 'thrust', 'block'].includes(act);
   if(blink || act === 'namaste'){ c.beginPath(); c.moveTo(4, -2); c.quadraticCurveTo(8, TOON ? 0.5 : -2, 12, -2); c.stroke(); }
