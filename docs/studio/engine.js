@@ -760,16 +760,16 @@ function phrasePitches(ph, map, sa){ return ph.split(' ').map(tok => { const l =
 // roles: melody, counter (chorus only), pad (chords), bass, arp, drone; rhythm (+ rhythm2 in chorus)
 const MOODS = {
   spiritual:{indian:true, name:'🕉️ Spiritual / Upanishad', scales:['revati', 'mayamalavagowla', 'kalyani', 'mohanam'], bpm:[58, 66], keys:['C#', 'D', 'C'],
-    parts:{melody:'s:bansuri', drone:'s:tanpura', pad:'r:cellos', arp:'r:harp', counter:'r:choir'}, verb:0.5},
+    parts:{melody:'s:bansuri', drone:'s:tanpura', pad:'r:warmpad', arp:'r:harp', counter:'r:choir'}, verb:0.5},
   devotional:{indian:true, name:'🙏 Devotional / bhajan', scales:['mohanam', 'abheri', 'kharaharapriya', 'shivaranjani'], bpm:[88, 100], keys:['C#', 'D', 'C'],
     parts:{melody:'s:harmonium', counter:'s:bansuri', drone:'s:tanpura'}, rhythm:'keherwa', rhythm2:'bhajan', verb:0.3},
   carnatic:{indian:true, name:'🪕 Carnatic veena', scales:['hamsadhwani', 'kalyani', 'mayamalavagowla', 'mohanam', 'kharaharapriya'], bpm:[80, 92], keys:['D', 'E', 'C'],
     parts:{melody:'s:veena', counter:'r:violin', drone:'s:tanpura'}, rhythm:'adi', verb:0.3},
   hindustani:{indian:true, name:'🎶 Hindustani sitar', scales:['kalyani', 'bhairavi', 'hindolam', 'kharaharapriya'], bpm:[72, 84], keys:['C#', 'D'],
     parts:{melody:'s:sitar', counter:'s:bansuri', drone:'s:tanpura'}, rhythm:'teentaal', verb:0.35},
-  calm:{name:'🌿 Calm / meditation', scales:['mohanam', 'shivaranjani', 'major'], bpm:[60, 70], keys:['D', 'F', 'C'],
+  calm:{name:'🌿 Calm / meditation', scales:['mohanam', 'madhyamavati', 'major'], bpm:[60, 70], keys:['D', 'F', 'C'], bright:true,
     parts:{melody:'r:flute', pad:'r:violins', arp:'r:harp', drone:'s:tanpura'}, verb:0.55},
-  happy:{name:'😊 Happy / kids', scales:['major', 'mohanam'], bpm:[110, 124], keys:['F', 'G', 'C'],
+  happy:{name:'😊 Happy / kids', scales:['major', 'mohanam'], bpm:[110, 124], keys:['F', 'G', 'C'], bright:true,
     parts:{melody:'r:marimba', counter:'r:glock', bass:'r:pizz', arp:'r:xylophone'}, rhythm:'latin', verb:0.2},
   cinematic:{name:'🎬 Cinematic / epic', scales:['minor', 'kharaharapriya'], bpm:[84, 96], keys:['D', 'C', 'E'],
     parts:{melody:'r:horn', counter:'r:trumpet', pad:'r:violins', bass:'r:cellos', arp:'r:pizz'}, rhythm:'epic', verb:0.45},
@@ -777,9 +777,9 @@ const MOODS = {
     parts:{melody:'r:grand', counter:'r:violin', pad:'r:cellos'}, verb:0.45},
   motivational:{name:'💼 Motivational / business', scales:['major'], bpm:[104, 118], keys:['C', 'D', 'G', 'F'], bright:true,
     parts:{melody:'r:grand', pad:'r:epiano', bass:'r:pizz', arp:'r:steel'}, rhythm:'pop', verb:0.28},
-  folk:{name:'🌾 Village folk', scales:['kharaharapriya', 'mohanam', 'major'], bpm:[100, 112], keys:['D', 'E'],
+  folk:{indian:true, name:'🌾 Village folk', scales:['kharaharapriya', 'mohanam', 'major'], bpm:[100, 112], keys:['D', 'E'],
     parts:{melody:'s:bansuri', arp:'s:santoor', bass:'s:guitar'}, rhythm:'dholak', verb:0.25},
-  romantic:{name:'❤️ Romantic', scales:['kalyani', 'major', 'shivaranjani'], bpm:[76, 86], keys:['C', 'D'],
+  romantic:{indian:true, name:'❤️ Romantic', scales:['kalyani', 'major', 'shivaranjani'], bpm:[76, 86], keys:['C', 'D'],
     parts:{melody:'s:sitar', counter:'r:flute', pad:'r:violins', arp:'s:guitar'}, rhythm:'keherwa', verb:0.4},
   aarti:{name:'🪔 Temple aarti', scales:['mohanam', 'major', 'abheri'], bpm:[84, 96], keys:['C#', 'D', 'C'], indian:true,
     parts:{melody:'s:harmonium', counter:'s:bansuri', drone:'s:tanpura'}, rhythm:'aarti', verb:0.35},
@@ -799,7 +799,7 @@ const MOODS = {
     parts:{melody:'r:nylon', counter:'r:violin', bass:'r:cellos', arp:'r:steel'}, rhythm:'latin', verb:0.3},
   solo:{name:'🎵 Solo instrument', scales:['mohanam', 'kalyani', 'hindolam', 'shivaranjani', 'hamsadhwani', 'abheri', 'mayamalavagowla', 'kharaharapriya', 'madhyamavati', 'charukesi'], bpm:[62, 78], keys:['C#', 'D', 'C', 'E'], indian:true,
     parts:{melody:'s:bansuri'}, verb:0.45},
-  cowboy:{name:'🤠 Cowboy / country', scales:['major', 'mohanam', 'harikambhoji'], bpm:[100, 118], keys:['G', 'D', 'A'],
+  cowboy:{name:'🤠 Cowboy / country', scales:['major', 'mohanam', 'harikambhoji'], bpm:[100, 118], keys:['G', 'D', 'A'], bright:true,
     parts:{melody:'r:violin', arp:'r:steel', bass:'r:basses', counter:'r:harmonica'}, arpKind:'strum', rhythm:'country', verb:0.22},
   western:{name:'🌵 Wild West (whistle & guitar)', scales:['minor', 'keeravani', 'vakulabharanam'], bpm:[72, 86], keys:['A', 'D', 'E'],
     parts:{melody:'r:flute', counter:'r:trumpet', arp:'r:nylon', bass:'r:cellos'}, rhythm:'gallop', verb:0.5},
@@ -807,9 +807,9 @@ const MOODS = {
     parts:{melody:'s:bansuri', drone:'s:tanpura'}, rhythm:'tabla_soft', verb:0.5},
   bowls:{name:'🔔 Singing bowls meditation', scales:['mohanam', 'major', 'durga', 'madhyamavati'], bpm:[54, 62], keys:['C#', 'D', 'C', 'F'], indian:false,
     parts:{bowls:'s:bowl_tibetan', hum:'s:bowl_rubbed', sparkle:'s:chimes'}, rhythm:'bells', verb:0.55},
-  africa:{name:'🌍 African / world', scales:['mohanam', 'major', 'durga'], bpm:[96, 112], keys:['G', 'A', 'F'],
+  africa:{name:'🌍 African / world', scales:['mohanam', 'major', 'durga'], bpm:[96, 112], keys:['G', 'A', 'F'], bright:true,
     parts:{melody:'r:kalimba_ke', counter:'r:ocarina', arp:'r:mbira', bass:'r:balafon'}, rhythm:'slit', rhythm2:'frame', verb:0.3},
-  church:{name:'⛪ Church / hymn', scales:['major'], bpm:[66, 76], keys:['C', 'F', 'G', 'D'],
+  church:{name:'⛪ Church / hymn', scales:['major'], bpm:[66, 76], keys:['C', 'F', 'G', 'D'], bright:true,
     parts:{melody:'r:pipeorgan', pad:'r:choir', bass:'r:basses', sparkle:'r:tubebells'}, verb:0.6},
   jazz:{name:'🌃 Night jazz / lounge', scales:['kharaharapriya', 'blues', 'minor'], bpm:[84, 98], keys:['F', 'C', 'D'],
     parts:{melody:'r:tsax', pad:'r:grand', bass:'r:basses'}, rhythm:'pop', verb:0.3},
@@ -928,8 +928,8 @@ function compose(o){
       if(sw.notes.length) song.tracks.push(sw); }
     const fx = {id:tid(), type:'inst', inst:'s:swell', name:'Swells', notes:[], vol:0.4, pan:0, verb:0.4};
     for(const c of choruses) if(c.b0 >= 2) fx.notes.push({t:c.b0 * bpb - 2, d:2, m:60, v:0.8});
-    if(fx.notes.length && !M.bright) song.tracks.push(fx);   // bright moods skip the trailer-style swell
-    if(rhy1 && ['cinematic', 'festival', 'orchestra', 'happy', 'cowboy', 'western', 'devotional', 'aarti', 'wedding', 'folk'].includes(o.mood)){
+    if(fx.notes.length && !M.bright && !M.indian) song.tracks.push(fx);   // film-style swell only for film-style moods
+    if(rhy1 && ['cinematic', 'festival', 'orchestra', 'wedding'].includes(o.mood)){   // big hits only where they belong
       const bm = {id:tid(), type:'inst', inst:'s:boom', name:'Impact', notes:choruses.map(c => ({t:c.b0 * bpb, d:2, m:36, v:0.7})), vol:0.45, pan:0, verb:0.3}; if(bm.notes.length) song.tracks.push(bm); }
     // crescendo: the two bars before each chorus get louder
     for(const t of song.tracks) if(t.type === 'inst' && t.notes) for(const c of choruses){ const a = (c.b0 - 2) * bpb, b = c.b0 * bpb; t.notes.forEach(n => { if(n.t >= a && n.t < b) n.v = Math.min(1, n.v * (0.82 + 0.25 * (n.t - a) / (b - a))); }); }
