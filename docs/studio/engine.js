@@ -435,19 +435,7 @@ class Player {
     this.timer = setInterval(() => this.tick(), 50);
   }
   // ---- smooth play in pieces: mix 10 seconds, start playing, mix the next piece while this one plays ----
-  async renderChunk(song, k){
-    // load recordings, but make synth notes only for this piece (they are made when fired), so the first piece is ready fast
-    await load(); for(const tr of song.tracks) if(tr.type === 'amb') await ambLoad(tr.amb, songSeconds(song)); else if(tr.type === 'audio') await clipLoad(tr.blob);
-    await Promise.all(needs(song).keys.map(fetchBuf));
-    const C = 10, a = k * C, b = Math.min(songSeconds(song), a + C), mine = []; let maxEnd = b;
-    for(const e of events(song)){
-      if(e.type === 'amb' || e.type === 'clip'){ if(e.s < b && e.s + e.dur > a){ const off = Math.max(0, a - e.s), cut = e.s + e.dur > b; mine.push([{...e, dur:cut ? b - e.s - 0.5 : e.dur}, Math.max(0, e.s - a), off]); } continue; }
-      if(e.s < a || e.s >= b) continue; mine.push([e, e.s - a, 0]); maxEnd = Math.max(maxEnd, e.s + (e.dur || 1.5) + 2.5);
-    }
-    const len = Math.min(C + 45, maxEnd - a + 3), ctx = new OfflineAudioContext(2, Math.ceil(len * SR), SR), G = graph(ctx, song);
-    for(const [e, when, off] of mine) fire(G, song, e, when, off);
-    return ctx.startRendering();
-  }
+  renderChunk(song, k){ return renderChunk(song, k); }
   async startChunks(song, fromSec, carry){
     const gen = ++this.gen, ctx = this.ctx, C = 10, key = JSON.stringify(song), exact = song.seconds && Math.abs(songSeconds(song) - song.seconds) < 0.5, end = exact ? song.seconds : songSeconds(song);
     if(this.chunkKey !== key){ this.chunks = {}; this.chunkKey = key; }
@@ -508,6 +496,35 @@ class Player {
 }
 
 // ---------------------------------------------------------------- offline render and encoders
+async function renderChunk(song, k){
+  // load recordings, but make synth notes only for this piece (they are made when fired), so the first piece is ready fast
+  await load(); for(const tr of song.tracks) if(tr.type === 'amb') await ambLoad(tr.amb, songSeconds(song)); else if(tr.type === 'audio') await clipLoad(tr.blob);
+  await Promise.all(needs(song).keys.map(fetchBuf));
+  const C = 10, a = k * C, b = Math.min(songSeconds(song), a + C), mine = []; let maxEnd = b;
+  for(const e of events(song)){
+    if(e.type === 'amb' || e.type === 'clip'){ if(e.s < b && e.s + e.dur > a){ const off = Math.max(0, a - e.s), cut = e.s + e.dur > b; mine.push([{...e, dur:cut ? b - e.s - 0.5 : e.dur}, Math.max(0, e.s - a), off]); } continue; }
+    if(e.s < a || e.s >= b) continue; mine.push([e, e.s - a, 0]); maxEnd = Math.max(maxEnd, e.s + (e.dur || 1.5) + 2.5);
+  }
+  const len = Math.min(C + 45, maxEnd - a + 3), ctx = new OfflineAudioContext(2, Math.ceil(len * SR), SR), G = graph(ctx, song);
+  for(const [e, when, off] of mine) fire(G, song, e, when, off);
+  return ctx.startRendering();
+}
+// long songs: mix in 10-second pieces and join them (uses far less memory than one big mix, so it works on phones)
+async function renderPieces(song, onProgress, cache){
+  const C = 10, exact = song.seconds && Math.abs(songSeconds(song) - song.seconds) < 0.5, end = songSeconds(song), K = Math.ceil(end / C);
+  const n = exact ? Math.round(song.seconds * SR) : Math.ceil((end + 2.5) * SR), L = new Float32Array(n), Rr = new Float32Array(n);
+  for(let k = 0; k < K; k++){
+    const b = await (cache && cache[k] ? cache[k] : renderChunk(song, k)), o = Math.round(k * C * SR), l = b.getChannelData(0), r = b.getChannelData(1), m = Math.min(b.length, n - o);
+    for(let i = 0; i < m; i++){ L[o + i] += l[i]; Rr[o + i] += r[i]; }
+    onProgress && onProgress((k + 1) / K * 0.97); await new Promise(res => setTimeout(res, 0));
+  }
+  let pk = 0, last = n - 1; for(let i = 0; i < n; i++){ const a = Math.max(Math.abs(L[i]), Math.abs(Rr[i])); if(a > pk) pk = a; }
+  if(!exact){ const thr = pk * 0.001; while(last > end * SR && Math.abs(L[last]) < thr && Math.abs(Rr[last]) < thr) last--; }
+  const len = exact ? n : Math.min(n, last + Math.floor(0.2 * SR)), g = 0.89 / (pk || 1), fo = Math.floor((exact ? Math.min(1.8, song.seconds / 10) : 0.15) * SR);
+  const res = new AudioBuffer({length:len, numberOfChannels:2, sampleRate:SR});
+  for(const [src, c] of [[L, 0], [Rr, 1]]){ const d = src.subarray(0, len); for(let i = 0; i < len; i++) d[i] *= g * (i > len - fo ? (len - i) / fo : 1); res.copyToChannel(d, c); }
+  onProgress && onProgress(1); return res;
+}
 async function render(song, onProgress){
   await prepare(song, p => onProgress && onProgress(p * 0.5));
   const len = songSeconds(song) + 2.5, ctx = new OfflineAudioContext(2, Math.ceil(len * SR), SR), G = graph(ctx, song);
@@ -958,5 +975,5 @@ function editBars(song, a, b, mode, times = 1){
   song.bars = Math.max(1, song.bars + shift / bpb); delete song.sections; delete song.seconds;
 }
 window.VG_STUDIO = {editBars, setClipLoader, clipLoad, clipBufs, ambLoad, MOODS, compose, sections,SR, KEYS, SCALES, SWARA, NAMES, noteName, INSTRUMENTS, KITS, RHYTHMS, velOf, load, fetchBuf, prepare, events, graph, mixAll, mixTrack, level, preview, previewHit,
-  Player, render, wavBlob, m4aBlob, auto, scaleMidis, beatsPerBar, totalBeats, spb, songSeconds, rootOf, hz};
+  Player, render, renderPieces, wavBlob, m4aBlob, auto, scaleMidis, beatsPerBar, totalBeats, spb, songSeconds, rootOf, hz};
 })();

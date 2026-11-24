@@ -598,7 +598,11 @@ async function menu(m){
     closeSheet(); player.stop(); syncPlay();
     try{
       // reuse the Smooth-play mix when nothing has changed, so saving is instant
-      const buf = player.buf && player.bufSong === song && player.bufKey === JSON.stringify(song) ? player.buf : await busy('Mixing your music… (long songs take a minute on phones)', p => S.render(song, p));
+      // reuse a finished mix; long songs are mixed in 10-second pieces (reusing pieces Smooth play already made)
+      const key = JSON.stringify(song), long = S.songSeconds(song) > 45;
+      const buf = player.buf && player.bufSong === song && player.bufKey === key ? player.buf
+        : long ? await busy('Mixing your music in pieces…', p => S.renderPieces(song, p, player.chunkKey === key ? player.chunks : null))
+        : await busy('Mixing your music…', p => S.render(song, p));
       if(m === 'wav') readySheet(S.wavBlob(buf), fileName('wav'));
       else if(m === 'm4a') readySheet(await busy('Making M4A…', () => S.m4aBlob(buf)), fileName('m4a'));
       else { const id = 'studio_' + Date.now(); await idbPut(id, S.wavBlob(buf));
