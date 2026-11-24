@@ -478,7 +478,9 @@ async function render(song, onProgress){
   await prepare(song, p => onProgress && onProgress(p * 0.5));
   const len = songSeconds(song) + 2.5, ctx = new OfflineAudioContext(2, Math.ceil(len * SR), SR), G = graph(ctx, song);
   for(const e of events(song)) fire(G, song, e, e.s + 0.02);
-  onProgress && onProgress(0.6);
+  onProgress && onProgress(0.55);
+  // report progress while mixing (pause the mix briefly every 5% of the song)
+  if(onProgress && ctx.suspend) for(let k = 1; k < 20; k++){ const at = Math.floor(len * k / 20 * SR / 128) * 128 / SR; ctx.suspend(at).then(() => { onProgress(0.55 + 0.43 * k / 20); ctx.resume(); }).catch(() => {}); }
   const out = await ctx.startRendering();
   let pk = 0; for(let c = 0; c < 2; c++){ const d = out.getChannelData(c); for(let i = 0; i < d.length; i++){ const a = Math.abs(d[i]); if(a > pk) pk = a; } }
   // trim silent tail, gentle normalise

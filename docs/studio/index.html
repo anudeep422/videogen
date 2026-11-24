@@ -543,6 +543,17 @@ async function busy(msg, fn){ $('busyMsg').textContent = msg; $('busyBar').style
 // ------------------------------------------------------------ menu: songs, export, animator
 const fileName = ext => (song.name || 'song').replace(/[^\wఀ-౿ -]+/g, '').trim().replace(/\s+/g, '_') + '.' + ext;
 function download(blob, name){ const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); }
+// after mixing: buttons to save or share (a tap is needed — phones block automatic downloads after a long wait)
+function readySheet(blob, name){
+  const file = new File([blob], name, {type:blob.type || 'audio/wav'}), canShare = navigator.canShare && navigator.canShare({files:[file]});
+  sheet('✅ Your music is ready', `<p class="hint" style="margin-top:0">${esc(name)} · ${(blob.size / 1e6).toFixed(1)} MB${/\.wav$/.test(name) && blob.size > 15e6 ? ' — tip: M4A is about 10× smaller' : ''}</p>
+    <div style="display:flex;flex-direction:column;gap:8px"><button id="rdDl" style="padding:12px;font-weight:700">⬇ Download to phone</button>
+    ${canShare ? '<button id="rdSh" style="padding:12px">📤 Share / save to Files, Drive, WhatsApp</button>' : ''}</div>
+    <p class="hint">If Download does nothing in the installed app, use Share, or open the Studio in Chrome.</p>`, () => {
+    $('rdDl').onclick = () => { download(blob, name); toast('Saved — look in your Downloads folder'); };
+    if($('rdSh')) $('rdSh').onclick = async () => { try{ await navigator.share({files:[file], title:name}); }catch(e){ if(e.name !== 'AbortError') toast('Could not share: ' + e.message, true); } };
+  });
+}
 function mySongs(){ try{ return JSON.parse(localStorage.getItem('vg_studio_songs') || '[]'); }catch(e){ return []; } }
 function setMySongs(l){ try{ localStorage.setItem('vg_studio_songs', JSON.stringify(l)); }catch(e){ toast('Phone storage is full', true); } }
 $('menuBtn').onclick = () => {
@@ -581,9 +592,10 @@ async function menu(m){
   if(m === 'wav' || m === 'm4a' || m === 'anim'){
     closeSheet(); player.stop(); syncPlay();
     try{
-      const buf = await busy('Making your music…', p => S.render(song, p));
-      if(m === 'wav'){ download(S.wavBlob(buf), fileName('wav')); toast('WAV saved'); }
-      else if(m === 'm4a'){ download(await S.m4aBlob(buf), fileName('m4a')); toast('M4A saved'); }
+      // reuse the Smooth-play mix when nothing has changed, so saving is instant
+      const buf = player.buf && player.bufSong === song && player.bufKey === JSON.stringify(song) ? player.buf : await busy('Mixing your music… (long songs take a minute on phones)', p => S.render(song, p));
+      if(m === 'wav') readySheet(S.wavBlob(buf), fileName('wav'));
+      else if(m === 'm4a') readySheet(await busy('Making M4A…', () => S.m4aBlob(buf)), fileName('m4a'));
       else { const id = 'studio_' + Date.now(); await idbPut(id, S.wavBlob(buf));
         localStorage.setItem('videogen_pending_studio', JSON.stringify({id, name:song.name, len:Math.round(buf.duration * 100) / 100})); location.href = '../animate/'; }
     }catch(e){ console.error(e); toast(e.message || 'Could not make the music', true); }
