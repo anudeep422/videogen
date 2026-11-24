@@ -580,6 +580,7 @@ function progFamily(song){ const s = (SCALES[song.scale] || SCALES.major).s; if(
 function pickProgs(song, R, indian){
   const fam = progFamily(song); if(!fam) return null; let list = PROGS[indian && fam !== 'penta' ? 'modal' : fam];
   if(indian && fam === 'major') list = list.concat(PROGS.major.slice(0, 6));
+  if(song._bright && fam === 'major') list = list.filter(P => P[0] === 0 && P.filter(d => d === 5 || d === 2).length <= 1);
   const A = R.pick(list); let B = R.pick(list), C = R.pick(list), k = 0; while(B === A && k++ < 9) B = R.pick(list); k = 0; while((C === A || C === B) && k++ < 9) C = R.pick(list);
   return {A, B, C};
 }
@@ -774,8 +775,8 @@ const MOODS = {
     parts:{melody:'r:horn', counter:'r:trumpet', pad:'r:violins', bass:'r:cellos', arp:'r:pizz'}, rhythm:'epic', verb:0.45},
   sad:{name:'😢 Sad / emotional', scales:['minor', 'bhairavi'], bpm:[64, 72], keys:['A', 'D', 'E'],
     parts:{melody:'r:grand', counter:'r:violin', pad:'r:cellos'}, verb:0.45},
-  motivational:{name:'💼 Motivational / business', scales:['major'], bpm:[100, 110], keys:['C', 'D', 'G'],
-    parts:{melody:'r:piano', pad:'r:violins', bass:'r:cellos', arp:'s:guitar'}, rhythm:'pop', verb:0.3},
+  motivational:{name:'💼 Motivational / business', scales:['major'], bpm:[104, 118], keys:['C', 'D', 'G', 'F'], bright:true,
+    parts:{melody:'r:grand', pad:'r:epiano', bass:'r:pizz', arp:'r:steel'}, rhythm:'pop', verb:0.28},
   folk:{name:'🌾 Village folk', scales:['kharaharapriya', 'mohanam', 'major'], bpm:[100, 112], keys:['D', 'E'],
     parts:{melody:'s:bansuri', arp:'s:santoor', bass:'s:guitar'}, rhythm:'dholak', verb:0.25},
   romantic:{name:'❤️ Romantic', scales:['kalyani', 'major', 'shivaranjani'], bpm:[76, 86], keys:['C', 'D'],
@@ -850,9 +851,9 @@ function compose(o){
   if(best) bars = best.n; const bpm = Math.round(bars * meter * 60 / secs * 100) / 100;
   const song = {v:1, name:`${M.name.replace(/^\S+\s/, '')} · ${SCALES[scale].name.split(' ')[0]} · ${Math.round(secs)}s · tune ${o.seed || 1}`, bpm, key, scale, bars, meter, tracks:[], mood:o.mood, seed:o.seed || 1, seconds:secs};
   // each tune gets its own chord progressions and accompaniment patterns
-  song.progs = pickProgs(song, R, M.indian); const slow = bpm0 < 76;
-  song.acc = {chords:R.pick(slow ? ['block', 'broken', 'broken', 'alberti'] : ['block', 'pulse', 'broken', 'alberti', 'offbeat']),
-    bass:['jazz', 'blues'].includes(o.mood) ? 'walk' : R.pick(slow ? ['long', 'root5', 'walk'] : ['root5', 'octave', 'walk', 'sync', 'root5']), arp:R() * 8 | 0};
+  song._bright = !!M.bright; song.progs = pickProgs(song, R, M.indian); delete song._bright; const slow = bpm0 < 76;
+  song.acc = {chords:R.pick(slow ? ['block', 'broken', 'broken', 'alberti'] : M.bright ? ['block', 'broken', 'offbeat', 'broken'] : ['block', 'pulse', 'broken', 'alberti', 'offbeat']),
+    bass:['jazz', 'blues'].includes(o.mood) ? 'walk' : R.pick(slow ? ['long', 'root5', 'walk'] : M.bright ? ['octave', 'root5', 'sync'] : ['root5', 'octave', 'walk', 'sync', 'root5']), arp:R() * 8 | 0};
   const secs_ = sections(bars, shape), seedA = R() * 1e6 | 0, seedB = R() * 1e6 | 0, seedC = R() * 1e6 | 0;
   const has = (sec, role) => ({intro:['pad', 'arp', 'drone', 'bowls', 'hum'], A:['melody', 'pad', 'bass', 'drone', 'bowls', 'hum', 'sparkle'], B:['melody', 'counter', 'pad', 'bass', 'arp', 'drone', 'bowls', 'hum', 'sparkle'],
     C:['counter', 'pad', 'arp', 'drone', 'bass', 'bowls', 'hum', 'sparkle'], outro:['melody', 'pad', 'drone', 'arp', 'bowls', 'hum']}[sec.type].includes(role));
@@ -927,8 +928,8 @@ function compose(o){
       if(sw.notes.length) song.tracks.push(sw); }
     const fx = {id:tid(), type:'inst', inst:'s:swell', name:'Swells', notes:[], vol:0.4, pan:0, verb:0.4};
     for(const c of choruses) if(c.b0 >= 2) fx.notes.push({t:c.b0 * bpb - 2, d:2, m:60, v:0.8});
-    if(fx.notes.length) song.tracks.push(fx);
-    if(rhy1 && ['cinematic', 'festival', 'motivational', 'orchestra', 'happy', 'cowboy', 'western', 'devotional', 'aarti', 'wedding', 'folk'].includes(o.mood)){
+    if(fx.notes.length && !M.bright) song.tracks.push(fx);   // bright moods skip the trailer-style swell
+    if(rhy1 && ['cinematic', 'festival', 'orchestra', 'happy', 'cowboy', 'western', 'devotional', 'aarti', 'wedding', 'folk'].includes(o.mood)){
       const bm = {id:tid(), type:'inst', inst:'s:boom', name:'Impact', notes:choruses.map(c => ({t:c.b0 * bpb, d:2, m:36, v:0.7})), vol:0.45, pan:0, verb:0.3}; if(bm.notes.length) song.tracks.push(bm); }
     // crescendo: the two bars before each chorus get louder
     for(const t of song.tracks) if(t.type === 'inst' && t.notes) for(const c of choruses){ const a = (c.b0 - 2) * bpb, b = c.b0 * bpb; t.notes.forEach(n => { if(n.t >= a && n.t < b) n.v = Math.min(1, n.v * (0.82 + 0.25 * (n.t - a) / (b - a))); }); }
