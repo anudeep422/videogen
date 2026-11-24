@@ -94,7 +94,7 @@ let manifest = null;
 // ---------------------------------------------------------------- drum kits (rows) and rhythms
 const KITS = {
   kit:{label:'Drum kit (real)', rows:[['r:kick', 'Kick'], ['r:snare', 'Snare'], ['r:snare_soft', 'Snare soft'], ['r:rim', 'Rim'], ['r:tom_hi', 'Tom'], ['r:conga_open', 'Conga'], ['r:bongo', 'Bongo'],
-    ['r:cowbell', 'Cowbell'], ['r:claves', 'Claves'], ['s:shaker', 'Shaker']]},
+    ['r:cowbell', 'Cowbell'], ['r:claves', 'Claves'], ['s:shaker', 'Shaker'], ['s:bell:small', 'Sleigh bell']]},
   orch:{label:'Orchestra percussion (real)', rows:[['r:timpani', 'Timpani'], ['r:timpani_roll', 'Timp roll'], ['r:bdrum_concert', 'Bass drum'], ['r:big_drum', 'Big drum'],
     ['r:snare', 'Snare'], ['r:snare_soft', 'Snare soft'], ['s:bell:small', 'Bell'], ['s:chime', 'Chime']]},
   tabla:{label:'Tabla', rows:[['s:tabla:dha', 'Dha'], ['s:tabla:dhin', 'Dhin'], ['s:tabla:na', 'Na/Ta'], ['s:tabla:tin', 'Tin'], ['s:tabla:tun', 'Tun'],
@@ -134,6 +134,7 @@ const RHYTHMS = {
   country:{name:'Country train beat', kit:'kit', steps:16, stepBeats:0.25, pat:{'r:kick':'x-------x-------', 'r:rim':'----x-------x---', 'r:snare_soft':'-o-o-o-o-o-o-o-o', 's:shaker':'o-o-o-o-o-o-o-o-'}},
   gallop:{name:'Wild West gallop', kit:'kit', steps:16, stepBeats:0.25, pat:{'r:kick':'x---x---x---x---', 'r:tom_hi':'--xx--xx--xx--xx', 'r:cowbell':'x-------x-------', 'r:claves':'----o-------o---'}},
   rock:{name:'Rock beat', kit:'kit', steps:16, stepBeats:0.25, pat:{'r:kick':'x-----x-x-------', 'r:snare':'----x-------x---', 's:shaker':'o-o-o-o-o-o-o-o-'}},
+  jingle:{name:'Jingle (sleigh bells & claps)', kit:'kit', steps:16, stepBeats:0.25, pat:{'r:kick':'x-------x-------', 'r:snare_soft':'----x-------x---', 's:shaker':'xoxoxoxoxoxoxoxo', 's:bell:small':'o---o---o---o---'}},
   pop:{name:'Pop / ballad', kit:'kit', steps:16, stepBeats:0.25, pat:{'r:kick':'x-------x-x-----', 'r:rim':'----x-------x---', 's:shaker':'-o-o-o-o-o-o-o-o'}},
   latin:{name:'Latin (conga, claves)', kit:'kit', steps:16, stepBeats:0.25, pat:{'r:kick':'x-------x-------', 'r:claves':'x--x--x---x-x---', 'r:conga_open':'------x-------x-', 'r:bongo':'--o---o---o---o-', 's:shaker':'oooooooooooooooo'}},
   waltz:{name:'Waltz (3/4)', kit:'kit', steps:12, stepBeats:0.25, pat:{'r:kick':'x-----------', 'r:rim':'----x---x---', 's:shaker':'o-o-o-o-o-o-'}},
@@ -578,8 +579,8 @@ function progFamily(song){ const s = (SCALES[song.scale] || SCALES.major).s; if(
   if(s.includes(4) && s.includes(11) && s.includes(7)) return 'major'; if(s.includes(3) && s.includes(8) && s.includes(7)) return 'minor'; return 'modal'; }
 // choose verse / chorus / bridge progressions for a song (different ones where possible)
 function pickProgs(song, R, indian){
-  const fam = progFamily(song); if(!fam) return null; let list = PROGS[indian && fam !== 'penta' ? 'modal' : fam];
-  if(indian && fam === 'major') list = list.concat(PROGS.major.slice(0, 6));
+  const fam = progFamily(song); if(!fam) return null; let list = PROGS[fam];
+  if(indian) list = [[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 3, 0], [0, 0, 4, 0], [0, 4, 0, 0], [0, 0, 0, 4]];   // Indian music rests on Sa: chords change rarely
   if(song._bright && fam === 'major') list = list.filter(P => P[0] === 0 && P.filter(d => d === 5 || d === 2).length <= 1);
   const A = R.pick(list); let B = R.pick(list), C = R.pick(list), k = 0; while(B === A && k++ < 9) B = R.pick(list); k = 0; while((C === A || C === B) && k++ < 9) C = R.pick(list);
   return {A, B, C};
@@ -594,6 +595,56 @@ function chordAt(song, bar, center, sec){
   while(ch[0] < center - 6) ch = ch.map(m => m + 12); while(ch[0] > center + 6) ch = ch.map(m => m - 12);
   return ch;
 }
+// ---------------------------------------------------------------- hand-written melody phrases (a composer's notebook)
+// Each phrase is 4 bars of 4 beats. "step:beats" — step = scale steps up/down from the previous note
+// (the first number of the phrase is counted from Sa), beats = how long the note lasts. Original tunes, written for VideoGen.
+const PHRASEBOOK = {
+  kids:[      // bouncy, repeating notes, very catchy (jingle-bells style)
+    '4:1 0:1 -2:2 | 1:1 0:1 -2:2 | 1:.5 0:.5 0:.5 0:.5 1:1 1:1 | -2:4',
+    '0:.5 0:.5 2:1 0:.5 0:.5 2:1 | 1:1 -1:1 -1:2 | 0:.5 0:.5 2:1 0:.5 0:.5 2:1 | 1:1 -3:1 -2:2',
+    '4:1 -1:1 -1:1 -2:1 | 0:1 2:1 2:2 | 1:1 -1:1 -1:1 -2:1 | -1:1 1:1 -2:2',
+    '0:1 0:.5 0:.5 1:1 1:1 | 1:2 -2:2 | 0:1 0:.5 0:.5 -1:1 -1:1 | -1:4',
+    '2:.5 0:.5 0:1 2:.5 0:.5 0:1 | 1:1 -1:1 -2:2 | 2:.5 0:.5 0:1 2:.5 0:.5 0:1 | -1:1 -1:1 -1:2',
+    '4:1 0:1 0:1 0:1 | 1:1 -1:1 -2:2 | 3:1 0:1 0:1 0:1 | -1:1 -1:1 -2:2',
+    '0:.5 1:.5 1:.5 1:.5 0:1 -2:1 | 0:.5 1:.5 1:.5 1:.5 0:2 | 3:.5 -1:.5 -1:.5 -1:.5 0:1 1:1 | -4:4',
+  ],
+  bright:[    // confident, rising, positive (motivational, business, happy)
+    '0:1.5 1:.5 1:1 1:1 | 1:3 -1:1 | -1:1.5 1:.5 1:1 2:1 | -1:4',
+    '2:1 1:.5 1:1.5 -1:1 | -2:2 1:2 | 0:1 1:.5 1:1.5 1:1 | 1:4',
+    '0:.5 1:.5 1:1 0:1 1:1 | 1:2 -2:1 1:1 | 0:.5 1:.5 1:1 0:1 2:1 | -1:4',
+    '4:1 -1:1 -1:1 -1:1 | 1:3 1:1 | 1:1 -1:1 -1:1 -1:1 | -1:4',
+    '0:1 2:1 1:1 1:1 | -1:2 -1:2 | 0:1 2:1 1:1 2:1 | -1:4',
+    '2:1.5 0:.5 1:1 1:1 | 0:1.5 -1:.5 -1:2 | 0:1.5 0:.5 1:1 2:1 | -1:2 -1:2',
+  ],
+  calm:[      // long, connected, step by step (calm, church, zen)
+    '2:2 1:1 -1:1 | -1:4 | 1:2 1:1 1:1 | -2:4',
+    '0:3 1:1 | 1:2 -1:2 | 2:3 -1:1 | -1:4',
+    '4:2 -1:2 | -1:3 -1:1 | 1:2 1:2 | -2:4',
+    '0:1.5 1:.5 1:2 | -1:4 | 1:1.5 1:.5 1:2 | -2:4',
+    '2:2 2:2 | -1:2 -1:2 | -1:2 1:1 1:1 | -2:4',
+  ],
+  sad:[       // slow, falling phrases, long notes
+    '4:2 -1:1 -1:1 | -1:3 -1:1 | 2:2 -1:1 -1:1 | -1:4',
+    '0:1 1:1 1:2 | -1:1 -1:1 -1:2 | 0:1 -1:1 -1:2 | -1:4',
+    '2:3 -1:1 | -1:2 1:2 | -1:3 -1:1 | -1:4',
+    '5:2 -1:1 -1:1 | -1:2 -1:2 | 1:2 -1:1 -1:1 | -1:4',
+  ],
+  romantic:[  // flowing, sweeping, a few warm leaps
+    '0:1 2:1 2:2 | 1:1.5 -1:.5 -1:2 | -2:1 2:1 2:2 | 1:4',
+    '4:3 -1:1 | -1:2 -1:1 -1:1 | 3:3 -1:1 | -1:4',
+    '0:.5 1:.5 1:3 | -1:1 -1:1 -1:2 | 0:.5 1:.5 1:3 | 1:4',
+    '2:1.5 1:.5 1:2 | -2:2 1:2 | -1:1.5 1:.5 1:2 | -2:4',
+    '4:2 1:1 -1:1 | -2:3 -1:1 | 3:2 1:1 -1:1 | -3:4',
+  ],
+  epic:[      // strong long notes, bold jumps (cinematic, orchestra)
+    '0:2 4:2 | 1:3 -1:1 | -2:2 2:2 | -3:4',
+    '0:1.5 0:.5 4:2 | -1:1 -1:1 -1:2 | 0:1.5 0:.5 3:2 | -1:4',
+    '4:3 1:1 | -1:2 -1:2 | -2:3 4:1 | -1:4',
+    '0:1 0:.5 0:.5 4:2 | 1:2 -2:2 | -1:1 0:.5 0:.5 3:2 | -2:4',
+  ],
+};
+const PHRASES4 = {}; for(const [k, list] of Object.entries(PHRASEBOOK)) PHRASES4[k] = list.map(str => str.split('|').map(bar => { const ns = bar.trim().split(/\s+/).map(x => x.split(':').map(Number)); return [ns.map(n => n[0]), ns.map(n => n[1])]; }));
+const LEGATO = {kids:0.62, bright:0.85, calm:1, sad:1, romantic:1, epic:0.95};
 const RHY4 = [[1, 1, 1, 1], [1.5, 0.5, 1, 1], [0.5, 0.5, 1, 2], [2, 1, 1], [1, 0.5, 0.5, 2], [1, 1, 2], [0.5, 0.5, 0.5, 0.5, 1, 1], [3, 1], [1.5, 1.5, 1]];
 const RHY3 = [[1, 1, 1], [2, 1], [1.5, 0.5, 1], [0.5, 0.5, 1, 1], [3]];
 function fit(arr, range){ const [lo, hi] = range; return arr.map(m => { while(m < lo) m += 12; while(m > hi) m -= 12; return m; }); }
@@ -606,6 +657,24 @@ function auto(song, tr, kind, seed = 1, bars, opts = {}){
     const home = pool.indexOf(pool.reduce((b, m) => (m - r) % 12 === 0 && Math.abs(m - mid) < Math.abs(b - mid) ? m : b, pool[0]));
     const RH = bpb === 3 ? RHY3 : opts.style === 'flow' ? [[2, 1, 1], [3, 1], [1.5, 1.5, 1], [2, 2], [1, 1, 2], [1.5, 0.5, 2]] : opts.style === 'lively' ? [[0.5, 0.5, 0.5, 0.5, 1, 1], [1, 0.5, 0.5, 1, 1], [0.5, 0.5, 1, 0.5, 0.5, 1], [0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 1], [0.5, 1, 0.5, 1, 1]] : RHY4;
     const STEP = opts.style === 'flow' ? [-1, -1, 1, 1, 2, -2, 0] : [-2, -1, -1, 0, 1, 1, 2, 3, -3];
+    const book = bpb === 4 && PHRASES4[opts.mstyle];
+    if(book){   // hand-written phrases: verse and chorus each get their own, the second time ends home
+      const scaleLen = (SCALES[song.scale] || SCALES.major).s.length, ph = book[(R() * book.length | 0)], leg = LEGATO[opts.mstyle] || 0.95, cl = i => Math.max(0, Math.min(pool.length - 1, i));
+      const tones = bar => new Set(CH(bar, 60).map(m => (m % 12 + 12) % 12));
+      const snap = (i, bar) => { const T = tones(bar); for(let d = 0; d <= 2; d++) for(const j of [i - d, i + d]) if(j >= 0 && j < pool.length && T.has(pool[j] % 12)) return j; return i; };
+      let idx = home;
+      for(let bar = 0; bar < nb; bar++){
+        const pos = bar % 4, [steps, rh] = ph[pos], last = rh.length - 1; let t = bar * bpb;
+        rh.forEach((d, i) => {
+          if(bar % 4 === 0 && i === 0){ const tg = home + steps[0], oct = scaleLen; const c = [tg, tg - oct, tg + oct].filter(j => j >= 0 && j < pool.length); idx = bar === 0 || !c.length ? cl(tg) : c.reduce((a, b) => Math.abs(b - idx) < Math.abs(a - idx) ? b : a); }
+          else idx = cl(idx + steps[i]);
+          if(i === 0 || d >= 2) idx = snap(idx, bar);
+          if(pos === 3 && i === last) idx = (bar % 8 === 7 || bar === nb - 1) ? home : snap(idx, bar);   // phrase ends: home at the end of 8 bars
+          out.push({t, d:d * leg, m:pool[idx], v:i === 0 ? 0.85 : d >= 2 ? 0.78 : 0.7}); t += d;
+        });
+      }
+      return out;
+    }
     const hookR = [R.pick(RH), R.pick(RH)], hookS = hookR.map(rh => rh.map(() => R.pick(STEP)));
     const start = home + R.pick([0, 2, 4, -1, 1]), seq = R.pick([1, 2, -1, 2, -2]);
     const tones = bar => new Set(CH(bar, 60).map(m => (m % 12 + 12) % 12));
@@ -767,19 +836,19 @@ const MOODS = {
     parts:{melody:'s:veena', counter:'r:violin', drone:'s:tanpura'}, rhythm:'adi', verb:0.3},
   hindustani:{indian:true, name:'🎶 Hindustani sitar', scales:['kalyani', 'bhairavi', 'hindolam', 'kharaharapriya'], bpm:[72, 84], keys:['C#', 'D'],
     parts:{melody:'s:sitar', counter:'s:bansuri', drone:'s:tanpura'}, rhythm:'teentaal', verb:0.35},
-  calm:{name:'🌿 Calm / meditation', scales:['mohanam', 'madhyamavati', 'major'], bpm:[60, 70], keys:['D', 'F', 'C'], bright:true,
+  calm:{mstyle:'calm', name:'🌿 Calm / meditation', scales:['mohanam', 'madhyamavati', 'major'], bpm:[60, 70], keys:['D', 'F', 'C'], bright:true,
     parts:{melody:'r:flute', pad:'r:violins', arp:'r:harp', drone:'s:tanpura'}, verb:0.55},
-  happy:{name:'😊 Happy / kids', scales:['major', 'mohanam'], bpm:[110, 124], keys:['F', 'G', 'C'], bright:true,
+  happy:{mstyle:'bright', name:'😊 Happy / cheerful', scales:['major', 'mohanam'], bpm:[110, 124], keys:['F', 'G', 'C'], bright:true,
     parts:{melody:'r:marimba', counter:'r:glock', bass:'r:pizz', arp:'r:xylophone'}, rhythm:'latin', verb:0.2},
-  cinematic:{name:'🎬 Cinematic / epic', scales:['minor', 'kharaharapriya'], bpm:[84, 96], keys:['D', 'C', 'E'],
+  cinematic:{mstyle:'epic', name:'🎬 Cinematic / epic', scales:['minor', 'kharaharapriya'], bpm:[84, 96], keys:['D', 'C', 'E'],
     parts:{melody:'r:horn', counter:'r:trumpet', pad:'r:violins', bass:'r:cellos', arp:'r:pizz'}, rhythm:'epic', verb:0.45},
-  sad:{name:'😢 Sad / emotional', scales:['minor', 'bhairavi'], bpm:[64, 72], keys:['A', 'D', 'E'],
+  sad:{mstyle:'sad', name:'😢 Sad / emotional', scales:['minor', 'bhairavi'], bpm:[64, 72], keys:['A', 'D', 'E'],
     parts:{melody:'r:grand', counter:'r:violin', pad:'r:cellos'}, verb:0.45},
-  motivational:{name:'💼 Motivational / business', scales:['major'], bpm:[104, 118], keys:['C', 'D', 'G', 'F'], bright:true,
+  motivational:{mstyle:'bright', name:'💼 Motivational / business', scales:['major'], bpm:[104, 118], keys:['C', 'D', 'G', 'F'], bright:true,
     parts:{melody:'r:grand', pad:'r:epiano', bass:'r:pizz', arp:'r:steel'}, rhythm:'pop', verb:0.28},
   folk:{indian:true, name:'🌾 Village folk', scales:['kharaharapriya', 'mohanam', 'major'], bpm:[100, 112], keys:['D', 'E'],
     parts:{melody:'s:bansuri', arp:'s:santoor', bass:'s:guitar'}, rhythm:'dholak', verb:0.25},
-  romantic:{indian:true, name:'❤️ Romantic', scales:['kalyani', 'major', 'shivaranjani'], bpm:[76, 86], keys:['C', 'D'],
+  romantic:{mstyle:'romantic', melodyKind:'melody', indian:true, name:'❤️ Romantic', scales:['kalyani', 'major', 'shivaranjani'], bpm:[76, 86], keys:['C', 'D'],
     parts:{melody:'s:sitar', counter:'r:flute', pad:'r:violins', arp:'s:guitar'}, rhythm:'keherwa', verb:0.4},
   aarti:{name:'🪔 Temple aarti', scales:['mohanam', 'major', 'abheri'], bpm:[84, 96], keys:['C#', 'D', 'C'], indian:true,
     parts:{melody:'s:harmonium', counter:'s:bansuri', drone:'s:tanpura'}, rhythm:'aarti', verb:0.35},
@@ -789,32 +858,34 @@ const MOODS = {
     parts:{melody:'r:shehnai', counter:'r:oboe', drone:'s:tanpura'}, rhythm:'thavil', verb:0.3},
   festival:{name:'🎉 Festival', scales:['major', 'mohanam', 'kharaharapriya'], bpm:[112, 124], keys:['D', 'E', 'F'], indian:true,
     parts:{melody:'s:bansuri', arp:'s:santoor', bass:'s:guitar'}, rhythm:'dhol', rhythm2:'dholak', verb:0.25},
-  zen:{name:'🎋 Zen / Japanese calm', scales:['hirajoshi', 'iwato', 'durga'], bpm:[60, 70], keys:['D', 'E', 'A'],
+  zen:{mstyle:'calm', name:'🎋 Zen / Japanese calm', scales:['hirajoshi', 'iwato', 'durga'], bpm:[60, 70], keys:['D', 'E', 'A'],
     parts:{melody:'r:panflute', arp:'r:koto', pad:'r:warmpad'}, rhythm:'bowl', verb:0.55},
-  desert:{name:'🐪 Desert / Arabic', scales:['vakulabharanam', 'mayamalavagowla', 'persian'], bpm:[90, 104], keys:['D', 'E', 'C#'],
+  desert:{mstyle:'romantic', name:'🐪 Desert / Arabic', scales:['vakulabharanam', 'mayamalavagowla', 'persian'], bpm:[90, 104], keys:['D', 'E', 'C#'],
     parts:{melody:'r:oboe', counter:'r:violin', bass:'r:pizz', drone:'s:tanpura'}, rhythm:'darbuka', verb:0.35},
   blues:{name:'🎷 Blues', scales:['blues'], bpm:[76, 92], keys:['E', 'A', 'G'],
     parts:{melody:'r:tsax', counter:'r:harmonica', pad:'r:epiano', bass:'r:basses', arp:'r:steel'}, rhythm:'pop', verb:0.3},
-  spanish:{name:'💃 Spanish guitar', scales:['vakulabharanam', 'minor'], bpm:[96, 112], keys:['E', 'A'],
+  spanish:{mstyle:'romantic', name:'💃 Spanish guitar', scales:['vakulabharanam', 'minor'], bpm:[96, 112], keys:['E', 'A'],
     parts:{melody:'r:nylon', counter:'r:violin', bass:'r:cellos', arp:'r:steel'}, rhythm:'latin', verb:0.3},
   solo:{name:'🎵 Solo instrument', scales:['mohanam', 'kalyani', 'hindolam', 'shivaranjani', 'hamsadhwani', 'abheri', 'mayamalavagowla', 'kharaharapriya', 'madhyamavati', 'charukesi'], bpm:[62, 78], keys:['C#', 'D', 'C', 'E'], indian:true,
     parts:{melody:'s:bansuri'}, verb:0.45},
-  cowboy:{name:'🤠 Cowboy / country', scales:['major', 'mohanam', 'harikambhoji'], bpm:[100, 118], keys:['G', 'D', 'A'], bright:true,
+  cowboy:{mstyle:'bright', name:'🤠 Cowboy / country', scales:['major', 'mohanam', 'harikambhoji'], bpm:[100, 118], keys:['G', 'D', 'A'], bright:true,
     parts:{melody:'r:violin', arp:'r:steel', bass:'r:basses', counter:'r:harmonica'}, arpKind:'strum', rhythm:'country', verb:0.22},
-  western:{name:'🌵 Wild West (whistle & guitar)', scales:['minor', 'keeravani', 'vakulabharanam'], bpm:[72, 86], keys:['A', 'D', 'E'],
+  western:{mstyle:'romantic', name:'🌵 Wild West (whistle & guitar)', scales:['minor', 'keeravani', 'vakulabharanam'], bpm:[72, 86], keys:['A', 'D', 'E'],
     parts:{melody:'r:flute', counter:'r:trumpet', arp:'r:nylon', bass:'r:cellos'}, rhythm:'gallop', verb:0.5},
   meditation:{name:'🧘 Meditation (bansuri + tabla)', scales:['mohanam', 'kalyani', 'shivaranjani', 'hindolam', 'madhyamavati'], bpm:[60, 68], keys:['C#', 'D', 'C'], indian:true,
     parts:{melody:'s:bansuri', drone:'s:tanpura'}, rhythm:'tabla_soft', verb:0.5},
   bowls:{name:'🔔 Singing bowls meditation', scales:['mohanam', 'major', 'durga', 'madhyamavati'], bpm:[54, 62], keys:['C#', 'D', 'C', 'F'], indian:false,
     parts:{bowls:'s:bowl_tibetan', hum:'s:bowl_rubbed', sparkle:'s:chimes'}, rhythm:'bells', verb:0.55},
-  africa:{name:'🌍 African / world', scales:['mohanam', 'major', 'durga'], bpm:[96, 112], keys:['G', 'A', 'F'], bright:true,
+  africa:{mstyle:'bright', name:'🌍 African / world', scales:['mohanam', 'major', 'durga'], bpm:[96, 112], keys:['G', 'A', 'F'], bright:true,
     parts:{melody:'r:kalimba_ke', counter:'r:ocarina', arp:'r:mbira', bass:'r:balafon'}, rhythm:'slit', rhythm2:'frame', verb:0.3},
-  church:{name:'⛪ Church / hymn', scales:['major'], bpm:[66, 76], keys:['C', 'F', 'G', 'D'], bright:true,
+  kids:{mstyle:'kids', name:'🎄 Kids / nursery (jingle)', scales:['major'], bpm:[120, 132], keys:['C', 'F', 'G'], bright:true, acc:{chords:'offbeat', bass:'root5'},
+    parts:{melody:'r:glock', pad:'r:piano', bass:'r:pizz', arp:'r:xylophone'}, rhythm:'jingle', verb:0.2},
+  church:{mstyle:'calm', name:'⛪ Church / hymn', scales:['major'], bpm:[66, 76], keys:['C', 'F', 'G', 'D'], bright:true,
     parts:{melody:'r:pipeorgan', pad:'r:choir', bass:'r:basses', sparkle:'r:tubebells'}, verb:0.6},
-  jazz:{name:'🌃 Night jazz / lounge', scales:['kharaharapriya', 'blues', 'minor'], bpm:[84, 98], keys:['F', 'C', 'D'],
+  jazz:{mstyle:'romantic', name:'🌃 Night jazz / lounge', scales:['kharaharapriya', 'blues', 'minor'], bpm:[84, 98], keys:['F', 'C', 'D'],
     parts:{melody:'r:tsax', pad:'r:grand', bass:'r:basses'}, rhythm:'pop', verb:0.3},
   custom:{name:'🎛️ My own choice', scales:['mohanam'], bpm:[70, 80], keys:['C#'], indian:true, parts:{}, verb:0.4},
-  orchestra:{name:'🎻 Orchestra', scales:['major', 'minor'], bpm:[84, 96], keys:['D', 'G', 'C'],
+  orchestra:{mstyle:'romantic', name:'🎻 Orchestra', scales:['major', 'minor'], bpm:[84, 96], keys:['D', 'G', 'C'],
     parts:{melody:'r:flute', counter:'r:oboe', pad:'r:violins', bass:'r:basses', arp:'r:harp'}, rhythm:'march', verb:0.45},
 };
 const ROLE_NAME = {bowls:'Singing bowls', hum:'Rubbed bowl (hum)', sparkle:'Chimes', melody:'Melody', counter:'Second melody', pad:'Chords', bass:'Bass', arp:'Arpeggio', drone:'Drone'};
@@ -852,8 +923,8 @@ function compose(o){
   const song = {v:1, name:`${M.name.replace(/^\S+\s/, '')} · ${SCALES[scale].name.split(' ')[0]} · ${Math.round(secs)}s · tune ${o.seed || 1}`, bpm, key, scale, bars, meter, tracks:[], mood:o.mood, seed:o.seed || 1, seconds:secs};
   // each tune gets its own chord progressions and accompaniment patterns
   song._bright = !!M.bright; song.progs = pickProgs(song, R, M.indian); delete song._bright; const slow = bpm0 < 76;
-  song.acc = {chords:R.pick(slow ? ['block', 'broken', 'broken', 'alberti'] : M.bright ? ['block', 'broken', 'offbeat', 'broken'] : ['block', 'pulse', 'broken', 'alberti', 'offbeat']),
-    bass:['jazz', 'blues'].includes(o.mood) ? 'walk' : R.pick(slow ? ['long', 'root5', 'walk'] : M.bright ? ['octave', 'root5', 'sync'] : ['root5', 'octave', 'walk', 'sync', 'root5']), arp:R() * 8 | 0};
+  song.acc = {chords:M.acc && M.acc.chords ? (R(), M.acc.chords) : R.pick(slow ? ['block', 'broken', 'broken', 'alberti'] : M.bright ? ['block', 'broken', 'offbeat', 'broken'] : ['block', 'pulse', 'broken', 'alberti', 'offbeat']),
+    bass:M.acc && M.acc.bass ? M.acc.bass : ['jazz', 'blues'].includes(o.mood) ? 'walk' : R.pick(slow ? ['long', 'root5', 'walk'] : M.bright ? ['octave', 'root5', 'sync'] : ['root5', 'octave', 'walk', 'sync', 'root5']), arp:R() * 8 | 0};
   const secs_ = sections(bars, shape), seedA = R() * 1e6 | 0, seedB = R() * 1e6 | 0, seedC = R() * 1e6 | 0;
   const has = (sec, role) => ({intro:['pad', 'arp', 'drone', 'bowls', 'hum'], A:['melody', 'pad', 'bass', 'drone', 'bowls', 'hum', 'sparkle'], B:['melody', 'counter', 'pad', 'bass', 'arp', 'drone', 'bowls', 'hum', 'sparkle'],
     C:['counter', 'pad', 'arp', 'drone', 'bass', 'bowls', 'hum', 'sparkle'], outro:['melody', 'pad', 'drone', 'arp', 'bowls', 'hum']}[sec.type].includes(role));
@@ -878,7 +949,7 @@ function compose(o){
       }
       const sd = sec.type === 'B' ? seedB : sec.type === 'C' ? seedC : seedA;
       const shift = role === 'melody' && sec.type === 'B' ? 5 : role === 'counter' ? 7 : 0;
-      let notes = auto(song, tr, kind, sd + (role === 'counter' ? 17 : 0), sec.n, {shift, style:role === 'melody' ? style : 'balanced', sec:/^[ABC]$/.test(sec.type) ? sec.type : 'A'});
+      let notes = auto(song, tr, kind, sd + (role === 'counter' ? 17 : 0) + (role === 'melody' && sec.type === 'B' ? 7 : 0), sec.n, {shift, style:role === 'melody' ? style : 'balanced', mstyle:role === 'melody' ? M.mstyle : null, sec:/^[ABC]$/.test(sec.type) ? sec.type : 'A'});
       if(sec.type === 'intro' && role === 'arp') notes = notes.map(x => ({...x, v:x.v * 0.8}));
       if(sec.type === 'C' && role === 'counter') notes = notes.map(x => ({...x, v:0.65}));
       const dyn = {intro:0.85, A:0.94, B:1.08, C:0.9, outro:0.9}[sec.type] || 1; notes = notes.map(x => ({...x, v:Math.min(1, x.v * dyn)}));

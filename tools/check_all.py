@@ -46,7 +46,15 @@ STUDIO_JS = r"""async () => {
         out.rules.push([m + ': melody stays in the raga/scale (' + bad + ' outside of ' + mel.notes.length + ')', bad <= Math.max(2, mel.notes.length * (s.lift ? 0.6 : 0.02))]); }
     }catch(e){ out.moods.push([m, 'ERROR ' + e.message, 0]); }
   }
-  for(const m of ['happy', 'devotional', 'motivational']){
+  // melody quality for moods with hand-written phrases: smooth, few big jumps, on the chord
+  for(const [m, M] of Object.entries(S.MOODS)){ if(!M.mstyle) continue; let iv = 0, n = 0, leaps = 0, ct = 0, cn = 0;
+    for(let seed = 1; seed <= 3; seed++){ const s = S.compose({mood:m, seconds:60, seed}), mel = s.tracks.find(t => /^Melody/.test(t.name)), bpb = s.meter || 4; if(!mel) continue;
+      const N = mel.notes.slice().sort((a, b) => a.t - b.t); for(let i = 1; i < N.length; i++){ const d = Math.abs(N[i].m - N[i - 1].m); iv += d; n++; if(d > 7) leaps++; }
+      const harm = s.tracks.filter(t => /^(Chords|Bass|Arpeggio)/.test(t.name));
+      for(const x of N) if(Math.abs(x.t % bpb) < 0.01){ const b = Math.floor(x.t / bpb), pcs = new Set(harm.flatMap(t => t.notes.filter(y => Math.floor(y.t / bpb) === b).map(y => y.m % 12))); if(pcs.size){ cn++; if(pcs.has(x.m % 12)) ct++; } } }
+    const five = M.scales.every(k => S.SCALES[k].s.length <= 5), smooth = iv / n <= (M.mstyle === 'epic' || five ? 4.2 : 3.6), few = leaps / n <= 0.13, fit = !cn || ['romantic'].includes(M.mstyle) || ct / cn >= 0.65;
+    out.rules.push([`${m}: melody smooth (${(iv / n).toFixed(1)}), few big jumps (${(100 * leaps / n).toFixed(0)}%), on the chord (${cn ? (100 * ct / cn).toFixed(0) : '-'}%)`, smooth && few && fit]); }
+  for(const m of ['happy', 'devotional', 'motivational', 'kids']){
     const sig = seed => { const s = S.compose({mood:m, seconds:60, seed}), mel = s.tracks.find(t => /^Melody/.test(t.name)); return JSON.stringify([s.progs, s.acc, mel && mel.notes.slice(0, 16).map(n => n.m)]); };
     out.variety.push([m, new Set([1, 2, 3, 4].map(sig)).size]);
   }

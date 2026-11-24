@@ -676,6 +676,7 @@ const OT = (() => { try{ return JSON.parse(localStorage.getItem('vg_studio_oneta
 OT.mood = OT.mood || 'spiritual'; OT.seconds = OT.seconds || 60; OT.key = OT.key || ''; OT.seed = OT.seed || 1;
 function instOptions(sel){ const groups = {}; for(const [id, I] of Object.entries(S.INSTRUMENTS)) (groups[I.group] = groups[I.group] || []).push([id, I]);
   return Object.entries(groups).map(([g, l]) => `<optgroup label="${g}">${l.map(([id, I]) => `<option value="${id}"${id === sel ? ' selected' : ''}>${esc(I.label)}</option>`).join('')}</optgroup>`).join(''); }
+const TOP_MOODS = ['spiritual', 'devotional', 'meditation', 'motivational', 'happy', 'sad', 'cinematic', 'kids', 'festival'];   // most used, shown first
 const OT_ROLES = [['melody', 'Melody'], ['counter', 'Second melody'], ['pad', 'Chords / pad'], ['bass', 'Bass'], ['arp', 'Arpeggio / strum'], ['drone', 'Drone'], ['bowls', 'Singing bowls'], ['sparkle', 'Bells / chimes']];
 // show which instrument the chosen mood would use for each part
 function otMoodDefaults(){ const M = S.MOODS[OT.mood] || {}, P = M.parts || {};
@@ -683,7 +684,8 @@ function otMoodDefaults(){ const M = S.MOODS[OT.mood] || {}, P = M.parts || {};
   const rh = $('ot_rhy'); if(rh) rh.options[0].textContent = 'Mood: ' + (M.rhythm && S.RHYTHMS[M.rhythm] ? S.RHYTHMS[M.rhythm].name : 'no drums'); }
 function oneTapSheet(){
   sheet('✨ Make a full song', `<p class="hint" style="margin-top:0">Choose a mood and the length of your video. The song gets an intro, verse, chorus and ending, with real instruments. No AI — music rules and dice.</p>
-    <h4>1 · Mood</h4><div class="opts" id="otMood">${Object.entries(S.MOODS).map(([k, m]) => `<button data-mood="${k}" class="${k === OT.mood ? 'on' : ''}">${esc(m.name)}</button>`).join('')}</div>
+    <h4>1 · What is the video for?</h4><div class="opts" id="otMood">${TOP_MOODS.filter(k => S.MOODS[k]).map(k => `<button data-mood="${k}" class="${k === OT.mood ? 'on' : ''}">${esc(S.MOODS[k].name)}</button>`).join('')}
+      <details style="width:100%"${TOP_MOODS.includes(OT.mood) ? '' : ' open'}><summary class="hint" style="cursor:pointer;margin:6px 0">More styles ▾</summary><div class="opts">${Object.entries(S.MOODS).filter(([k]) => !TOP_MOODS.includes(k)).map(([k, m]) => `<button data-mood="${k}" class="${k === OT.mood ? 'on' : ''}">${esc(m.name)}</button>`).join('')}</div></details></div>
     <div id="otCustom" style="display:${OT.mood === 'custom' ? 'block' : 'none'};background:#0d0b14;border:1px solid var(--line);border-radius:10px;padding:8px 10px;margin-top:8px">
       <div class="hint" style="margin-bottom:6px">Pick only the instruments you want. Leave "None" for the ones you don't.</div>
       <div class="opts" style="align-items:center">
