@@ -11,3 +11,8 @@
 3. After pushing, confirm the Pages deploy succeeded; if it failed with "Fetching artifact metadata",
    re-run it later (`gh api -X POST repos/anudeep422/videogen/actions/workflows/pages.yml/dispatches -f ref=main`).
 4. The script cannot judge how music *feels*; ask the owner to listen after music changes.
+
+## Music must match the mood (owner's rule)
+Every music feature (melody style, instruments, speed, rhythm/tabla, human feel, room echo) must be tuned per mood,
+and each mood must sound like its name. When changing music, compose 2–3 tunes in every mood and check this,
+and keep per-mood rules in `tools/check_all.py`.
