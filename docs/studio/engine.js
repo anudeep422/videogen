@@ -804,6 +804,9 @@ function compose(o){
   const has = (sec, role) => ({intro:['pad', 'arp', 'drone', 'bowls', 'hum'], A:['melody', 'pad', 'bass', 'drone', 'bowls', 'hum', 'sparkle'], B:['melody', 'counter', 'pad', 'bass', 'arp', 'drone', 'bowls', 'hum', 'sparkle'],
     C:['counter', 'pad', 'arp', 'drone', 'bass', 'bowls', 'hum', 'sparkle'], outro:['melody', 'pad', 'drone', 'arp', 'bowls', 'hum']}[sec.type].includes(role));
   const parts = {...M.parts}; if(o.lead) parts.melody = o.lead; if(o.support){ if(parts.counter) parts.counter = o.support; else if(parts.pad) parts.pad = o.support; else parts.counter = o.support; }
+  // "choose every instrument": '' = mood's choice, '-' = part off, otherwise that instrument
+  if(o.parts) for(const [r0, v] of Object.entries(o.parts)){ if(!v) continue; if(v === '-') delete parts[r0]; else if(INSTRUMENTS[v]) parts[r0] = v; }
+  const rhy1 = o.rhythm === '-' ? null : RHYTHMS[o.rhythm] ? o.rhythm : M.rhythm, rhy2 = o.rhythm ? null : M.rhythm2;
   for(const [role, inst] of Object.entries(parts)){
     if(!INSTRUMENTS[inst]) continue;
     const tr = {id:tid(), type:'inst', inst, name:`${ROLE_NAME[role]} · ${INSTRUMENTS[inst].label}`, notes:[], vol:ROLE_VOL[role], pan:ROLE_PAN[role], verb:M.verb};
@@ -838,8 +841,8 @@ function compose(o){
     for(const [row, p] of Object.entries(R2.pat)) tr.grid[row] = [...p].map(velOf);
     tr.off = drumOff('main'); if(chorusOnly) for(const sec of secs_) if(sec.type !== 'B') for(let b = sec.b0; b < sec.b0 + sec.n; b++) tr.off.push(b);
     tr.off = [...new Set(tr.off)].sort((a, b) => a - b); song.tracks.push(tr); };
-  if(M.rhythm) addDrum(M.rhythm, 'Rhythm · ' + RHYTHMS[M.rhythm].name.split(' (')[0], 0.7);
-  if(M.rhythm2) addDrum(M.rhythm2, 'Chorus rhythm · ' + RHYTHMS[M.rhythm2].name.split(' (')[0], 0.5, true);
+  if(rhy1) addDrum(rhy1, 'Rhythm · ' + RHYTHMS[rhy1].name.split(' (')[0], 0.7);
+  if(rhy2) addDrum(rhy2, 'Chorus rhythm · ' + RHYTHMS[rhy2].name.split(' (')[0], 0.5, true);
   // tihai: a phrase played three times, the last stroke landing on beat 1 of the ending
   const outroSec = secs_[secs_.length - 1], tb = outroSec.b0 - 1, main = song.tracks.find(t => t.type === 'drum');
   if(main && M.indian !== false && tb >= secs_[0].n && meter === 4){
@@ -872,7 +875,7 @@ function compose(o){
     const fx = {id:tid(), type:'inst', inst:'s:swell', name:'Swells', notes:[], vol:0.4, pan:0, verb:0.4};
     for(const c of choruses) if(c.b0 >= 2) fx.notes.push({t:c.b0 * bpb - 2, d:2, m:60, v:0.8});
     if(fx.notes.length) song.tracks.push(fx);
-    if(M.rhythm && ['cinematic', 'festival', 'motivational', 'orchestra', 'happy', 'cowboy', 'western', 'devotional', 'aarti', 'wedding', 'folk'].includes(o.mood)){
+    if(rhy1 && ['cinematic', 'festival', 'motivational', 'orchestra', 'happy', 'cowboy', 'western', 'devotional', 'aarti', 'wedding', 'folk'].includes(o.mood)){
       const bm = {id:tid(), type:'inst', inst:'s:boom', name:'Impact', notes:choruses.map(c => ({t:c.b0 * bpb, d:2, m:36, v:0.7})), vol:0.45, pan:0, verb:0.3}; if(bm.notes.length) song.tracks.push(bm); }
     // crescendo: the two bars before each chorus get louder
     for(const t of song.tracks) if(t.type === 'inst' && t.notes) for(const c of choruses){ const a = (c.b0 - 2) * bpb, b = c.b0 * bpb; t.notes.forEach(n => { if(n.t >= a && n.t < b) n.v = Math.min(1, n.v * (0.82 + 0.25 * (n.t - a) / (b - a))); }); }

@@ -58,6 +58,11 @@
   <div id="installBox" style="display:none;margin-top:18px;background:#1b1829;border:1px solid #f0a830;border-radius:16px;padding:14px 16px;align-items:center;gap:12px">
     <span style="font-size:30px">📲</span><div style="flex:1"><b>Install VideoGen as an app</b><div style="color:#b0a9cc;font-size:13px">Opens full screen from your home screen and works offline.</div></div>
     <button id="installBtn" style="background:#f0a830;color:#1a1300;border:0;border-radius:10px;padding:10px 14px;font-weight:700;font:inherit;cursor:pointer">Install</button></div>
+ <div id="offBox" style="display:none;margin-top:18px;background:#1b1829;border:1px solid #3fb950;border-radius:16px;padding:14px 16px">
+    <div style="display:flex;align-items:center;gap:12px"><span style="font-size:30px">⬇️</span><div style="flex:1"><b>Download everything for offline</b>
+      <div id="offMsg" style="color:#b0a9cc;font-size:13px">All instruments, drums, nature sounds and 3D files. Works with no internet afterwards.</div></div>
+      <button id="offBtn" style="background:#3fb950;color:#05200c;border:0;border-radius:10px;padding:10px 14px;font-weight:700;font:inherit;cursor:pointer">Download</button></div>
+    <div style="height:8px;background:#0d0b14;border-radius:4px;margin-top:10px;overflow:hidden"><i id="offBar" style="display:block;height:100%;width:0;background:#3fb950;border-radius:4px"></i></div></div>
   <div id="iosHint" style="display:none;margin-top:18px;color:#b0a9cc;font-size:13px">📲 To install on iPhone: tap the Share button, then "Add to Home Screen".</div>
   <div class="how">
     <h2>Make a video in 3 steps</h2>
@@ -76,6 +81,37 @@ let deferred = null;
 addEventListener('beforeinstallprompt', e => { e.preventDefault(); deferred = e; document.getElementById('installBox').style.display = 'flex'; });
 document.getElementById('installBtn').onclick = async () => { if(!deferred) return; deferred.prompt(); await deferred.userChoice; deferred = null; document.getElementById('installBox').style.display = 'none'; };
 if(/iphone|ipad/i.test(navigator.userAgent) && !navigator.standalone) document.getElementById('iosHint').style.display = 'block';
+</script>
+<script>
+// offline download: save every file into the same caches the offline helper (sw.js) uses
+(() => {
+  if(!('caches' in window) || !('serviceWorker' in navigator)) return;
+  const box = document.getElementById('offBox'), msg = document.getElementById('offMsg'), bar = document.getElementById('offBar'), btn = document.getElementById('offBtn');
+  const MEDIA_RE = /\.(mp3|wav|m4a|ttf|woff2?|png|jpg|jpeg|webp|svg)$/i, mb = b => (b / 1e6).toFixed(0) + ' MB';
+  const cacheFor = f => (MEDIA_RE.test(f) || /(^|\/)lib\//.test(f)) ? 'vg-media-v1' : 'vg-code-v1';
+  let list = null;
+  async function load(){ if(list) return list; const r = await fetch('offline-files.json', {cache:'no-store'}); list = await r.json(); return list; }
+  async function missing(){ const L = await load(), C = {'vg-media-v1':await caches.open('vg-media-v1'), 'vg-code-v1':await caches.open('vg-code-v1')}, out = [];
+    for(const f of L.files){ const url = new URL(f, location.href).href; if(!(await C[cacheFor(f)].match(url))) out.push(f); } return out; }
+  async function status(){ try{ const L = await load(), m = await missing(); box.style.display = 'block';
+      if(!m.length){ msg.textContent = `✅ Everything is saved on this device (${L.files.length} files, ${mb(L.bytes)}). Works offline.`; btn.textContent = 'Check again'; bar.style.width = '100%'; }
+      else { const have = L.files.length - m.length; msg.textContent = `${have ? have + ' of ' + L.files.length + ' files saved. ' : ''}About ${mb(L.bytes * m.length / L.files.length)} to download — use Wi-Fi if data is limited.`; btn.textContent = have ? 'Download the rest' : 'Download'; bar.style.width = (100 * have / L.files.length) + '%'; }
+    }catch(e){ box.style.display = 'none'; } }
+  btn.onclick = async () => {
+    if(!navigator.onLine){ msg.textContent = '📵 No internet right now. Connect and try again.'; return; }
+    btn.disabled = true; try{ if(navigator.storage && navigator.storage.persist) await navigator.storage.persist(); }catch(e){}
+    const L = await load(), todo = await missing(); let done = L.files.length - todo.length, failed = 0, i = 0;
+    const C = {'vg-media-v1':await caches.open('vg-media-v1'), 'vg-code-v1':await caches.open('vg-code-v1')};
+    const worker = async () => { while(i < todo.length){ const f = todo[i++], url = new URL(f, location.href).href;
+      try{ const r = await fetch(url, {cache:'reload'}); if(r.ok) await C[cacheFor(f)].put(url, r); else failed++; }catch(e){ failed++; }
+      done++; bar.style.width = (100 * done / L.files.length) + '%'; msg.textContent = `Downloading… ${done} of ${L.files.length} files`; } };
+    await Promise.all([worker(), worker(), worker(), worker(), worker(), worker()]);
+    btn.disabled = false;
+    if(failed){ msg.textContent = `⚠️ ${failed} files did not download (internet dropped?). Tap again to finish.`; btn.textContent = 'Try again'; }
+    else status();
+  };
+  status();
+})();
 </script>
 <script>if('serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('sw.js', {scope:'./'}).catch(() => {}));</script>
 </body>

@@ -655,6 +655,11 @@ const OT = (() => { try{ return JSON.parse(localStorage.getItem('vg_studio_oneta
 OT.mood = OT.mood || 'spiritual'; OT.seconds = OT.seconds || 60; OT.key = OT.key || ''; OT.seed = OT.seed || 1;
 function instOptions(sel){ const groups = {}; for(const [id, I] of Object.entries(S.INSTRUMENTS)) (groups[I.group] = groups[I.group] || []).push([id, I]);
   return Object.entries(groups).map(([g, l]) => `<optgroup label="${g}">${l.map(([id, I]) => `<option value="${id}"${id === sel ? ' selected' : ''}>${esc(I.label)}</option>`).join('')}</optgroup>`).join(''); }
+const OT_ROLES = [['melody', 'Melody'], ['counter', 'Second melody'], ['pad', 'Chords / pad'], ['bass', 'Bass'], ['arp', 'Arpeggio / strum'], ['drone', 'Drone'], ['bowls', 'Singing bowls'], ['sparkle', 'Bells / chimes']];
+// show which instrument the chosen mood would use for each part
+function otMoodDefaults(){ const M = S.MOODS[OT.mood] || {}, P = M.parts || {};
+  for(const [r] of OT_ROLES){ const el = $('ot_p_' + r); if(el) el.options[0].textContent = 'Mood: ' + (P[r] && S.INSTRUMENTS[P[r]] ? S.INSTRUMENTS[P[r]].label : 'none'); }
+  const rh = $('ot_rhy'); if(rh) rh.options[0].textContent = 'Mood: ' + (M.rhythm && S.RHYTHMS[M.rhythm] ? S.RHYTHMS[M.rhythm].name : 'no drums'); }
 function oneTapSheet(){
   sheet('✨ Make a full song', `<p class="hint" style="margin-top:0">Choose a mood and the length of your video. The song gets an intro, verse, chorus and ending, with real instruments. No AI — music rules and dice.</p>
     <h4>1 · Mood</h4><div class="opts" id="otMood">${Object.entries(S.MOODS).map(([k, m]) => `<button data-mood="${k}" class="${k === OT.mood ? 'on' : ''}">${esc(m.name)}</button>`).join('')}</div>
@@ -678,12 +683,18 @@ function oneTapSheet(){
     <h4>Raga / scale</h4><select id="otScale" style="max-width:230px"><option value="">Automatic (suits the mood)</option>${scaleOptions(OT.scale)}</select>
     <h4>Instruments (optional)</h4><div class="opts"><label class="hint">Lead</label><select id="otLead" style="max-width:170px"><option value="">Automatic</option>${instOptions(OT.lead)}</select>
       <label class="hint">Support</label><select id="otSup" style="max-width:170px"><option value="">Automatic</option>${instOptions(OT.support)}</select></div>
+    <details id="otAll"${OT.parts && Object.values(OT.parts).some(Boolean) || OT.rhythm ? ' open' : ''}><summary class="hint" style="cursor:pointer;margin-top:8px">🎛️ Choose every instrument (or turn parts off)</summary>
+      <div style="display:grid;grid-template-columns:104px 1fr;gap:6px;align-items:center;margin-top:6px">
+      ${OT_ROLES.map(([r, lbl]) => `<label class="hint">${lbl}</label><select id="ot_p_${r}" style="max-width:220px"><option value="">Mood's choice</option><option value="-"${(OT.parts || {})[r] === '-' ? ' selected' : ''}>— Off —</option>${instOptions((OT.parts || {})[r])}</select>`).join('')}
+      <label class="hint">Rhythm / drums</label><select id="ot_rhy" style="max-width:220px"><option value="">Mood's choice</option><option value="-"${OT.rhythm === '-' ? ' selected' : ''}>— No drums —</option>${Object.entries(S.RHYTHMS).map(([k, R]) => `<option value="${k}"${k === OT.rhythm ? ' selected' : ''}>${esc(R.name)}</option>`).join('')}</select></div>
+      <button id="otAllReset" style="margin-top:6px">↺ Back to the mood's choice</button></details>
     <label class="hint" style="display:block;margin-top:8px"><input type="checkbox" id="otRich" ${OT.rich === false ? '' : 'checked'}> ✨ Rich sound: extra layers, soft pads, swells before the chorus</label>
     <h4>4 · Nature sound (optional)</h4><select id="otNat"><option value="">None</option>${window.VG_AMB ? VG_AMB.LIST.map(a => `<option value="${a.id}"${a.id === OT.nature ? ' selected' : ''}>${a.icon} ${esc(a.name)}</option>`).join('') : ''}</select>
     <h4>5 · Tune number</h4><div class="opts"><input id="otSeed" type="number" min="1" max="99999" value="${OT.seed}" style="width:90px"><button id="otDice">🎲 Another tune</button></div>
     <button id="otGo" class="on" style="width:100%;margin-top:16px;padding:12px;font-size:16px">✨ Make song</button>
     <p class="hint">Your current song will be replaced. Same mood + same tune number = same song again.</p>`, box => {
-    box.querySelectorAll('[data-mood]').forEach(b => b.onclick = () => { OT.mood = b.dataset.mood; box.querySelectorAll('[data-mood]').forEach(x => x.classList.toggle('on', x === b)); $('otCustom').style.display = OT.mood === 'custom' ? 'block' : 'none'; $('otSolo').style.display = OT.mood === 'solo' ? 'block' : 'none'; });
+    box.querySelectorAll('[data-mood]').forEach(b => b.onclick = () => { OT.mood = b.dataset.mood; box.querySelectorAll('[data-mood]').forEach(x => x.classList.toggle('on', x === b)); $('otCustom').style.display = OT.mood === 'custom' ? 'block' : 'none'; $('otSolo').style.display = OT.mood === 'solo' ? 'block' : 'none'; otMoodDefaults(); });
+    otMoodDefaults(); $('otAllReset').onclick = () => { for(const [r] of OT_ROLES) $('ot_p_' + r).value = ''; $('ot_rhy').value = ''; };
     if($('ocBowl')){ $('ocBowl').value = (OT.custom || {}).bowls || ''; $('ocSpd').value = (OT.custom || {}).speed || 'slow'; }
     box.querySelectorAll('[data-len]').forEach(b => b.onclick = () => { OT.seconds = +b.dataset.len; $('otSec').value = OT.seconds; box.querySelectorAll('[data-len]').forEach(x => x.classList.toggle('on', x === b)); });
     $('otSec').onchange = () => { OT.seconds = Math.max(8, Math.min(900, +$('otSec').value || 60)); box.querySelectorAll('[data-len]').forEach(x => x.classList.toggle('on', +x.dataset.len === OT.seconds)); };
@@ -695,12 +706,13 @@ async function makeOneTap(){
   if($('ocMel') && $('sheet').classList.contains('show')) OT.custom = {melody:$('ocMel').value, counter:$('ocCnt').value, rhythm:$('ocRhy').value, bowls:$('ocBowl').value, drone:$('ocDrone').checked, chimes:$('ocChime').checked, speed:$('ocSpd').value};
   if($('otRich') && $('sheet').classList.contains('show')) OT.rich = $('otRich').checked;
   if($('otScale') && $('sheet').classList.contains('show')) OT.scale = $('otScale').value || '';
+  if($('ot_p_melody') && $('sheet').classList.contains('show')){ OT.parts = {}; for(const [r] of OT_ROLES){ const v = $('ot_p_' + r).value; if(v) OT.parts[r] = v; } OT.rhythm = $('ot_rhy').value || ''; }
   if($('osInst') && $('sheet').classList.contains('show')) OT.solo = $('osInst').value;
   if($('otNat') && $('sheet').classList.contains('show')) OT.nature = $('otNat').value; if($('otLead') && $('sheet').classList.contains('show')){ OT.lead = $('otLead').value; OT.support = $('otSup').value; }
   OT.key = $('otKey') && $('sheet').classList.contains('show') ? $('otKey').value : OT.key; OT.seed = $('otSeed') && $('sheet').classList.contains('show') ? +$('otSeed').value || 1 : OT.seed; if($('otSec') && $('sheet').classList.contains('show')) OT.seconds = Math.max(8, Math.min(900, +$('otSec').value || 60));
   try{ localStorage.setItem('vg_studio_onetap', JSON.stringify(OT)); }catch(e){}
   closeSheet(); pushUndo();
-  const opts = {mood:OT.mood, seconds:OT.seconds, key:OT.key || null, scale:OT.scale || null, seed:OT.seed, nature:OT.nature || null, lead:OT.mood === 'solo' ? (OT.solo || 's:bansuri') : OT.lead || null, support:OT.mood === 'solo' ? null : OT.support || null, custom:OT.custom, rich:OT.rich !== false};
+  const opts = {mood:OT.mood, seconds:OT.seconds, key:OT.key || null, scale:OT.scale || null, seed:OT.seed, nature:OT.nature || null, lead:OT.mood === 'solo' ? (OT.solo || 's:bansuri') : OT.lead || null, support:OT.mood === 'solo' ? null : OT.support || null, custom:OT.custom, rich:OT.rich !== false, parts:OT.parts || null, rhythm:OT.rhythm || null};
   const s = S.compose(opts); s.made = opts;
   loadSong(s); PR.sx = 0; PR.sy = -1; renderEditor();
   await togglePlay();
