@@ -350,7 +350,7 @@ function graph(ctx, song){
     const mud = ctx.createBiquadFilter(); mud.type = 'peaking'; mud.frequency.value = 320; mud.Q.value = 0.9; mud.gain.value = -2.5;
     const low = ctx.createBiquadFilter(); low.type = 'lowshelf'; low.frequency.value = 110; low.gain.value = 1.5;
     const air = ctx.createBiquadFilter(); air.type = 'highshelf'; air.frequency.value = 9000; air.gain.value = 2.5;
-    const sat = ctx.createWaveShaper(); const n = 2048, cv = new Float32Array(n); for(let i = 0; i < n; i++){ const x = i / (n - 1) * 2 - 1; cv[i] = Math.tanh(1.4 * x) / Math.tanh(1.4); } sat.curve = cv; sat.oversample = '2x';
+    const sat = ctx.createWaveShaper(); const n = 2048, cv = new Float32Array(n); for(let i = 0; i < n; i++){ const x = i / (n - 1) * 2 - 1; cv[i] = Math.tanh(1.4 * x) / Math.tanh(1.4); } sat.curve = cv; sat.oversample = ctx instanceof OfflineAudioContext ? '2x' : 'none';   // lighter while playing live
     const pre = ctx.createGain(); pre.gain.value = 0.8;
     const glue = ctx.createDynamicsCompressor(); glue.threshold.value = -20; glue.ratio.value = 2.2; glue.knee.value = 8; glue.attack.value = 0.025; glue.release.value = 0.3;
     const lim = ctx.createDynamicsCompressor(); lim.threshold.value = -3; lim.ratio.value = 20; lim.knee.value = 0; lim.attack.value = 0.002; lim.release.value = 0.08;
@@ -418,7 +418,7 @@ function previewHit(G, song, tr, row){ return fire(G, song, {type:'hit', tr, row
 class Player {
   constructor(){ this.ctx = null; this.G = null; this.playing = false; this.srcs = new Set(); this.metro = false; this.loop = false; }
   ensure(song){
-    if(!this.ctx){ this.ctx = new (window.AudioContext || window.webkitAudioContext)({latencyHint:'interactive'}); }
+    if(!this.ctx){ this.ctx = new (window.AudioContext || window.webkitAudioContext)({latencyHint:'playback'}); }   // bigger buffers: smooth on phones
     if(!this.G || this.G.song !== song){ this.G = graph(this.ctx, song); this.G.song = song; }
     if(this.ctx.state === 'suspended') this.ctx.resume();
     return this.G;
@@ -435,7 +435,7 @@ class Player {
   refresh(song){ if(!this.playing) return; const p = this.position(); this.start(song, p); }   // after edits
   tick(){
     if(!this.playing) return;
-    const now = this.ctx.currentTime, horizon = now + 0.3;
+    const now = this.ctx.currentTime, horizon = now + 1.2;   // schedule 1.2 s ahead so a busy phone never leaves a gap
     for(let guard = 0; guard < 4; guard++){
       const seg = this.segs[this.segs.length - 1], segEndCtx = seg.ctx0 + (seg.song1 - seg.song0);
       const upto = Math.min(seg.song1, seg.song0 + (horizon - seg.ctx0));

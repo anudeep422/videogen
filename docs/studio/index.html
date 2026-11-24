@@ -186,7 +186,9 @@ document.addEventListener('keydown', e => { if(e.code === 'Space' && !/INPUT|SEL
   if((e.ctrlKey || e.metaKey) && e.key === 'z'){ e.preventDefault(); (e.shiftKey ? $('redo') : $('undo')).onclick(); } });
 const mmss = x => Math.floor(x / 60) + ':' + String(Math.floor(x % 60)).padStart(2, '0');
 function posText(sec){ const b = sec / S.spb(song), bpb = S.beatsPerBar(song); return `Bar ${Math.floor(b / bpb) + 1} · ${mmss(sec)} / ${mmss(S.songSeconds(song))}`; }
-function frame(){ drawAllPlayheads(); if(player.playing) requestAnimationFrame(frame); }
+// redraw the playhead about 15 times a second (not 60) so the phone has time for the sound
+let lastDraw = 0;
+function frame(ts){ if(!lastDraw || ts - lastDraw > 66){ lastDraw = ts || 1; drawAllPlayheads(); } if(player.playing) requestAnimationFrame(frame); else lastDraw = 0; }
 function drawAllPlayheads(){ const p = player.position(); $('pos').textContent = posText(p); drawMinis(); followRoll(p); drawRoll(); markGrid(p); }
 
 // ------------------------------------------------------------ track list
