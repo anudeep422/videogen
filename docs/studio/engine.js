@@ -423,7 +423,19 @@ class Player {
     if(this.ctx.state === 'suspended') this.ctx.resume();
     return this.G;
   }
+  // smooth play: the whole song is mixed first (render), then the finished sound plays — it cannot break up on slow phones
+  startBuf(song, fromSec){
+    this.stop(); this.ensure(song); this.song = song; this.ev = []; this.playing = true;
+    const end = Math.min(songSeconds(song), this.buf.duration - 0.02), ls = this.loop ? Math.min(this.loopA ?? 0, end) : 0, le = this.loop ? Math.min(this.loopB ?? end, end) : end;
+    if(fromSec >= le - 0.01) fromSec = ls;
+    const ctx = this.ctx, src = ctx.createBufferSource(), t0 = ctx.currentTime + 0.05; src.buffer = this.buf; src.connect(ctx.destination); if(this.G.meter) src.connect(this.G.meter);
+    if(this.loop){ src.loop = true; src.loopStart = ls + 0.02; src.loopEnd = le + 0.02; }
+    src.start(t0, fromSec + 0.02); this.srcs.add(src);
+    this.segs = [{ctx0:t0, song0:fromSec, song1:le}]; this.next = le; this.ls = ls; this.le = le;
+    this.timer = setInterval(() => this.tick(), 50);
+  }
   start(song, fromSec){
+    if(this.smooth && this.buf && this.bufSong === song && this.bufKey === JSON.stringify(song)) return this.startBuf(song, fromSec);
     this.stop(); this.ensure(song); this.song = song; this.ev = events(song); this.playing = true;
     const end = songSeconds(song), ls = this.loop ? Math.min(this.loopA ?? 0, end) : 0, le = this.loop ? Math.min(this.loopB ?? end, end) : end;
     if(fromSec >= le - 0.01) fromSec = ls;
@@ -432,7 +444,9 @@ class Player {
     for(const e of this.ev) if((e.type === 'note' || e.type === 'amb' || e.type === 'clip') && e.s < fromSec && e.s + e.dur > fromSec + 0.05){ const s = fire(this.G, song, e, this.segs[0].ctx0, fromSec - e.s); if(s){ this.srcs.add(s); s.onended = () => this.srcs.delete(s); } }
     this.timer = setInterval(() => this.tick(), 25); this.tick();
   }
-  refresh(song){ if(!this.playing) return; const p = this.position(); this.start(song, p); }   // after edits
+  refresh(song){ if(!this.playing) return;   // after edits
+    if(this.smooth && this.buf && this.bufSong === song && this.bufKey !== JSON.stringify(song)){ if(this.onstale) this.onstale(); return; }   // keep playing; a fresh mix is made in the background
+    const p = this.position(); this.start(song, p); }
   tick(){
     if(!this.playing) return;
     const now = this.ctx.currentTime, horizon = now + 1.2;   // schedule 1.2 s ahead so a busy phone never leaves a gap

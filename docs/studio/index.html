@@ -96,6 +96,7 @@
   <label>Scale / raga</label><select id="scale" style="max-width:150px"></select>
   <label>Bars</label><input id="bars" type="number" min="1" max="200" value="8" style="width:56px">
   <label>Sound</label><select id="polish" title="Polished = mastering (EQ, warmth, compression, limiter)"><option value="1">Polished</option><option value="0">Natural</option></select>
+  <label>Play</label><select id="pmode" title="Smooth = the song is mixed first, then plays without breaking (best on phones). Live = starts instantly, mixer changes heard at once."><option value="1">Smooth</option><option value="0">Live</option></select>
   <label>Gamaka</label><select id="gam" title="Slides and shakes on veena, sitar, flute, violin, shehnai, voice"><option value="0">Off</option><option value="0.5">Light</option><option value="1">Rich</option></select>
   <label>Feel</label><select id="feel" title="Human feel: small timing and loudness changes like real players"><option value="0">Machine</option><option value="0.6">Natural</option><option value="1">Loose</option></select>
   <select id="meter"><option value="4">4/4</option><option value="3">3/4</option><option value="2">2/4</option><option value="6">6/8</option><option value="7">7 beats</option></select>
@@ -161,6 +162,16 @@ $('scale').onchange = async () => { const sc = $('scale').value, nm = S.SCALES[s
     const s2 = S.compose({...song.made, scale:sc}); s2.made = {...song.made, scale:sc}; loadSong(s2); renderEditor(); if(was) await togglePlay(); toast('🎵 Remade in ' + nm); return; }
   pushUndo(); song.scale = sc; changed(); };
 $('bars').onchange = () => { pushUndo(); song.bars = Math.max(1, Math.min(200, +$('bars').value || 8)); delete song.sections; changed(); };
+// ---- smooth play (mix first, then play) ----
+try{ const v = localStorage.getItem('vg_smooth'); player.smooth = v != null ? v === '1' : matchMedia('(pointer:coarse)').matches; }catch(e){ player.smooth = true; }
+$('pmode').value = player.smooth ? '1' : '0';
+$('pmode').onchange = () => { player.smooth = $('pmode').value === '1'; try{ localStorage.setItem('vg_smooth', player.smooth ? '1' : '0'); }catch(e){} if(player.playing){ player.stop(); syncPlay(); }
+  toast(player.smooth ? '🎧 Smooth play: the song is mixed first, then plays without breaking' : '⚡ Live play: starts instantly'); };
+async function ensureMix(quiet){ if(player.buf && player.bufSong === song && player.bufKey === JSON.stringify(song)) return;
+  const sg = song, buf = quiet ? await S.render(sg) : await busy('🎧 Preparing smooth play…', p => S.render(sg, p)); player.buf = buf; player.bufSong = sg; player.bufKey = JSON.stringify(sg); }
+let staleT = 0, mixing = false;
+player.onstale = () => { clearTimeout(staleT); staleT = setTimeout(async () => { if(mixing || !player.playing || !player.smooth) return; mixing = true;
+  try{ await ensureMix(true); if(player.playing && player.smooth) player.start(song, player.position()); } finally { mixing = false; } if(player.playing && player.bufKey !== JSON.stringify(song)) player.onstale(); }, 900); };
 $('polish').onchange = () => { pushUndo(); song.polish = $('polish').value === '1'; player.G = null; changed({keepUI:true}); toast(song.polish ? 'Polished sound (mastering on)' : 'Natural sound (no mastering)'); };
 $('gam').onchange = () => { pushUndo(); song.gamaka = +$('gam').value; changed({keepUI:true}); toast(song.gamaka ? 'Gamakas on: slides and shakes on Indian-style instruments' : 'Gamakas off'); };
 $('feel').onchange = () => { pushUndo(); song.feel = +$('feel').value; changed({keepUI:true}); toast(song.feel ? 'Human feel on' : 'Exact machine timing'); };
@@ -172,7 +183,8 @@ $('redo').onclick = () => { if(!redoStack.length) return; undoStack.push(snapsho
 async function togglePlay(){
   if(player.playing){ player.stop(); syncPlay(); return; }
   player.ensure(song);
-  const {keys} = needsQuick(); if(keys) await busy('Loading instruments…', p => S.prepare(song, p)); else await S.prepare(song);
+  if(player.smooth) await ensureMix();
+  else { const {keys} = needsQuick(); if(keys) await busy('Loading instruments…', p => S.prepare(song, p)); else await S.prepare(song); }
   player.start(song, player.pos || 0); syncPlay(); requestAnimationFrame(frame);
 }
 function needsQuick(){ return {keys:true}; }
@@ -504,7 +516,7 @@ function mixerSheet(){
     box.querySelectorAll('input[type=range]').forEach(inp => {
       inp.onpointerdown = () => pushUndo();
       inp.oninput = () => { const k = inp.dataset.k, v = +inp.value; if(k === 'master') song.master = v; else { const t = song.tracks.find(x => x.id === inp.dataset.t); if(!t) return; t[k] = v; if(player.G) S.mixTrack(player.G, song, t); }
-        if(k === 'master' && player.G) player.G.master.gain.value = v; inp.nextElementSibling.textContent = mixFmt(k, v); save(); };
+        if(k === 'master' && player.G) player.G.master.gain.value = v; inp.nextElementSibling.textContent = mixFmt(k, v); save(); if(player.smooth) player.refresh(song); };
       inp.ondblclick = () => { pushUndo(); const k = inp.dataset.k, d = {vol:0.8, pan:0, verb:0.25, bass:0, treble:0, master:0.9}[k]; inp.value = d; inp.oninput(); };
     });
     box.querySelectorAll('[data-x]').forEach(b => b.onclick = () => { const t = song.tracks.find(x => x.id === b.closest('.mx').dataset.t); t[b.dataset.x] = !t[b.dataset.x]; b.classList.toggle('on', !!t[b.dataset.x]); if(player.G) S.mixAll(player.G, song); save(); renderTracks(); });
