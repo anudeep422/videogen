@@ -54,6 +54,18 @@ STUDIO_JS = r"""async () => {
       for(const x of N) if(Math.abs(x.t % bpb) < 0.01){ const b = Math.floor(x.t / bpb), pcs = new Set(harm.flatMap(t => t.notes.filter(y => Math.floor(y.t / bpb) === b).map(y => y.m % 12))); if(pcs.size){ cn++; if(pcs.has(x.m % 12)) ct++; } } }
     const five = M.scales.every(k => S.SCALES[k].s.length <= 5), smooth = iv / n <= (M.mstyle === 'epic' || five ? 4.2 : 3.6), few = leaps / n <= 0.13, fit = !cn || ['romantic'].includes(M.mstyle) || ct / cn >= 0.65;
     out.rules.push([`${m}: melody smooth (${(iv / n).toFixed(1)}), few big jumps (${(100 * leaps / n).toFixed(0)}%), on the chord (${cn ? (100 * ct / cn).toFixed(0) : '-'}%)`, smooth && few && fit]); }
+  // the feel of each mood: room, playing style, tabla, and no Indian instruments in Western moods
+  const ROOM_WANT = {spiritual:'temple', devotional:'temple', meditation:'temple', aarti:'temple', kids:'studio', motivational:'studio', happy:'studio', cinematic:'bighall', orchestra:'bighall', church:'bighall', sad:'hall', romantic:'hall'};
+  const HF_WANT = {spiritual:'gentle', meditation:'gentle', calm:'gentle', kids:'bouncy', motivational:'bright', sad:'tender', devotional:'bhakti', folk:'bhakti', cinematic:'grand'};
+  const WESTERN = ['happy', 'cinematic', 'sad', 'motivational', 'zen', 'desert', 'blues', 'spanish', 'cowboy', 'western', 'africa', 'kids', 'church', 'jazz', 'orchestra'];
+  for(const seed of [1, 2, 3]) for(const [m] of Object.entries(S.MOODS)){ if(m === 'custom') continue; const s = S.compose({mood:m, seconds:60, seed});
+    if(ROOM_WANT[m]) out.rules.push([`${m} tune ${seed}: room is ${ROOM_WANT[m]} (${S.roomOf(s)})`, S.roomOf(s) === ROOM_WANT[m]]);
+    if(HF_WANT[m]) out.rules.push([`${m} tune ${seed}: playing style ${HF_WANT[m]} (${s.hf})`, s.hf === HF_WANT[m]]);
+    if(WESTERN.includes(m)){ const bad = s.tracks.filter(t => t.type === 'inst' && /^(s:(bansuri|veena|sitar|harmonium|santoor)|r:(sitar_rec|shehnai))$/.test(t.inst)).map(t => t.inst);
+      out.rules.push([`${m} tune ${seed}: no Indian instruments in a Western mood ${bad.join(',')}`, !bad.length]); }
+    const tab = s.tracks.find(t => t.bols); if(tab && tab.hits.length){ const v = tab.hits.reduce((a, h) => a + h.v, 0) / tab.hits.length;
+      if(m === 'meditation') out.rules.push([`meditation tune ${seed}: tabla soft (${v.toFixed(2)})`, v < 0.62]);
+      if(m === 'devotional') out.rules.push([`devotional tune ${seed}: tabla full (${v.toFixed(2)}, ${tab.hits.length} strokes)`, v > 0.65 && tab.hits.length > 100]); } }
   // each tune number uses different instruments; long songs keep changing
   for(const m of ['spiritual', 'devotional', 'motivational', 'kids', 'sad', 'romantic']){
     const ins = [1, 2, 3, 4].map(seed => S.compose({mood:m, seconds:60, seed}).tracks.filter(t => t.type === 'inst').map(t => t.inst).sort().join());
