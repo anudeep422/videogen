@@ -123,20 +123,20 @@ async def main():
             check(hum == '0,2,4,7,4,2,0', f'hum to melody hears Sa Re Ga Pa Ga Re Sa ({hum})')
             await pg.evaluate("closeSheet()")
             # build my music: only the chosen raga + instruments, each form has its own shape, instruments take turns
-            r = await pg.evaluate("""(()=>{ const S = VG_STUDIO, out = [], base = {raga:'hindolam', insts:['s:veena','s:bansuri','s:tanpura','r:harp'], rhythm:'keherwa', speed:'medium', feel:'devotional', form:'bhajan'};
+            r = await pg.evaluate("""(()=>{ const S = VG_STUDIO, out = [], base = {raga:'hindolam', insts:['s:veena','s:bansuri','s:sitar','s:tanpura','r:violin','r:harp'], rhythm:'keherwa', speed:'medium', feel:'devotional', form:'bhajan'};
                 for(const [form, feel] of [['bhajan','devotional'],['classical','calm'],['film','happy'],['meditation','calm'],['instrumental','sad']]) for(const seed of [1,2]){
-                  const b = {...base, form, feel, insts: form === 'film' ? ['r:grand','r:violin','r:steel'] : base.insts, rhythm: form === 'meditation' ? '' : base.rhythm};
+                  const b = {...base, form, feel, insts: form === 'film' ? ['r:grand','r:violin','r:flute','r:steel'] : base.insts, rhythm: form === 'meditation' ? '' : base.rhythm};
                   const sg = S.compose({mood:'build', build:b, seconds:60, seed, key:'C'}), sc = S.SCALES[b.raga].s, r0 = S.KEYS[sg.key];
                   const insts = sg.tracks.filter(t => t.type === 'inst').map(t => t.inst);
                   const onlyMine = insts.every(i => b.insts.includes(i));
                   const inRaga = sg.tracks.filter(t => t.type === 'inst' && /melody|Answer/i.test(t.name)).every(t => t.notes.every(n => sc.includes(((n.m - r0) % 12 + 12) % 12)));
                   const leads = sg.tracks.filter(t => t.type === 'inst' && /melody|Answer/i.test(t.name) && t.notes.length).length;
                   const drums = sg.tracks.some(t => t.type === 'drum');
-                  out.push([form + ' ' + seed, onlyMine, inRaga, leads, drums, Math.round(S.songSeconds ? S.songSeconds(sg) : sg.bars * sg.bpb * 60 / sg.bpm), insts.join(',')]); }
+                  out.push([form + ' ' + seed, onlyMine && b.insts.every(i => insts.includes(i)), inRaga, leads, drums, Math.round(S.songSeconds ? S.songSeconds(sg) : sg.bars * sg.bpb * 60 / sg.bpm), insts.join(',')]); }
                 return out; })()""")
             for name, mine, raga, leads, drums, dur, ins in r:
                 form = name.split()[0]
-                check(mine, f'build {name}: only my instruments ({ins})')
+                check(mine, f'build {name}: only my instruments, and every one plays ({ins})')
                 check(raga, f'build {name}: melody stays in my raga')
                 check(abs(dur - 60) <= 2, f'build {name}: length {dur}s')
                 if form in ('bhajan', 'film', 'instrumental'): check(leads >= 2, f'build {name}: instruments take turns ({leads} lead parts)')

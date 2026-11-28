@@ -1018,7 +1018,7 @@ function buildMood(b = {}){
   const slow = b.speed === 'slow' || form === 'meditation';
   return {name:'🎼 My music', scales:[raga], keys:['C#', 'D', 'C'], indian, parts, rhythm:form === 'meditation' && b.rhythm !== 'tabla_soft' ? null : (RHYTHMS[b.rhythm] ? b.rhythm : null),
     bpm:slow ? [58, 68] : b.speed === 'fast' ? [106, 124] : [80, 96], verb:F.verb, mstyle:F.mstyle, hf:F.hf, room:F.room, tabla:form === 'classical' ? 'classical' : F.tabla, form, bright:F.bright,
-    melodyKind:indian && b.feel !== 'happy' ? 'raga' : 'melody', callAnswer:true};
+    melodyKind:indian && b.feel !== 'happy' ? 'raga' : 'melody', callAnswer:true, leads:leads.length ? leads : [parts.melody]};
 }
 // "My own choice": only the instruments the person picked
 function customMood(c = {}){
@@ -1179,6 +1179,21 @@ function compose(o){
     }
     const drone = song.tracks.some(t => /^(Drone|Singing bowls|Rubbed)/.test(t.name));
     if(!M.indian && !drone && R() < 0.6){ const up = R.pick([1, 2, 2]); for(const t of song.tracks) if(t.type === 'inst' && !/^(Swells|Impact)/.test(t.name)) t.notes.forEach(n => { if(n.t >= lastB.b0 * meter) n.m += up; }); song.lift = up; }
+  }
+  // build my music: every chosen lead instrument gets the tune in turn, part by part
+  if(o.mood === 'build' && M.leads && M.leads.length > 1){
+    const melT = song.tracks.find(t => /^Melody ·/.test(t.name)), cT = song.tracks.find(t => /^Second melody/.test(t.name)), own = {};
+    if(melT){ own[melT.inst] = melT; if(cT) own[cT.inst] = cT;
+      const trackOf = id => own[id] || (own[id] = (() => { const t = {id:tid(), type:'inst', inst:id, name:`Melody · ${INSTRUMENTS[id].label}`, notes:[], vol:melT.vol, pan:Object.keys(own).length % 2 ? -0.22 : 0.22, verb:melT.verb}; song.tracks.push(t); return t; })());
+      const fit = (id, m) => { const I = INSTRUMENTS[id]; while(m > I.range[1] - 2) m -= 12; while(m < I.range[0] + 2) m += 12; return m; };
+      const mains = secs_.filter(x => /^[ABC]$/.test(x.type)); let k = 0;
+      const mb = mains.reduce((a, x) => a + x.n, 0), step = mains.length >= M.leads.length * 2 ? 99 : mb / 4 >= M.leads.length ? 4 : 2;   // short song: take turns every 4 or 2 bars
+      for(const sec of mains) for(let c = sec.b0; c < sec.b0 + sec.n; c += step){ const who = M.leads[k++ % M.leads.length]; if(who === melT.inst) continue;
+        const a0 = c * meter, a1 = Math.min(c + step, sec.b0 + sec.n) * meter, inS = n => n.t >= a0 - 1e-6 && n.t < a1 - 1e-6, T = trackOf(who);
+        const mv = melT.notes.filter(inS); melT.notes = melT.notes.filter(n => !inS(n));
+        if(T === cT){ const back = cT.notes.filter(inS); cT.notes = cT.notes.filter(n => !inS(n)); melT.notes.push(...back.map(n => ({...n, m:fit(melT.inst, n.m)}))); }
+        T.notes.push(...mv.map(n => ({...n, m:fit(who, n.m)}))); }
+      for(const t of Object.values(own)) t.notes.sort((x, y) => x.t - y.t); }
   }
   song.feel = 0.6; song.gamaka = M.indian ? 0.7 : 0; song.style = style; song.hf = M.hf || HF_MOOD[o.mood] || null; song.mood = o.mood; if(M.room) song.autoRoom = M.room;
   song.sections = secs_.map(s => ({type:s.type, b0:s.b0, n:s.n}));
