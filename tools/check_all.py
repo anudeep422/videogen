@@ -73,6 +73,13 @@ STUDIO_JS = r"""async () => {
   { const s = S.compose({mood:'devotional', seconds:300, seed:2}), bpb = s.meter || 4, blocks = {};
     for(const t of s.tracks.filter(t => /^Melody/.test(t.name))) for(const n of t.notes){ const b = Math.floor(n.t / bpb / 4); (blocks[b] = blocks[b] || []).push(t.inst + ':' + (n.t % (bpb * 4)).toFixed(2) + ':' + n.m); }
     const sig = Object.values(blocks).map(x => x.sort().join(';')); out.rules.push(['5-minute song keeps changing (' + new Set(sig).size + ' different parts of ' + sig.length + ')', new Set(sig).size >= sig.length * 0.35]); }
+  // music judge: picking the best of several versions must give better-scoring tunes than taking the first one
+  { const avg = tries => { S.JUDGE.tries = tries; let tot = 0, n = 0;
+      for(const m of ['devotional', 'spiritual', 'romantic', 'happy', 'sad', 'kids']) for(const seed of [1, 2]){ const s = S.compose({mood:m, seconds:60, seed}), mel = s.tracks.filter(t => /^Melody/.test(t.name)).flatMap(t => t.notes);
+        for(const sec of s.sections.filter(x => /^[ABC]$/.test(x.type))){ const ns = mel.filter(x => x.t >= sec.b0 * s.meter && x.t < (sec.b0 + sec.n) * s.meter).map(x => ({...x, t:x.t - sec.b0 * s.meter})); if(ns.length){ tot += S.judge(s, ns, sec, s.meter); n++; } } }
+      return tot / n; };
+    const one = avg(1), ten = avg(10); S.JUDGE.tries = 10;
+    out.rules.push([`music judge picks better tunes (score ${one.toFixed(2)} → ${ten.toFixed(2)})`, ten > one + 0.5]); }
   // 5-minute songs must keep changing the tune itself (not only the instrument): compare 4-bar blocks by notes only
   const tuneParts = s => { const bpb = s.meter || 4, blocks = {}; for(const t of s.tracks.filter(t => t.type === 'inst' && /^(Melody|Second|Answer)/.test(t.name))) for(const n of t.notes){ const b = Math.floor(n.t / bpb / 4); (blocks[b] = blocks[b] || []).push((n.t % (bpb * 4)).toFixed(1) + ':' + ((n.m % 12 + 12) % 12)); }
     const sig = Object.values(blocks).map(x => x.sort().join(';')); return [new Set(sig).size, sig.length]; };

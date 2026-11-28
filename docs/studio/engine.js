@@ -736,6 +736,27 @@ function tablaHits(rhythm, offBars, totalB, bpb, style, R){
 const RHY4 = [[1, 1, 1, 1], [1.5, 0.5, 1, 1], [0.5, 0.5, 1, 2], [2, 1, 1], [1, 0.5, 0.5, 2], [1, 1, 2], [0.5, 0.5, 0.5, 0.5, 1, 1], [3, 1], [1.5, 1.5, 1]];
 const RHY3 = [[1, 1, 1], [2, 1], [1.5, 0.5, 1], [0.5, 0.5, 1, 1], [3]];
 function fit(arr, range){ const [lo, hi] = range; return arr.map(m => { while(m < lo) m += 12; while(m > hi) m -= 12; return m; }); }
+// the music judge: scores a phrase the way a teacher would — smooth steps, few wild jumps, notes that sit on the chord,
+// enough different notes (not one note again and again), a sensible number of notes, and an ending that comes home
+const JUDGE = {tries:10};
+function judge(song, notes, sec, bpb){
+  if(!notes.length) return -99; const N = notes.slice().sort((a, b) => a.t - b.t), r = rootOf(song) % 12, nb = Math.max(1, sec.n);
+  let iv = 0, leaps = 0, same = 0, run = 0, onCh = 0, beats = 0;
+  for(let i = 1; i < N.length; i++){ const d = Math.abs(N[i].m - N[i - 1].m); iv += d; if(d > 7) leaps++; if(d === 0){ run++; if(run >= 3) same++; } else run = 0; }
+  for(const x of N) if(Math.abs(x.t % bpb) < 0.01){ beats++; const ch = chordAt(song, Math.floor(x.t / bpb), 60, sec.type).map(m => m % 12); if(ch.includes(x.m % 12)) onCh++; }
+  const k = Math.max(1, N.length - 1), avg = iv / k, distinct = new Set(N.map(x => x.m)).size, per = N.length / nb, last = ((N[N.length - 1].m - r) % 12 + 12) % 12;
+  let s = 0;
+  s -= Math.max(0, avg - 2.5) * 3;                 // smooth
+  s -= (leaps / k) * 15;                              // wild jumps
+  s += beats ? (onCh / beats) * 4 : 0;                // on the chord
+  s -= same * 1.5;                                    // the same note hammered
+  s += distinct < 3 ? -4 : distinct > 9 ? -(distinct - 9) * 0.6 : 1;
+  s -= per < 1.5 ? (1.5 - per) * 3 : per > 7 ? (per - 7) * 0.8 : 0;   // too empty / too busy
+  s += last === 0 ? 2.5 : last === 7 ? 1.2 : last === 4 || last === 3 ? 0.4 : -1;   // ending comes home
+  let shape = 0; for(let i = 2; i < N.length; i++){ const a = N[i - 1].m - N[i - 2].m, b = N[i].m - N[i - 1].m; if(Math.abs(a) > 4 && Math.sign(a) !== Math.sign(b) && b) shape++; }
+  s += (shape / k) * 2;                               // a jump is followed by a step back (good melody shape)
+  return s;
+}
 function auto(song, tr, kind, seed = 1, bars, opts = {}){
   const I = INSTRUMENTS[tr.inst] || {range:[48, 84]}, R = rng(seed * 7919 + kind.length), bpb = beatsPerBar(song), nb = bars || song.bars, out = [];
   const lo = I.range[0], hi = I.range[1], mid = Math.max(lo + 6, Math.min(hi - 6, Math.round((lo + hi) / 2) + (opts.shift || 0))), r = rootOf(song);
@@ -1065,6 +1086,7 @@ function compose(o){
   if(o.lead) parts.melody = o.lead; if(o.support){ if(parts.counter) parts.counter = o.support; else if(parts.pad) parts.pad = o.support; else parts.counter = o.support; }
   // "choose every instrument": '' = mood's choice, '-' = part off, otherwise that instrument
   if(o.parts) for(const [r0, v] of Object.entries(o.parts)){ if(!v) continue; if(v === '-') delete parts[r0]; else if(INSTRUMENTS[v]) parts[r0] = v; }
+  const plainMood = ['solo', 'custom', 'bowls', 'vedic'].includes(o.mood);
   const rhy1 = o.rhythm === '-' ? null : RHYTHMS[o.rhythm] ? o.rhythm : M.rhythm, rhy2 = o.rhythm ? null : M.rhythm2;
   for(const [role, inst] of Object.entries(parts)){
     if(!INSTRUMENTS[inst]) continue;
@@ -1087,7 +1109,15 @@ function compose(o){
       // verses get a new melody each round (3 versions), the chorus keeps its tune but changes every second round
       const sd = (sec.type === 'B' ? seedB + (sec.round % 3) * 2027 + sec.occ * 331 : sec.type === 'C' ? seedC + sec.round * 503 : seedA + sec.round * 1013 + sec.occ * 211);   // the chorus returns now and then; everything else is new
       const shift = role === 'melody' && sec.type === 'B' ? 5 : role === 'counter' ? 7 : 0;
-      let notes = auto(song, tr, kind, sd + (role === 'counter' ? 17 : 0) + (role === 'melody' && sec.type === 'B' ? 7 : 0), sec.n, {shift, style:role === 'melody' ? style : 'balanced', mstyle:role === 'melody' ? M.mstyle : null, sec:/^[ABC]$/.test(sec.type) ? sec.type : 'A'});
+      const mk = j => auto(song, tr, kind, sd + j * 7907 + (role === 'counter' ? 17 : 0) + (role === 'melody' && sec.type === 'B' ? 7 : 0), sec.n, {shift, style:role === 'melody' ? style : 'balanced', mstyle:role === 'melody' ? M.mstyle : null, sec:/^[ABC]$/.test(sec.type) ? sec.type : 'A'});
+      // music judge: for the tune itself, write several versions, score each, keep the best one
+      let notes = mk(0);
+      if(role === 'melody' && /^[ABC]$/.test(sec.type) && !/^(chant|hum|drone)$/.test(kind) && !plainMood){
+        const used = song._used || (song._used = new Map()), sig = ns => ns.map(x => x.t.toFixed(1) + ':' + x.m).join(';');
+        const score = ns => judge(song, ns, sec, bpb) - (used.get(sig(ns)) || 0) * 3;   // a phrase already heard in this song loses points
+        let best = score(notes), tries = 1;
+        for(let j = 1; j < JUDGE.tries; j++){ const c = mk(j), sc = score(c); tries++; if(sc > best){ best = sc; notes = c; } }
+        used.set(sig(notes), (used.get(sig(notes)) || 0) + 1); song.judged = (song.judged || 0) + tries; }
       if(sec.type === 'intro' && role === 'arp') notes = notes.map(x => ({...x, v:x.v * 0.8}));
       if(sec.type === 'C' && role === 'counter') notes = notes.map(x => ({...x, v:0.65}));
       const dyn = {intro:0.85, A:0.94, B:1.08, C:0.9, outro:0.9}[sec.type] || 1; notes = notes.map(x => ({...x, v:Math.min(1, x.v * dyn)}));
@@ -1197,6 +1227,7 @@ function compose(o){
       for(const t of Object.values(own)) t.notes.sort((x, y) => x.t - y.t); }
   }
   song.feel = 0.6; song.gamaka = M.indian ? 0.7 : 0; song.style = style; song.hf = M.hf || HF_MOOD[o.mood] || null; song.mood = o.mood; if(M.room) song.autoRoom = M.room;
+  delete song._used;
   song.sections = secs_.map(s => ({type:s.type, b0:s.b0, n:s.n}));
   return song;
 }
@@ -1221,5 +1252,5 @@ function editBars(song, a, b, mode, times = 1){
   song.bars = Math.max(1, song.bars + shift / bpb); delete song.sections; delete song.seconds;
 }
 window.VG_STUDIO = {editBars, setClipLoader, clipLoad, clipBufs, ambLoad, MOODS, compose, sections,SR, KEYS, SCALES, SWARA, NAMES, noteName, INSTRUMENTS, KITS, RHYTHMS, velOf, load, fetchBuf, prepare, events, graph, mixAll, mixTrack, level, preview, previewHit,
-  ROOMS, ROOM_MOOD, roomOf, FORMS, FEELS, buildMood, Player, render, renderPieces, wavBlob, m4aBlob, auto, scaleMidis, beatsPerBar, totalBeats, spb, songSeconds, rootOf, hz};
+  judge, JUDGE, ROOMS, ROOM_MOOD, roomOf, FORMS, FEELS, buildMood, Player, render, renderPieces, wavBlob, m4aBlob, auto, scaleMidis, beatsPerBar, totalBeats, spb, songSeconds, rootOf, hz};
 })();
