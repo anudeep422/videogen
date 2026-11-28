@@ -361,7 +361,7 @@ const ROOM_MOOD = {spiritual:'temple', devotional:'temple', aarti:'temple', vedi
   calm:'hall', zen:'hall', sad:'hall', romantic:'hall', spanish:'hall', desert:'hall', western:'hall',
   kids:'studio', motivational:'studio', happy:'studio', jazz:'studio', blues:'studio', cowboy:'studio', africa:'studio', folk:'studio', festival:'studio', wedding:'studio',
   cinematic:'bighall', orchestra:'bighall', church:'bighall'};
-const roomOf = song => ROOMS[song.room] ? song.room : ROOM_MOOD[song.mood] || 'classic';
+const roomOf = song => ROOMS[song.room] ? song.room : ROOM_MOOD[song.mood] || song.autoRoom || 'classic';
 const irCache = {};
 function impulse(ctx, room = 'classic'){
   const R0 = ROOMS[room] || ROOMS.classic, sr = ctx.sampleRate, key = room + '|' + sr; if(irCache[key]) return irCache[key];
@@ -977,7 +977,7 @@ const MOODS = {
     parts:{melody:'r:flute', counter:'r:oboe', pad:'r:violins', bass:'r:basses', arp:'r:harp'}, rhythm:'march', verb:0.45},
 };
 const ROLE_NAME = {bowls:'Singing bowls', hum:'Rubbed bowl (hum)', sparkle:'Chimes', melody:'Melody', counter:'Second melody', pad:'Chords', bass:'Bass', arp:'Arpeggio', drone:'Drone'};
-const ROLE_VOL = {bowls:0.6, hum:0.45, sparkle:0.32, melody:0.85, counter:0.55, pad:0.5, bass:0.7, arp:0.5, drone:0.45};
+const ROLE_VOL = {bowls:0.6, hum:0.45, sparkle:0.32, melody:0.78, counter:0.62, pad:0.55, bass:0.7, arp:0.56, drone:0.45};
 const ROLE_PAN = {bowls:-0.2, hum:0, sparkle:0.4, melody:0, counter:0.3, pad:-0.25, bass:0, arp:0.35, drone:-0.15};
 let idn = 0; const tid = () => 'g' + Date.now().toString(36) + (idn++);
 const SHAPES = [['A', 'B', 'A', 'B', 'C', 'B'], ['A', 'A', 'B', 'A', 'B', 'A'], ['A', 'B', 'B', 'C', 'B', 'B'], ['A', 'C', 'A', 'B', 'A', 'B'], ['A', 'B', 'C', 'A', 'B', 'B']];
@@ -989,6 +989,37 @@ function sections(nb, order0){
   while(b < intro + mid){ const n = Math.min(4, intro + mid - b); out.push({type:order[i % order.length], b0:b, n}); b += n; i++; }
   out.push({type:'outro', b0:b, n:outro}); return out;
 }
+// ---------------------------------------------------------------- "Build my music": the person picks raga, instruments, rhythm, speed, feel and song form
+const LEAD_LIKE = id => !/^(s:tanpura|s:bowl_|s:crystal|s:gong|s:chimes|r:tubebells|r:tubular|r:wineglass|r:basses|r:pizz|r:tuba)/.test(id);
+function roleOf(id){
+  if(id === 's:tanpura') return 'drone'; if(/^s:(bowl_tibetan|crystal|gong)$/.test(id)) return 'bowls'; if(id === 's:bowl_rubbed') return 'hum';
+  if(/^(s:chimes|r:tubebells|r:tubular|r:wineglass)$/.test(id)) return 'sparkle'; if(/^r:(basses|pizz|tuba)$/.test(id)) return 'bass';
+  if(/^(r:harp|s:santoor|r:steel|r:nylon|s:guitar|r:dulcimer|s:kalimba|r:kalimba_rec|r:kalimba_ke|r:koto|r:folkharp|r:mbira)$/.test(id)) return 'arp';
+  if(/^(s:harmonium|r:warmpad|r:violins|r:violas|r:choir|r:organ|r:pipeorgan|r:reedorgan|r:accordion|r:epiano|r:cellos)$/.test(id)) return 'pad';
+  return 'lead';
+}
+const FEELS = {
+  calm:      {mstyle:'calm', hf:'gentle', room:'temple', verb:0.5, tabla:'soft'},
+  happy:     {mstyle:'bright', hf:'bright', room:'studio', verb:0.25, tabla:'full', bright:true},
+  devotional:{mstyle:'calm', hf:'bhakti', room:'temple', verb:0.4, tabla:'full'},
+  sad:       {mstyle:'sad', hf:'tender', room:'hall', verb:0.45, tabla:'gentle'},
+  grand:     {mstyle:'epic', hf:'grand', room:'bighall', verb:0.45, tabla:'full'},
+};
+const FORMS = {   // song forms: the order of parts (A = verse, B = chorus, C = instrumental break)
+  bhajan:['A', 'B', 'B', 'A', 'B', 'B'], film:['A', 'B', 'A', 'B', 'C', 'B'], classical:['A', 'A', 'B', 'A', 'B', 'C'], instrumental:['A', 'C', 'B', 'A', 'C', 'B'], meditation:['A', 'A', 'A', 'A'],
+};
+function buildMood(b = {}){
+  const raga = SCALES[b.raga] ? b.raga : 'mohanam', ins = (b.insts || []).filter(id => INSTRUMENTS[id]).slice(0, 8), F = FEELS[b.feel] || FEELS.calm, form = FORMS[b.form] ? b.form : 'bhajan';
+  const parts = {}, leads = ins.filter(id => roleOf(id) === 'lead');
+  if(leads[0]) parts.melody = leads[0]; if(leads[1]) parts.counter = leads[1];
+  for(const id of ins){ const r = roleOf(id); if(r !== 'lead' && !parts[r]) parts[r] = id; }
+  if(!parts.melody){ const p = ins.find(LEAD_LIKE) || 's:bansuri'; parts.melody = p; for(const k of Object.keys(parts)) if(k !== 'melody' && parts[k] === p) delete parts[k]; }
+  const indian = /^Indian/.test(SCALES[raga].g || '') || ins.some(id => /^s:(bansuri|veena|sitar|santoor|harmonium|tanpura)$/.test(id));
+  const slow = b.speed === 'slow' || form === 'meditation';
+  return {name:'🎼 My music', scales:[raga], keys:['C#', 'D', 'C'], indian, parts, rhythm:form === 'meditation' && b.rhythm !== 'tabla_soft' ? null : (RHYTHMS[b.rhythm] ? b.rhythm : null),
+    bpm:slow ? [58, 68] : b.speed === 'fast' ? [106, 124] : [80, 96], verb:F.verb, mstyle:F.mstyle, hf:F.hf, room:F.room, tabla:form === 'classical' ? 'classical' : F.tabla, form, bright:F.bright,
+    melodyKind:indian && b.feel !== 'happy' ? 'raga' : 'melody', callAnswer:true};
+}
 // "My own choice": only the instruments the person picked
 function customMood(c = {}){
   const parts = {}; if(c.melody) parts.melody = c.melody; if(c.counter) parts.counter = c.counter; if(c.drone) parts.drone = 's:tanpura';
@@ -998,11 +1029,12 @@ function customMood(c = {}){
     keys:['C#', 'D', 'C'], indian:true, parts, rhythm:c.rhythm || null, verb:0.45};
 }
 function compose(o){
-  const M = o.mood === 'custom' ? customMood(o.custom) : MOODS[o.mood] || MOODS.spiritual, R = rng((o.seed || 1) * 104729 + strHash(o.mood + '|' + JSON.stringify(o.custom || '') + '|' + (o.lead || '') + (o.support || ''))), meter = 4;
+  const M = o.mood === 'custom' ? customMood(o.custom) : o.mood === 'build' ? buildMood(o.build) : MOODS[o.mood] || MOODS.spiritual, R = rng((o.seed || 1) * 104729 + strHash(o.mood + '|' + JSON.stringify(o.custom || o.build || '') + '|' + (o.lead || '') + (o.support || ''))), meter = 4;
   const scale0 = R.pick(M.scales), key0 = R.pick(M.keys), scale = SCALES[o.scale] ? o.scale : scale0, key = o.key || key0;   // dice rolled either way, so the rest of the tune stays the same
   const bpm0 = M.bpm[0] + R() * (M.bpm[1] - M.bpm[0]), secs = Math.max(8, o.seconds || 60);
   // variety: song shape, melody style and how the song opens change with the tune number
-  const shape = R.pick(SHAPES), style = R.pick(['balanced', 'flow', 'lively', 'motif']), introMode = M.indian ? R.pick(['alap', 'alap', 'drone', 'melody']) : R.pick(['band', 'melody', 'band']);
+  const shape = M.form ? FORMS[M.form] : R.pick(SHAPES), style = R.pick(['balanced', 'flow', 'lively', 'motif']);
+  const introMode = M.form === 'classical' ? 'alap' : M.form === 'meditation' ? 'drone' : M.indian ? R.pick(['alap', 'alap', 'drone', 'melody']) : R.pick(['band', 'melody', 'band']);
   // pick bars so the middle is whole 4-bar phrases, then set the tempo so the song lasts exactly `secs`
   let bars = Math.max(4, Math.round(secs / (meter * 60 / bpm0))), best = null;
   for(let n = Math.max(4, bars - 6); n <= bars + 6; n++){ const sc = sections(n, shape); if((sc.some(x => x.n < 4 && /^[ABC]$/.test(x.type)) || sc[sc.length - 1].n > 3) && n >= 6) continue;
@@ -1023,7 +1055,7 @@ function compose(o){
   const parts = {...M.parts};
   // every tune number uses different instruments (from ones that suit the mood); a second lead takes over in later rounds
   const calmMood = (M.bpm || [80])[0] < 84, alt = {};
-  for(const role of ['melody', 'counter', 'pad', 'arp', 'bass']){ const cur = parts[role]; if(!cur) continue;
+  for(const role of o.mood === 'build' ? [] : ['melody', 'counter', 'pad', 'arp', 'bass']){ const cur = parts[role]; if(!cur) continue;   // "Build my music" keeps exactly your instruments
     const indianInst = x => /^(s:(bansuri|veena|sitar|harmonium|santoor)|r:(sitar_rec|shehnai))$/.test(x), keep = x => M.indian || /^s:/.test(cur) || !indianInst(x);
     // Western moods never get Indian instruments; pick the list that gives the most fitting choices
     const fam = M.alts && M.alts[role] ? M.alts[role] : (calmMood && FAMILY_CALM[role] || FAMILY[role] || []).filter(f => f.includes(cur)).map(f => f.filter(keep)).sort((a, b) => b.length - a.length)[0]; if(!fam) continue;
@@ -1073,7 +1105,7 @@ function compose(o){
     for(const [row, p] of Object.entries(R2.pat)) tr.grid[row] = [...p].map(velOf);
     tr.off = drumOff('main'); if(chorusOnly) for(const sec of secs_) if(sec.type !== 'B') for(let b = sec.b0; b < sec.b0 + sec.n; b++) tr.off.push(b);
     tr.off = [...new Set(tr.off)].sort((a, b) => a - b);
-    if(R2.kit === 'tabla' && THEKA[rhythm]){ tr.bols = true; tr.grid = {}; tr.hits = tablaHits(rhythm, tr.off, totalBeats(song), meter, TABLA_STYLE[o.mood] || 'full', R); }   // real bols
+    if(R2.kit === 'tabla' && THEKA[rhythm]){ tr.bols = true; tr.grid = {}; tr.hits = tablaHits(rhythm, tr.off, totalBeats(song), meter, M.tabla || TABLA_STYLE[o.mood] || 'full', R); }   // real bols
     song.tracks.push(tr); };
   if(rhy1) addDrum(rhy1, 'Rhythm · ' + RHYTHMS[rhy1].name.split(' (')[0], 0.7);
   if(rhy2) addDrum(rhy2, 'Chorus rhythm · ' + RHYTHMS[rhy2].name.split(' (')[0], 0.5, true);
@@ -1083,14 +1115,31 @@ function compose(o){
     const BOLS = {tabla:['s:tabla:dha', 's:tabla:te', 's:tabla:te', 's:tabla:na', 's:tabla:dha'], mridangam:['s:mri:tha', 's:mri:dhi', 's:mri:ki', 's:mri:nam', 's:mri:thom'],
       folk:['s:dholak:dhe', 's:dholak:ta', 's:dholak:ta', 's:dholak:dhe', 's:dholak:dhe'], kit:['r:snare', 'r:snare', 'r:tom_hi', 'r:tom_hi', 'r:kick'], orch:['r:timpani', 'r:snare', 'r:snare', 'r:snare', 'r:timpani']}[main.kit];
     if(BOLS && main.rhythm !== 'bowl'){
-      main.hits = (main.hits || []).filter(h => h.t < tb * meter - 1e-6 || h.t > tb * meter + 4.6); for(let rep = 0; rep < 3; rep++) BOLS.forEach((row, i) => main.hits.push({t:tb * meter + (rep * 6 + i) * 0.25, row, v:(i === 4 ? 1 : 0.8) * (main.bols && TABLA_STYLE[o.mood] === 'soft' ? 0.55 : 1)}));
+      main.hits = (main.hits || []).filter(h => h.t < tb * meter - 1e-6 || h.t > tb * meter + 4.6); for(let rep = 0; rep < 3; rep++) BOLS.forEach((row, i) => main.hits.push({t:tb * meter + (rep * 6 + i) * 0.25, row, v:(i === 4 ? 1 : 0.8) * (main.bols && (M.tabla || TABLA_STYLE[o.mood]) === 'soft' ? 0.55 : 1)}));
       if(main.kit === 'folk' && main.grid['s:manjira']) main.hits.push({t:outroSec.b0 * meter, row:'s:manjira', v:1});
       for(const t of song.tracks) if(t.type === 'drum'){ t.off = [...new Set([...(t.off || []), tb])].sort((a, b) => a - b); }
     }
   }
   // richness: doubled melody, soft pad, swarmandal shimmer, risers and impacts, crescendos into the chorus
-  const plain = ['solo', 'custom', 'bowls', 'meditation', 'vedic'].includes(o.mood);
-  if(o.rich !== false && !plain){
+  const plain = ['solo', 'custom', 'bowls', 'meditation', 'vedic'].includes(o.mood) || M.form === 'meditation';
+  // instruments take turns: in verses the lead plays the first half of each phrase and another instrument answers;
+  // in an instrumental break the second instrument takes the tune
+  { const melT = song.tracks.find(t => /^Melody ·/.test(t.name)), cT = song.tracks.find(t => /^Second melody/.test(t.name));
+    const ansInst = cT ? cT.inst : o.mood === 'build' ? (M.form === 'instrumental' && parts.arp ? parts.arp : null) : alt.melody && INSTRUMENTS[alt.melody] && !(o.parts && o.parts.melody) && !o.lead ? alt.melody : null;
+    if(melT && ansInst && !['solo', 'bowls', 'vedic', 'custom'].includes(o.mood) && (M.callAnswer || !plain)){
+      let aT = cT; if(!aT){ aT = {id:tid(), type:'inst', inst:ansInst, name:`Answer · ${INSTRUMENTS[ansInst].label}`, notes:[], vol:ROLE_VOL.counter + 0.08, pan:0.28, verb:M.verb}; song.tracks.push(aT); }
+      const I = INSTRUMENTS[ansInst], fitN = m => { while(m > I.range[1] - 2) m -= 12; while(m < I.range[0] + 2) m += 12; return m; };
+      for(const sec of secs_){
+        if(sec.type === 'A' && sec.n === 4 && (M.callAnswer || sec.round % 2 === 0)){ const a0 = (sec.b0 + 2) * meter, a1 = (sec.b0 + 4) * meter;
+          const mv = melT.notes.filter(n => n.t >= a0 - 1e-6 && n.t < a1 - 1e-6); melT.notes = melT.notes.filter(n => !(n.t >= a0 - 1e-6 && n.t < a1 - 1e-6));
+          aT.notes.push(...mv.map(n => ({...n, m:fitN(n.m), v:Math.min(1, n.v * 1.02)}))); }
+        if(sec.type === 'C' && M.form === 'instrumental'){ const a0 = sec.b0 * meter, a1 = (sec.b0 + sec.n) * meter;
+          aT.notes = aT.notes.filter(n => !(n.t >= a0 - 1e-6 && n.t < a1 - 1e-6));
+          aT.notes.push(...auto(song, aT, M.melodyKind || 'melody', seedB + 41, sec.n, {mstyle:M.mstyle, sec:'C'}).map(n => ({...n, m:fitN(n.m), t:n.t + a0}))); }
+      }
+      if(!aT.notes.length) song.tracks.splice(song.tracks.indexOf(aT), 1);
+    } }
+  if(o.rich !== false && !plain && o.mood !== 'build'){
     const mel = song.tracks.find(t => t.name.startsWith('Melody')), bpb = meter, choruses = secs_.filter(x => x.type === 'B');
     const DOUBLE = {'s:bansuri':'r:violins', 'r:flute':'r:violins', 'r:violin':'r:flute', 's:veena':'s:sitar', 's:sitar':'r:violins', 's:harmonium':'r:accordion', 'r:piano':'r:violins',
       'r:shehnai':'r:oboe', 'r:oboe':'r:flute', 'r:marimba':'r:glock', 'r:nylon':'r:violin', 'r:epiano':'r:violins', 'r:panflute':'r:violins', 'r:horn':'r:trumpet', 'r:voice':'r:violins', 'r:sitar_rec':'r:violins'};
@@ -1131,7 +1180,7 @@ function compose(o){
     const drone = song.tracks.some(t => /^(Drone|Singing bowls|Rubbed)/.test(t.name));
     if(!M.indian && !drone && R() < 0.6){ const up = R.pick([1, 2, 2]); for(const t of song.tracks) if(t.type === 'inst' && !/^(Swells|Impact)/.test(t.name)) t.notes.forEach(n => { if(n.t >= lastB.b0 * meter) n.m += up; }); song.lift = up; }
   }
-  song.feel = 0.6; song.gamaka = M.indian ? 0.7 : 0; song.style = style; song.hf = HF_MOOD[o.mood] || null; song.mood = o.mood;
+  song.feel = 0.6; song.gamaka = M.indian ? 0.7 : 0; song.style = style; song.hf = M.hf || HF_MOOD[o.mood] || null; song.mood = o.mood; if(M.room) song.autoRoom = M.room;
   song.sections = secs_.map(s => ({type:s.type, b0:s.b0, n:s.n}));
   return song;
 }
@@ -1156,5 +1205,5 @@ function editBars(song, a, b, mode, times = 1){
   song.bars = Math.max(1, song.bars + shift / bpb); delete song.sections; delete song.seconds;
 }
 window.VG_STUDIO = {editBars, setClipLoader, clipLoad, clipBufs, ambLoad, MOODS, compose, sections,SR, KEYS, SCALES, SWARA, NAMES, noteName, INSTRUMENTS, KITS, RHYTHMS, velOf, load, fetchBuf, prepare, events, graph, mixAll, mixTrack, level, preview, previewHit,
-  ROOMS, ROOM_MOOD, roomOf, Player, render, renderPieces, wavBlob, m4aBlob, auto, scaleMidis, beatsPerBar, totalBeats, spb, songSeconds, rootOf, hz};
+  ROOMS, ROOM_MOOD, roomOf, FORMS, FEELS, buildMood, Player, render, renderPieces, wavBlob, m4aBlob, auto, scaleMidis, beatsPerBar, totalBeats, spb, songSeconds, rootOf, hz};
 })();

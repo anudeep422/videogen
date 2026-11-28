@@ -510,6 +510,40 @@ function autoSheet(t){
 }
 
 // ------------------------------------------------------------ sheets, toast, busy
+// ---------- build my music: the person chooses raga, instruments, rhythm, speed, feel and song form ----------
+const BUILD_INSTS = [['Indian', ['s:bansuri', 's:veena', 's:sitar', 's:santoor', 's:harmonium', 'r:shehnai', 's:tanpura']],
+  ['Western', ['r:grand', 'r:flute', 'r:violin', 'r:violins', 'r:cellos', 'r:steel', 'r:harp', 'r:choir', 'r:warmpad', 'r:pizz']],
+  ['Bells & calm', ['s:bowl_tibetan', 's:chimes', 'r:tubebells', 'r:celesta', 'r:glock', 'r:kalimba_ke']]];
+const BUILD_RHY = [['', 'No drums'], ['tabla_soft', 'Soft tabla'], ['keherwa', 'Tabla keherwa'], ['teentaal', 'Tabla teentaal'], ['bhajan', 'Bhajan dholak'], ['adi', 'Mridangam (adi)'], ['dholak', 'Folk dholak'], ['pop', 'Pop drums'], ['frame', 'Frame drum']];
+let BT = (() => { try{ return JSON.parse(localStorage.getItem('vg_build')) || null; }catch(e){ return null; } })() || {raga:'mohanam', insts:['s:bansuri', 's:veena', 's:tanpura'], rhythm:'keherwa', speed:'medium', feel:'devotional', form:'bhajan', seconds:60};
+function buildSheet(){
+  const chip = (id) => { const I = S.INSTRUMENTS[id]; if(!I) return ''; const on = BT.insts.includes(id); return `<button data-bi="${id}" class="${on ? 'on' : ''}">${on ? '✓ ' : ''}${esc(I.label.replace(/ \(.*\)/, ''))}</button>`; };
+  const extra = BT.insts.filter(id => !BUILD_INSTS.some(([, l]) => l.includes(id)));
+  const pick = (name, list, cur) => `<div class="opts">${list.map(([v, l]) => `<button data-${name}="${v}" class="${v === cur ? 'on' : ''}">${l}</button>`).join('')}</div>`;
+  sheet('🎼 Build my music', `<p class="hint" style="margin-top:0">You choose — the Studio composes from your choices only. Each 🎲 Next gives a new composition.</p>
+    <h4>1 · Raga</h4><select id="btRaga" style="max-width:260px">${scaleOptions(BT.raga)}</select>
+    <h4>2 · Instruments <span class="hint">(tap 1–6; the first one leads)</span></h4>
+    ${BUILD_INSTS.map(([g, l]) => `<div class="hint" style="margin:4px 0 2px">${g}</div><div class="opts">${l.map(chip).join('')}</div>`).join('')}
+    ${extra.length ? `<div class="opts" style="margin-top:4px">${extra.map(chip).join('')}</div>` : ''}
+    <div class="opts" style="margin-top:6px;align-items:center"><label class="hint">More:</label><select id="btMore" style="max-width:210px"><option value="">Add another instrument…</option>${instOptions('')}</select></div>
+    <h4>3 · Rhythm</h4>${pick('br', BUILD_RHY, BT.rhythm || '')}
+    <h4>4 · Speed</h4>${pick('bs', [['slow', '🐢 Slow'], ['medium', '🚶 Medium'], ['fast', '🏃 Fast']], BT.speed)}
+    <h4>5 · Feel</h4>${pick('bf', [['calm', '🌿 Calm'], ['devotional', '🙏 Devotional'], ['happy', '😊 Happy'], ['sad', '😢 Sad'], ['grand', '🎬 Grand']], BT.feel)}
+    <h4>6 · Song form</h4>${pick('bm', [['bhajan', '🙏 Bhajan (call & answer, chorus)'], ['classical', '🎼 Classical (alap, then tune, tihai)'], ['film', '🎬 Film song (verse, chorus, break)'], ['meditation', '🧘 Meditation (slow, flowing)'], ['instrumental', '🎻 Instrumental (instruments take turns)']], BT.form)}
+    <h4>7 · Length</h4>${pick('bl', [['30', '30 s'], ['60', '1 min'], ['120', '2 min'], ['180', '3 min'], ['300', '5 min']], String(BT.seconds))}
+    <button id="btMake" style="width:100%;margin-top:12px;padding:13px;font-size:16px;font-weight:700;background:linear-gradient(90deg,#f0a830,#e5534b);border:0;color:#1a0d00">🎼 Make my music</button>`, box => {
+    const save = () => { try{ localStorage.setItem('vg_build', JSON.stringify(BT)); }catch(e){} };
+    $('btRaga').onchange = () => { BT.raga = $('btRaga').value; save(); };
+    box.querySelectorAll('[data-bi]').forEach(b => b.onclick = () => { const id = b.dataset.bi, i = BT.insts.indexOf(id);
+      if(i >= 0) BT.insts.splice(i, 1); else { if(BT.insts.length >= 6) return toast('Up to 6 instruments — remove one first', true); BT.insts.push(id); } save(); buildSheet(); });
+    $('btMore').onchange = () => { const id = $('btMore').value; if(id && !BT.insts.includes(id)){ if(BT.insts.length >= 6) return toast('Up to 6 instruments — remove one first', true); BT.insts.push(id); save(); buildSheet(); } };
+    for(const [k, f] of [['br', 'rhythm'], ['bs', 'speed'], ['bf', 'feel'], ['bm', 'form'], ['bl', 'seconds']])
+      box.querySelectorAll(`[data-${k}]`).forEach(b => b.onclick = () => { BT[f] = f === 'seconds' ? +b.dataset[k] : b.dataset[k]; save(); box.querySelectorAll(`[data-${k}]`).forEach(x => x.classList.toggle('on', x === b)); });
+    $('btMake').onclick = () => { if(!BT.insts.length) return toast('Choose at least one instrument', true);
+      OT.mood = 'build'; OT.build = {...BT, insts:[...BT.insts]}; OT.scale = BT.raga; OT.seconds = BT.seconds; OT.seed = 1; OT.parts = {}; OT.rhythm = ''; OT.lead = null; OT.support = null;
+      try{ localStorage.setItem('vg_studio_onetap', JSON.stringify(OT)); }catch(e){} closeSheet(); makeOneTap(); };
+  });
+}
 // ---------- play by ear: Sa Re Ga Ma pads and hum a tune (no AI) ----------
 const SWARA = ['Sa', 'Re', 'Re', 'Ga', 'Ga', 'Ma', 'Ma', 'Pa', 'Dha', 'Dha', 'Ni', 'Ni'], SWARA_K = ['', 'komal', '', 'komal', '', '', 'tivra', '', 'komal', '', 'komal', ''];
 const PAD = {inst:null, rec:null};
@@ -665,6 +699,7 @@ $('menuBtn').onclick = () => {
     <button data-m="save">💾 Save to My songs</button>
     <button data-m="rename">✏️ Rename song</button>
     <button data-m="voice">🎙️ Record my voice over the music</button>
+    <button data-m="build">🎼 Build my music (choose raga + instruments)</button>
     <button data-m="pads">🎹 Play by ear (Sa Re Ga Ma pads, hum a tune)</button>
     <button data-m="mixer">🎚️ Mixer (balance all tracks)</button>
     <button data-m="bars">🔁 Repeat or remove bars</button>
@@ -692,6 +727,7 @@ async function menu(m){
   if(m === 'bars') barsSheet();
   if(m === 'mixer') mixerSheet();
   if(m === 'pads') padsSheet();
+  if(m === 'build') buildSheet();
   if(m === 'voice'){ closeSheet(); pushUndo(); const t = {id:uid(), type:'audio', name:'My voice', blob:null, start:0, vol:1, pan:0, verb:0.12}; song.tracks.push(t); selId = t.id; changed(); recordVoice(t); }
   if(m === 'onetap') oneTapSheet();
   if(m === 'wav' || m === 'm4a' || m === 'anim'){
@@ -784,6 +820,7 @@ function otMoodDefaults(){ const M = S.MOODS[OT.mood] || {}, P = M.parts || {};
   const rh = $('ot_rhy'); if(rh) rh.options[0].textContent = 'Mood: ' + (M.rhythm && S.RHYTHMS[M.rhythm] ? S.RHYTHMS[M.rhythm].name : 'no drums'); }
 function oneTapSheet(){
   sheet('✨ Make a full song', `<p class="hint" style="margin-top:0">Choose a mood and the length of your video. The song gets an intro, verse, chorus and ending, with real instruments. No AI — music rules and dice.</p>
+    <button id="otBuild" style="width:100%;padding:11px;margin:2px 0 8px;font-weight:700;border-color:var(--acc)">🎼 Or build my own: choose raga + instruments</button>
     <h4>1 · What is the video for?</h4><div class="opts" id="otMood">${TOP_MOODS.filter(k => S.MOODS[k]).map(k => `<button data-mood="${k}" class="${k === OT.mood ? 'on' : ''}">${esc(S.MOODS[k].name)}</button>`).join('')}
       <details style="width:100%"${TOP_MOODS.includes(OT.mood) ? '' : ' open'}><summary class="hint" style="cursor:pointer;margin:6px 0">More styles ▾</summary><div class="opts">${Object.entries(S.MOODS).filter(([k]) => !TOP_MOODS.includes(k)).map(([k, m]) => `<button data-mood="${k}" class="${k === OT.mood ? 'on' : ''}">${esc(m.name)}</button>`).join('')}</div></details></div>
     <div id="otCustom" style="display:${OT.mood === 'custom' ? 'block' : 'none'};background:#0d0b14;border:1px solid var(--line);border-radius:10px;padding:8px 10px;margin-top:8px">
@@ -817,6 +854,7 @@ function oneTapSheet(){
     <button id="otGo" class="on" style="width:100%;margin-top:16px;padding:12px;font-size:16px">✨ Make song</button>
     <p class="hint">Your current song will be replaced. Same mood + same tune number = same song again.</p>`, box => {
     box.querySelectorAll('[data-mood]').forEach(b => b.onclick = () => { OT.mood = b.dataset.mood; box.querySelectorAll('[data-mood]').forEach(x => x.classList.toggle('on', x === b)); $('otCustom').style.display = OT.mood === 'custom' ? 'block' : 'none'; $('otSolo').style.display = OT.mood === 'solo' ? 'block' : 'none'; otMoodDefaults(); });
+    $('otBuild').onclick = buildSheet;
     otMoodDefaults(); $('otAllReset').onclick = () => { for(const [r] of OT_ROLES) $('ot_p_' + r).value = ''; $('ot_rhy').value = ''; };
     if($('ocBowl')){ $('ocBowl').value = (OT.custom || {}).bowls || ''; $('ocSpd').value = (OT.custom || {}).speed || 'slow'; }
     box.querySelectorAll('[data-len]').forEach(b => b.onclick = () => { OT.seconds = +b.dataset.len; $('otSec').value = OT.seconds; box.querySelectorAll('[data-len]').forEach(x => x.classList.toggle('on', x === b)); });
@@ -835,11 +873,11 @@ async function makeOneTap(){
   OT.key = $('otKey') && $('sheet').classList.contains('show') ? $('otKey').value : OT.key; OT.seed = $('otSeed') && $('sheet').classList.contains('show') ? +$('otSeed').value || 1 : OT.seed; if($('otSec') && $('sheet').classList.contains('show')) OT.seconds = Math.max(8, Math.min(900, +$('otSec').value || 60));
   try{ localStorage.setItem('vg_studio_onetap', JSON.stringify(OT)); }catch(e){}
   closeSheet(); pushUndo();
-  const opts = {mood:OT.mood, seconds:OT.seconds, key:OT.key || null, scale:OT.scale || null, seed:OT.seed, nature:OT.nature || null, lead:OT.mood === 'solo' ? (OT.solo || 's:bansuri') : OT.lead || null, support:OT.mood === 'solo' ? null : OT.support || null, custom:OT.custom, rich:OT.rich !== false, parts:OT.parts || null, rhythm:OT.rhythm || null};
+  const opts = {build:OT.mood === 'build' ? OT.build : null, mood:OT.mood, seconds:OT.seconds, key:OT.key || null, scale:OT.scale || null, seed:OT.seed, nature:OT.nature || null, lead:OT.mood === 'solo' ? (OT.solo || 's:bansuri') : OT.lead || null, support:OT.mood === 'solo' ? null : OT.support || null, custom:OT.custom, rich:OT.rich !== false, parts:OT.parts || null, rhythm:OT.rhythm || null};
   const s = S.compose(opts); s.made = opts;
   loadSong(s); PR.sx = 0; PR.sy = -1; renderEditor();
   await togglePlay();
-  toast(`${S.MOODS[OT.mood].name} · ${OT.seconds}s · tune ${OT.seed}`);
+  toast(`${(S.MOODS[OT.mood] || {name:"🎼 My music"}).name} · ${OT.seconds}s · tune ${OT.seed}`);
 }
 $('oneTap').onclick = oneTapSheet;
 $('nextTune').onclick = () => { OT.seed = (OT.seed || 1) + 1; makeOneTap(); };

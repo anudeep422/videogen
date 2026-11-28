@@ -122,6 +122,35 @@ async def main():
                 return humToNotes(b, 1, 0.62).map(n => Math.round(n.m) % 12).join(','); })()""")
             check(hum == '0,2,4,7,4,2,0', f'hum to melody hears Sa Re Ga Pa Ga Re Sa ({hum})')
             await pg.evaluate("closeSheet()")
+            # build my music: only the chosen raga + instruments, each form has its own shape, instruments take turns
+            r = await pg.evaluate("""(()=>{ const S = VG_STUDIO, out = [], base = {raga:'hindolam', insts:['s:veena','s:bansuri','s:tanpura','r:harp'], rhythm:'keherwa', speed:'medium', feel:'devotional', form:'bhajan'};
+                for(const [form, feel] of [['bhajan','devotional'],['classical','calm'],['film','happy'],['meditation','calm'],['instrumental','sad']]) for(const seed of [1,2]){
+                  const b = {...base, form, feel, insts: form === 'film' ? ['r:grand','r:violin','r:steel'] : base.insts, rhythm: form === 'meditation' ? '' : base.rhythm};
+                  const sg = S.compose({mood:'build', build:b, seconds:60, seed, key:'C'}), sc = S.SCALES[b.raga].s, r0 = S.KEYS[sg.key];
+                  const insts = sg.tracks.filter(t => t.type === 'inst').map(t => t.inst);
+                  const onlyMine = insts.every(i => b.insts.includes(i));
+                  const inRaga = sg.tracks.filter(t => t.type === 'inst' && /melody|Answer/i.test(t.name)).every(t => t.notes.every(n => sc.includes(((n.m - r0) % 12 + 12) % 12)));
+                  const leads = sg.tracks.filter(t => t.type === 'inst' && /melody|Answer/i.test(t.name) && t.notes.length).length;
+                  const drums = sg.tracks.some(t => t.type === 'drum');
+                  out.push([form + ' ' + seed, onlyMine, inRaga, leads, drums, Math.round(S.songSeconds ? S.songSeconds(sg) : sg.bars * sg.bpb * 60 / sg.bpm), insts.join(',')]); }
+                return out; })()""")
+            for name, mine, raga, leads, drums, dur, ins in r:
+                form = name.split()[0]
+                check(mine, f'build {name}: only my instruments ({ins})')
+                check(raga, f'build {name}: melody stays in my raga')
+                check(abs(dur - 60) <= 2, f'build {name}: length {dur}s')
+                if form in ('bhajan', 'film', 'instrumental'): check(leads >= 2, f'build {name}: instruments take turns ({leads} lead parts)')
+                if form == 'meditation': check(not drums, f'build {name}: no drums when No drums chosen')
+            await pg.evaluate("BT={raga:'mohanam',insts:['s:sitar','s:santoor','s:tanpura'],rhythm:'teentaal',speed:'slow',feel:'calm',form:'classical',seconds:30}; buildSheet()"); await pg.wait_for_timeout(300)
+            check(await pg.is_visible('#btMake'), 'Build my music screen opens')
+            await pg.click('#btMake'); await pg.wait_for_function('song && song.mood==="build" && song.tracks.length', timeout=60000); await pg.wait_for_timeout(500)
+            st = await pg.evaluate("[song.scale, song.tracks.filter(t=>t.type==='inst').map(t=>t.inst).join(',')]")
+            check(st[0] == 'mohanam' and set(st[1].split(',')) <= {'s:sitar','s:santoor','s:tanpura'}, f'Make my music uses my choices ({st})')
+            first = await pg.evaluate("JSON.stringify(song.tracks.map(t=>t.notes&&t.notes.slice(0,6).map(n=>n.m)))")
+            await pg.evaluate("player.playing && togglePlay(); document.getElementById('nextTune').click()"); await pg.wait_for_timeout(3000)
+            st2 = await pg.evaluate("[OT.mood, song.scale, JSON.stringify(song.tracks.map(t=>t.notes&&t.notes.slice(0,6).map(n=>n.m)))]")
+            check(st2[0] == 'build' and st2[1] == 'mohanam' and st2[2] != first, 'Next gives a new tune with my same choices')
+            await pg.evaluate("player.playing && togglePlay(); closeSheet()")
             await pg.evaluate("closeSheet(); player.smooth=false; menu('m4a')"); await pg.wait_for_selector('#rdDl', timeout=180000)
             check(True, 'saving M4A reaches the "music is ready" box')
             check(not errs, 'studio has no errors ' + str(errs[:2])); await pg.close()
