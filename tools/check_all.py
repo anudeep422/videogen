@@ -155,6 +155,16 @@ async def main():
                 check(abs(dur - 60) <= 2, f'build {name}: length {dur}s')
                 if form in ('bhajan', 'film', 'instrumental'): check(leads >= 2, f'build {name}: instruments take turns ({leads} lead parts)')
                 if form == 'meditation': check(not drums, f'build {name}: no drums when No drums chosen')
+            # my instrument: a recording of 4 plucked notes (made here as sound) becomes a playable instrument
+            r = await pg.evaluate("""async () => { const S = VG_STUDIO, sr = 48000, seq = [62, 69, 74, 81], b = new AudioBuffer({length:sr * 9, numberOfChannels:1, sampleRate:sr}), x = b.getChannelData(0);
+                seq.forEach((m, k) => { const f = 440 * Math.pow(2, (m - 69) / 12), s0 = Math.round(sr * (0.5 + k * 2)); for(let i = 0; i < sr * 1.9; i++){ const t = i / sr, e = Math.exp(-t * 2.2) * Math.min(1, t / 0.003); x[s0 + i] += 0.5 * e * (Math.sin(2 * Math.PI * f * t) + 0.5 * Math.sin(4 * Math.PI * f * t)); } });
+                const got = S.notesFromRecording(b, false, bb => humToNotes(bb, 0, 1)); S.addMyInst('chk', 'Check', false, got);
+                const sg = S.compose({mood:'build', build:{raga:'mohanam', insts:['u:chk', 's:tanpura'], rhythm:'', speed:'medium', feel:'calm', form:'bhajan'}, seconds:20, seed:1}), out = await S.render(sg);
+                let pk = 0; const L = out.getChannelData(0); for(let i = 0; i < L.length; i++) pk = Math.max(pk, Math.abs(L[i]));
+                const res = [got.map(n => Math.round(n.m)).join(','), (sg.tracks.find(t => t.inst === 'u:chk') || {notes:[]}).notes.length, pk]; S.removeMyInst('chk'); return res; }""")
+            check(r[0] == '62,69,74,81', f'my instrument: recording is cut into the right notes ({r[0]})')
+            check(r[1] > 10 and 0.3 < r[2] < 1.01, f'my instrument plays in a song ({r[1]} notes, peak {r[2]:.2f})')
+            await pg.evaluate("myInstSheet()"); await pg.wait_for_timeout(300); check(await pg.is_visible('#miRec'), 'Record my instrument screen opens')
             await pg.evaluate("BT={raga:'mohanam',insts:['s:sitar','s:santoor','s:tanpura'],rhythm:'teentaal',speed:'slow',feel:'calm',form:'classical',seconds:30}; buildSheet()"); await pg.wait_for_timeout(300)
             check(await pg.is_visible('#btMake'), 'Build my music screen opens')
             await pg.click('#btMake'); await pg.wait_for_function('song && song.mood==="build" && song.tracks.length', timeout=60000); await pg.wait_for_timeout(500)

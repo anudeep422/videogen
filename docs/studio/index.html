@@ -524,7 +524,8 @@ function buildSheet(){
     <h4>1 · Raga</h4><select id="btRaga" style="max-width:260px">${scaleOptions(BT.raga)}</select>
     <h4>2 · Instruments <span class="hint">(tap 1–6; the first one leads)</span></h4>
     ${BUILD_INSTS.map(([g, l]) => `<div class="hint" style="margin:4px 0 2px">${g}</div><div class="opts">${l.map(chip).join('')}</div>`).join('')}
-    ${extra.length ? `<div class="opts" style="margin-top:4px">${extra.map(chip).join('')}</div>` : ''}
+    ${(() => { const mine = Object.keys(S.INSTRUMENTS).filter(k => k.startsWith('u:')); return `<div class="hint" style="margin:4px 0 2px">🎙️ My instruments</div><div class="opts">${mine.map(chip).join('')}<button id="btRec">🎙️ Record my instrument…</button></div>`; })()}
+    ${extra.filter(id => !id.startsWith('u:')).length ? `<div class="opts" style="margin-top:4px">${extra.filter(id => !id.startsWith('u:')).map(chip).join('')}</div>` : ''}
     <div class="opts" style="margin-top:6px;align-items:center"><label class="hint">More:</label><select id="btMore" style="max-width:210px"><option value="">Add another instrument…</option>${instOptions('')}</select></div>
     <h4>3 · Rhythm</h4>${pick('br', BUILD_RHY, BT.rhythm || '')}
     <h4>4 · Speed</h4>${pick('bs', [['slow', '🐢 Slow'], ['medium', '🚶 Medium'], ['fast', '🏃 Fast']], BT.speed)}
@@ -534,14 +535,67 @@ function buildSheet(){
     <button id="btMake" style="width:100%;margin-top:12px;padding:13px;font-size:16px;font-weight:700;background:linear-gradient(90deg,#f0a830,#e5534b);border:0;color:#1a0d00">🎼 Make my music</button>`, box => {
     const save = () => { try{ localStorage.setItem('vg_build', JSON.stringify(BT)); }catch(e){} };
     $('btRaga').onchange = () => { BT.raga = $('btRaga').value; save(); };
+    $('btRec').onclick = () => myInstSheet(true);
     box.querySelectorAll('[data-bi]').forEach(b => b.onclick = () => { const id = b.dataset.bi, i = BT.insts.indexOf(id);
       if(i >= 0) BT.insts.splice(i, 1); else { if(BT.insts.length >= 6) return toast('Up to 6 instruments — remove one first', true); BT.insts.push(id); } save(); buildSheet(); });
     $('btMore').onchange = () => { const id = $('btMore').value; if(id && !BT.insts.includes(id)){ if(BT.insts.length >= 6) return toast('Up to 6 instruments — remove one first', true); BT.insts.push(id); save(); buildSheet(); } };
     for(const [k, f] of [['br', 'rhythm'], ['bs', 'speed'], ['bf', 'feel'], ['bm', 'form'], ['bl', 'seconds']])
       box.querySelectorAll(`[data-${k}]`).forEach(b => b.onclick = () => { BT[f] = f === 'seconds' ? +b.dataset[k] : b.dataset[k]; save(); box.querySelectorAll(`[data-${k}]`).forEach(x => x.classList.toggle('on', x === b)); });
-    $('btMake').onclick = () => { if(!BT.insts.length) return toast('Choose at least one instrument', true);
+    $('btMake').onclick = () => { BT.insts = BT.insts.filter(id => S.INSTRUMENTS[id]); if(!BT.insts.length) return toast('Choose at least one instrument', true);
       OT.mood = 'build'; OT.build = {...BT, insts:[...BT.insts]}; OT.scale = BT.raga; OT.seconds = BT.seconds; OT.seed = 1; OT.parts = {}; OT.rhythm = ''; OT.lead = null; OT.support = null;
       try{ localStorage.setItem('vg_studio_onetap', JSON.stringify(OT)); }catch(e){} closeSheet(); makeOneTap(); };
+  });
+}
+// ---------- my instruments: record a real instrument (or open recordings), the app cuts it into notes and plays songs with it ----------
+const MYI_KEY = 'vg_myinst';
+const myInstList = () => { try{ return JSON.parse(localStorage.getItem(MYI_KEY)) || []; }catch(e){ return []; } };
+async function myInstLoadAll(){
+  for(const it of myInstList()){ const d = await idbGet('myinst_' + it.slug); if(!d) continue;
+    S.addMyInst(it.slug, d.label, d.sustain, d.notes.map(n => { const b = new AudioBuffer({length:n.pcm.length, numberOfChannels:1, sampleRate:n.sr}); b.copyToChannel(n.pcm, 0); return {m:n.m, buf:b}; })); }
+}
+let MI = null;
+const noteLabel = m => { const k = Math.round(m), r = S.KEYS[song && song.key] ?? 50, i = ((k - r) % 12 + 12) % 12, oct = Math.floor(k / 12) - 1;
+  return `${SWARA[i]}${SWARA_K[i] ? ' ' + SWARA_K[i] : ''} · ${['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'][k % 12]}${oct}`; };
+function myInstSheet(fromBuild){
+  if(!MI) MI = {label:'', sustain:true, notes:[]};
+  const mine = myInstList();
+  sheet('🎙️ Record my instrument', `<p class="hint" style="margin-top:0">Play your real instrument (flute, veena, harmonium, violin, keyboard, even your voice). Play <b>one note at a time with a small gap</b> — for example Sa, Pa, upper Sa, upper Pa. 4–8 notes from low to high is best. Keep the phone about an arm away, in a quiet room. The app finds each note and builds the instrument.</p>
+    <h4>1 · Name</h4><input id="miName" placeholder="e.g. My flute" value="${esc(MI.label)}" style="width:100%;max-width:260px">
+    <h4>2 · How does it sound?</h4><div class="opts"><button data-mis="1" class="${MI.sustain ? 'on' : ''}">🎻 Holds the note (flute, violin, harmonium, voice)</button><button data-mis="0" class="${MI.sustain ? '' : 'on'}">🪕 Plucked or struck (veena, sitar, guitar, keyboard)</button></div>
+    <h4>3 · Notes</h4><div class="opts"><button id="miRec" style="font-weight:700">${MI.rec ? '⏹ Stop recording' : '🎙️ Record notes'}</button><button id="miFile">📁 From audio file(s)</button><input id="miIn" type="file" accept="audio/*" multiple hidden></div>
+    <div class="opts" id="miNotes" style="margin-top:6px">${MI.notes.length ? MI.notes.map((n, i) => `<button data-mip="${i}">▶ ${noteLabel(n.m)}</button><button data-mix="${i}" title="Remove">✕</button>`).join('') : '<span class="hint">No notes yet</span>'}</div>
+    <button id="miSave" style="width:100%;margin-top:12px;padding:12px;font-weight:700;background:linear-gradient(90deg,#f0a830,#e5534b);border:0;color:#1a0d00" ${MI.notes.length ? '' : 'disabled'}>💾 Save my instrument (${MI.notes.length} notes)</button>
+    ${mine.length ? `<h4>My instruments</h4>${mine.map(it => `<div class="opts" style="align-items:center"><span style="flex:1">🎙️ ${esc(it.label)}</span><button data-miu="${it.slug}">🎼 Use</button><button data-mid="${it.slug}">🗑️</button></div>`).join('')}` : ''}`, box => {
+    $('miName').oninput = () => MI.label = $('miName').value;
+    box.querySelectorAll('[data-mis]').forEach(b => b.onclick = () => { MI.sustain = b.dataset.mis === '1'; myInstSheet(fromBuild); });
+    const addBuf = buf => { const got = S.notesFromRecording(buf, MI.sustain, b => humToNotes(b, 0, 1));
+      for(const g of got){ const k = MI.notes.findIndex(n => Math.round(n.m) === Math.round(g.m)); if(k >= 0) MI.notes[k] = g; else MI.notes.push(g); }
+      MI.notes.sort((a, b) => a.m - b.m); toast(got.length ? `Found ${got.length} note${got.length > 1 ? 's' : ''}` : 'Could not hear a clear note — play louder, one note at a time', !got.length); };
+    $('miRec').onclick = async () => {
+      if(MI.rec){ MI.rec.stop(); return; }
+      if(!navigator.mediaDevices || !window.MediaRecorder) return toast('This browser cannot record', true);
+      let stream; try{ stream = await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:false, noiseSuppression:false, autoGainControl:false}}); }catch(e){ return toast('Please allow the microphone', true); }
+      const mr = new MediaRecorder(stream), chunks = [], tm = setTimeout(() => mr.state !== 'inactive' && mr.stop(), 60000); mr.ondataavailable = e => e.data.size && chunks.push(e.data);
+      MI.rec = {stop:() => mr.state !== 'inactive' && mr.stop()};
+      mr.onstop = async () => { clearTimeout(tm); stream.getTracks().forEach(x => x.stop()); MI.rec = null;
+        try{ const ab = await new Blob(chunks, {type:mr.mimeType || 'audio/webm'}).arrayBuffer(), ctx = player.ensure(song).ctx; addBuf(await new Promise((res, rej) => ctx.decodeAudioData(ab, res, rej))); }catch(e){ toast('Could not read the recording', true); }
+        myInstSheet(fromBuild); };
+      mr.start(); myInstSheet(fromBuild); toast('Recording… play one note at a time, then tap Stop'); };
+    $('miFile').onclick = () => $('miIn').click();
+    $('miIn').onchange = async () => { const ctx = player.ensure(song).ctx;
+      for(const f of $('miIn').files){ try{ addBuf(await new Promise(async (res, rej) => ctx.decodeAudioData(await f.arrayBuffer(), res, rej))); }catch(e){ toast('Could not open ' + f.name, true); } }
+      myInstSheet(fromBuild); };
+    box.querySelectorAll('[data-mip]').forEach(b => b.onclick = () => { const ctx = player.ensure(song).ctx, src = ctx.createBufferSource(); src.buffer = MI.notes[+b.dataset.mip].buf; src.connect(ctx.destination); ctx.resume(); src.start(); });
+    box.querySelectorAll('[data-mix]').forEach(b => b.onclick = () => { MI.notes.splice(+b.dataset.mix, 1); myInstSheet(fromBuild); });
+    $('miSave').onclick = async () => {
+      const label = (MI.label || '').trim() || 'My instrument', slug = Date.now().toString(36);
+      try{ await idbPut('myinst_' + slug, {label, sustain:MI.sustain, notes:MI.notes.map(n => ({m:n.m, sr:n.buf.sampleRate, pcm:n.buf.getChannelData(0).slice()}))}); }catch(e){ return toast('Could not save on this phone', true); }
+      localStorage.setItem(MYI_KEY, JSON.stringify([...myInstList(), {slug, label}])); S.addMyInst(slug, label, MI.sustain, MI.notes); MI = null;
+      if(fromBuild || true){ if(!BT.insts.includes('u:' + slug)){ BT.insts.unshift('u:' + slug); BT.insts = BT.insts.slice(0, 6); } try{ localStorage.setItem('vg_build', JSON.stringify(BT)); }catch(e){} }
+      toast(`Saved “${label}”. It now leads in Build my music`); buildSheet(); };
+    box.querySelectorAll('[data-miu]').forEach(b => b.onclick = () => { const id = 'u:' + b.dataset.miu; if(!BT.insts.includes(id)){ BT.insts.unshift(id); BT.insts = BT.insts.slice(0, 6); } try{ localStorage.setItem('vg_build', JSON.stringify(BT)); }catch(e){} buildSheet(); });
+    box.querySelectorAll('[data-mid]').forEach(b => b.onclick = () => { if(!confirm('Delete this instrument?')) return; const slug = b.dataset.mid;
+      localStorage.setItem(MYI_KEY, JSON.stringify(myInstList().filter(x => x.slug !== slug))); S.removeMyInst(slug); BT.insts = BT.insts.filter(x => x !== 'u:' + slug); idbPut('myinst_' + slug, null).catch(() => {}); myInstSheet(fromBuild); });
   });
 }
 // ---------- play by ear: Sa Re Ga Ma pads and hum a tune (no AI) ----------
@@ -700,6 +754,7 @@ $('menuBtn').onclick = () => {
     <button data-m="rename">✏️ Rename song</button>
     <button data-m="voice">🎙️ Record my voice over the music</button>
     <button data-m="build">🎼 Build my music (choose raga + instruments)</button>
+    <button data-m="myinst">🎙️ Record my instrument (real sound from your instrument)</button>
     <button data-m="pads">🎹 Play by ear (Sa Re Ga Ma pads, hum a tune)</button>
     <button data-m="mixer">🎚️ Mixer (balance all tracks)</button>
     <button data-m="bars">🔁 Repeat or remove bars</button>
@@ -728,6 +783,7 @@ async function menu(m){
   if(m === 'mixer') mixerSheet();
   if(m === 'pads') padsSheet();
   if(m === 'build') buildSheet();
+  if(m === 'myinst') myInstSheet();
   if(m === 'voice'){ closeSheet(); pushUndo(); const t = {id:uid(), type:'audio', name:'My voice', blob:null, start:0, vol:1, pan:0, verb:0.12}; song.tracks.push(t); selId = t.id; changed(); recordVoice(t); }
   if(m === 'onetap') oneTapSheet();
   if(m === 'wav' || m === 'm4a' || m === 'anim'){
@@ -918,6 +974,7 @@ function renderAll(){ syncTop(); renderTracks(); renderEditor(); if(window.syncN
 (async () => {
   fillTop();
   try{ await S.load('./samples/'); }catch(e){ toast('Could not load instruments. Check the internet.', true); }
+  try{ await myInstLoadAll(); }catch(e){ console.warn(e); }
   let s = null; try{ s = JSON.parse(localStorage.getItem('vg_studio_song') || 'null'); }catch(e){}
   const q = new URLSearchParams(location.search).get('demo');
   if(q && DEMOS[q]) s = DEMOS[q].make();

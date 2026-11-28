@@ -166,6 +166,36 @@ function fetchBuf(key){
   return loading[key] = fetch(manifest.base + key + '.mp3').then(r => { if(!r.ok) throw new Error('missing ' + key); return r.arrayBuffer(); })
     .then(ab => new Promise((res, rej) => dctx().decodeAudioData(ab, res, rej))).then(b => (bufs[key] = b)).catch(e => { console.warn(e); delete loading[key]; return null; });
 }
+// "my instruments": notes the person recorded on a real instrument become a playable instrument (like the real-sample ones)
+function addMyInst(slug, label, sustain, notes){
+  const id = 'my_' + slug, ms = [];
+  for(const n of notes){ const m = Math.round(n.m * 100) / 100; bufs[id + '/' + m + '_m'] = n.buf; ms.push(m); }
+  ms.sort((a, b) => a - b); if(!ms.length) return null;
+  return INSTRUMENTS['u:' + slug] = {label:'🎙️ ' + label, group:'🎙️ My instruments', kind:'real', id, layers:{m:ms}, short:null, nlay:1, sustain:!!sustain,
+    range:[Math.max(24, Math.floor(ms[0]) - 12), Math.min(108, Math.ceil(ms[ms.length - 1]) + 12)], gain:0.85, release:sustain ? 0.3 : 0.6, mine:true};
+}
+function removeMyInst(slug){ const I = INSTRUMENTS['u:' + slug]; if(!I) return; for(const m of I.layers.m) delete bufs[I.id + '/' + m + '_m']; delete INSTRUMENTS['u:' + slug]; }
+// split a recording into single notes: find each steady pitch, cut from its start to the next note, tidy the ends
+function notesFromRecording(buf, sustain, pitchTrack){
+  const sr = buf.sampleRate, x = buf.getChannelData(0), segs = pitchTrack(buf).filter(g => g.end - g.beat >= 0.2), out = [];
+  for(let i = 0; i < segs.length; i++){
+    const g = segs[i], m = g.m; if(!(m > 20 && m < 110)) continue;
+    const prevEnd = i ? segs[i - 1].end : 0, s0 = Math.max(Math.round(prevEnd * sr), Math.round((g.beat - 0.06) * sr), 0);
+    const nextStart = i + 1 < segs.length ? Math.round((segs[i + 1].beat - 0.06) * sr) : x.length;
+    let e0 = Math.min(nextStart, s0 + Math.round((sustain ? 4.5 : 6) * sr), x.length);
+    let pk = 0; for(let k = s0; k < e0; k++) pk = Math.max(pk, Math.abs(x[k])); if(pk < 0.01) continue;
+    let st = s0; while(st < e0 && Math.abs(x[st]) < pk * 0.12) st++; st = Math.max(s0, st - Math.round(0.012 * sr));
+    let en = e0; const W = Math.round(0.02 * sr); while(en - W > st){ let p2 = 0; for(let k = en - W; k < en; k++) p2 = Math.max(p2, Math.abs(x[k])); if(p2 > pk * 0.01) break; en -= W; }
+    const n = en - st; if(n < 0.25 * sr) continue;
+    const y = new Float32Array(n), fi = Math.round(0.004 * sr), fo = Math.min(Math.round(0.08 * sr), n >> 2);
+    for(let k = 0; k < n; k++) y[k] = x[st + k] * (0.9 / pk) * Math.min(1, k / fi, (n - k) / fo);
+    const b = new AudioBuffer({length:n, numberOfChannels:1, sampleRate:sr}); b.copyToChannel(y, 0);
+    out.push({m, buf:b, secs:n / sr});
+  }
+  // one sample per semitone: keep the longest
+  const best = {}; for(const o of out){ const k = Math.round(o.m); if(!best[k] || o.secs > best[k].secs) best[k] = o; }
+  return Object.values(best).sort((a, b) => a.m - b.m);
+}
 // choose the recording: short notes use staccato recordings; otherwise soft / medium / loud by velocity
 function sampleFor(inst, m, v, short){
   const I = INSTRUMENTS[inst]; let layer, list;
@@ -1252,5 +1282,5 @@ function editBars(song, a, b, mode, times = 1){
   song.bars = Math.max(1, song.bars + shift / bpb); delete song.sections; delete song.seconds;
 }
 window.VG_STUDIO = {editBars, setClipLoader, clipLoad, clipBufs, ambLoad, MOODS, compose, sections,SR, KEYS, SCALES, SWARA, NAMES, noteName, INSTRUMENTS, KITS, RHYTHMS, velOf, load, fetchBuf, prepare, events, graph, mixAll, mixTrack, level, preview, previewHit,
-  judge, JUDGE, ROOMS, ROOM_MOOD, roomOf, FORMS, FEELS, buildMood, Player, render, renderPieces, wavBlob, m4aBlob, auto, scaleMidis, beatsPerBar, totalBeats, spb, songSeconds, rootOf, hz};
+  addMyInst, removeMyInst, notesFromRecording, judge, JUDGE, ROOMS, ROOM_MOOD, roomOf, FORMS, FEELS, buildMood, Player, render, renderPieces, wavBlob, m4aBlob, auto, scaleMidis, beatsPerBar, totalBeats, spb, songSeconds, rootOf, hz};
 })();
