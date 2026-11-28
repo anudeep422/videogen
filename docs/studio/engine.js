@@ -1047,7 +1047,8 @@ function compose(o){
     bass:M.acc && M.acc.bass ? M.acc.bass : ['jazz', 'blues'].includes(o.mood) ? 'walk' : R.pick(slow ? ['long', 'root5', 'walk'] : M.bright ? ['octave', 'root5', 'sync'] : ['root5', 'octave', 'walk', 'sync', 'root5']), arp:R() * 8 | 0};
   const secs_ = sections(bars, shape), seedA = R() * 1e6 | 0, seedB = R() * 1e6 | 0, seedC = R() * 1e6 | 0;
   // rounds: verse + chorus = one round. Long songs change something every round so 5 minutes never sounds the same
-  { let r0 = 0; for(const sec of secs_){ sec.round = r0; if(sec.type === 'B') r0++; } }
+  { const hasB = secs_.some(x => x.type === 'B'); let r0 = 0, occ = {};
+    for(const sec of secs_){ sec.round = r0; sec.occ = (occ[sec.type] = (occ[sec.type] ?? -1) + 1); if(sec.type === 'B' || (!hasB && /^[AC]$/.test(sec.type))){ if(sec.type !== 'B' || !secs_[secs_.indexOf(sec) + 1] || secs_[secs_.indexOf(sec) + 1].type !== 'B'){ r0++; occ = {}; } } } }
   const longSong = bars >= 32, roundsN = secs_[secs_.length - 1].round;
   const breakdown = sec => longSong && sec.type === 'A' && sec.round % 4 === 2;   // drums rest, lighter band
   const has = (sec, role) => ({intro:['pad', 'arp', 'drone', 'bowls', 'hum'], A:['melody', 'pad', 'bass', 'drone', 'bowls', 'hum', 'sparkle'], B:['melody', 'counter', 'pad', 'bass', 'arp', 'drone', 'bowls', 'hum', 'sparkle'],
@@ -1084,7 +1085,7 @@ function compose(o){
         if(role === 'arp'){ const n = auto(song, tr, 'arp', seedB, 1).map(x => ({...x, t:x.t + sec.b0 * bpb})); tr.notes.push(...n); continue; }
       }
       // verses get a new melody each round (3 versions), the chorus keeps its tune but changes every second round
-      const sd = (sec.type === 'B' ? seedB + ((sec.round >> 1) % 3) * 2027 : sec.type === 'C' ? seedC + (sec.round % 3) * 503 : seedA + (sec.round % 4) * 1013);
+      const sd = (sec.type === 'B' ? seedB + (sec.round % 3) * 2027 + sec.occ * 331 : sec.type === 'C' ? seedC + sec.round * 503 : seedA + sec.round * 1013 + sec.occ * 211);   // the chorus returns now and then; everything else is new
       const shift = role === 'melody' && sec.type === 'B' ? 5 : role === 'counter' ? 7 : 0;
       let notes = auto(song, tr, kind, sd + (role === 'counter' ? 17 : 0) + (role === 'melody' && sec.type === 'B' ? 7 : 0), sec.n, {shift, style:role === 'melody' ? style : 'balanced', mstyle:role === 'melody' ? M.mstyle : null, sec:/^[ABC]$/.test(sec.type) ? sec.type : 'A'});
       if(sec.type === 'intro' && role === 'arp') notes = notes.map(x => ({...x, v:x.v * 0.8}));
@@ -1135,7 +1136,7 @@ function compose(o){
           aT.notes.push(...mv.map(n => ({...n, m:fitN(n.m), v:Math.min(1, n.v * 1.02)}))); }
         if(sec.type === 'C' && M.form === 'instrumental'){ const a0 = sec.b0 * meter, a1 = (sec.b0 + sec.n) * meter;
           aT.notes = aT.notes.filter(n => !(n.t >= a0 - 1e-6 && n.t < a1 - 1e-6));
-          aT.notes.push(...auto(song, aT, M.melodyKind || 'melody', seedB + 41, sec.n, {mstyle:M.mstyle, sec:'C'}).map(n => ({...n, m:fitN(n.m), t:n.t + a0}))); }
+          aT.notes.push(...auto(song, aT, M.melodyKind || 'melody', seedB + 41 + sec.round * 97, sec.n, {mstyle:M.mstyle, sec:'C'}).map(n => ({...n, m:fitN(n.m), t:n.t + a0}))); }
       }
       if(!aT.notes.length) song.tracks.splice(song.tracks.indexOf(aT), 1);
     } }
