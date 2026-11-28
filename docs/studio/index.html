@@ -101,7 +101,7 @@
   <label>Feel</label><select id="feel" title="Human feel: small timing and loudness changes like real players"><option value="0">Machine</option><option value="0.6">Natural</option><option value="1">Loose</option></select>
   <select id="meter"><option value="4">4/4</option><option value="3">3/4</option><option value="2">2/4</option><option value="6">6/8</option><option value="7">7 beats</option></select>
 </div>
-<div style="padding:8px 8px 0;display:flex;gap:6px"><button id="oneTap" style="flex:1;padding:11px;font-size:15px;font-weight:700;background:linear-gradient(90deg,#f0a830,#e5534b);border:0;color:#1a0d00">✨ Make a full song in one tap</button><button id="nextTune" title="Same mood, next tune number" style="padding:11px 12px;font-weight:700">🎲 Next tune</button><button id="mixBtn" title="Mixer: volume, left/right, echo, bass, treble for every track" style="padding:11px 12px">🎚️</button></div>
+<div style="padding:8px 8px 0;display:flex;gap:6px"><button id="oneTap" style="flex:1;min-width:0;padding:11px 8px;font-size:14px;font-weight:700;background:linear-gradient(90deg,#f0a830,#e5534b);border:0;color:#1a0d00">✨ Make a song</button><button id="nextTune" title="Same mood, next tune number" style="padding:11px 9px;font-weight:700;white-space:nowrap">🎲 Next</button><button id="padBtn" title="Play by ear: Sa Re Ga Ma pads, or hum a tune" style="padding:11px 9px">🎹</button><button id="mixBtn" title="Mixer: volume, left/right, echo, bass, treble for every track" style="padding:11px 9px">🎚️</button></div>
 <div id="tracks"></div>
 <div id="edWrap">
   <div id="edTools"></div>
@@ -506,6 +506,100 @@ function autoSheet(t){
 }
 
 // ------------------------------------------------------------ sheets, toast, busy
+// ---------- play by ear: Sa Re Ga Ma pads and hum a tune (no AI) ----------
+const SWARA = ['Sa', 'Re', 'Re', 'Ga', 'Ga', 'Ma', 'Ma', 'Pa', 'Dha', 'Dha', 'Ni', 'Ni'], SWARA_K = ['', 'komal', '', 'komal', '', '', 'tivra', '', 'komal', '', 'komal', ''];
+const PAD = {inst:null, rec:null};
+function padNotes(inst){ const I = S.INSTRUMENTS[inst], sc = S.SCALES[song.scale].s, r = S.rootOf(song) % 12; let base = 48 + r;
+  while(base + 24 > I.range[1] && base - 12 >= I.range[0]) base -= 12; while(base < I.range[0]) base += 12;
+  const out = []; for(let o = 0; o < 2; o++) for(const x of sc) out.push(base + o * 12 + x); out.push(base + 24); return {base, notes:out.filter(m => m <= I.range[1] + 2)}; }
+async function padPrepare(inst, notes){ const I = S.INSTRUMENTS[inst]; if(I.kind === 'real') await S.prepare({...song, tracks:[{id:'__pad', type:'inst', inst, notes:notes.map(m => ({t:0, d:1, m, v:0.8})), vol:0.9, pan:0, verb:0.2}]}); }
+function padsSheet(){
+  const melo = song.tracks.find(t => t.type === 'inst' && /^Melody/.test(t.name)), inst = PAD.inst || (melo && melo.inst) || 's:bansuri', {base, notes} = padNotes(inst), cols = Math.min(7, S.SCALES[song.scale].s.length + (S.SCALES[song.scale].s.length < 7 ? 0 : 0));
+  sheet('🎹 Play by ear', `<p class="hint" style="margin-top:0">Every pad is a note of <b>${esc(S.SCALES[song.scale].name)}</b> in ${song.key} — nothing can sound wrong. Tap to play.</p>
+    <div class="opts" style="align-items:center"><label class="hint">Instrument</label><select id="padInst" style="max-width:210px">${instOptions(inst)}</select></div>
+    <div id="pads" style="display:grid;grid-template-columns:repeat(${cols},1fr);gap:6px;margin:10px 0">${notes.map(m => { const st = ((m - base) % 12 + 12) % 12, hi = m - base >= 12;
+      return `<button data-m="${m}" style="min-width:0;padding:16px 0 10px;border-radius:12px;font-weight:700;font-size:16px;touch-action:none;${hi ? 'background:#2a2440' : 'background:#3a2f5c'};border-color:${st === 0 ? 'var(--acc)' : 'var(--line)'}">${SWARA[st]}${hi && m - base < 24 || m - base === 24 ? '<sup>·</sup>' : ''}<br><small class="hint" style="font-weight:400;font-size:10px">${SWARA_K[st] || (hi ? 'high' : '&nbsp;')}</small></button>`; }).join('')}</div>
+    <div class="opts"><button id="padRec" style="flex:1;font-weight:700;padding:12px">⏺ Record my tune</button><button id="padHum" style="flex:1;padding:12px">🎤 Hum a tune</button></div>
+    <label class="hint" style="display:block;margin-top:6px"><input type="checkbox" id="padBack" ${song.tracks.length ? 'checked' : ''}> Play the song while I record</label>
+    <p class="hint" id="padMsg">Record: you hear 4 clicks, then play the pads. Hum: you hear 4 clicks, then sing or hum (aaa / mmm). Tap Stop when done — it becomes a new track, put neatly on the beat.</p>`, box => {
+    const G = player.ensure(song), tmp = {id:'__pad', type:'inst', inst, vol:0.95, pan:0, verb:0.25};
+    padPrepare(inst, notes);
+    box.querySelectorAll('#pads button').forEach(b => b.onpointerdown = e => { e.preventDefault(); const m = +b.dataset.m; S.preview(G, song, tmp, m, 0.85); b.style.transform = 'scale(.94)'; setTimeout(() => b.style.transform = '', 120);
+      if(PAD.rec && PAD.rec.mode === 'pads') PAD.rec.taps.push([G.ctx.currentTime, m]); });
+    $('padInst').onchange = () => { PAD.inst = $('padInst').value; padsSheet(); };
+    $('padRec').onclick = () => PAD.rec ? padStop() : padStart('pads', inst);
+    $('padHum').onclick = () => PAD.rec ? padStop() : padStart('hum', inst);
+  });
+}
+// count-in clicks, then record taps (pads) or the microphone (hum)
+async function padStart(mode, inst){
+  const G = player.ensure(song), ctx = G.ctx; if(ctx.state === 'suspended') await ctx.resume();
+  const spb = 60 / song.bpm, bpb = S.beatsPerBar(song), rec = PAD.rec = {mode, inst, taps:[], spb, bpb};
+  if(mode === 'hum'){
+    if(!navigator.mediaDevices || !window.MediaRecorder){ PAD.rec = null; return toast('This browser cannot record', true); }
+    try{ rec.stream = await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true, noiseSuppression:false, autoGainControl:true}}); }catch(e){ PAD.rec = null; return toast('Please allow the microphone', true); }
+    rec.chunks = []; rec.mr = new MediaRecorder(rec.stream); rec.mr.ondataavailable = e => e.data.size && rec.chunks.push(e.data);
+    await new Promise(res => { rec.mr.onstart = res; rec.mr.start(); }); rec.recCtx0 = ctx.currentTime;
+  }
+  rec.t0 = ctx.currentTime + 0.15 + bpb * spb;   // song time 0 = after one bar of clicks
+  const click = (at, acc) => { const o = ctx.createOscillator(), g = ctx.createGain(); o.frequency.value = acc ? 1500 : 1000; g.gain.setValueAtTime(0.0001, at); g.gain.exponentialRampToValueAtTime(acc ? 0.5 : 0.3, at + 0.002); g.gain.exponentialRampToValueAtTime(0.0001, at + 0.06); o.connect(g); g.connect(ctx.destination); o.start(at); o.stop(at + 0.08); };
+  for(let i = 0; i < bpb; i++) click(rec.t0 - (bpb - i) * spb, i === 0);
+  const back = $('padBack') && $('padBack').checked && song.tracks.length;
+  if(back){ setTimeout(() => { if(PAD.rec === rec){ const sm = player.smooth; player.smooth = false; player.start(song, 0); player.smooth = sm; syncPlay(); } }, Math.max(0, (rec.t0 - ctx.currentTime) * 1000 - 30)); }
+  else { let k = 0; rec.clicker = setInterval(() => { const now = ctx.currentTime; while(rec.t0 + k * spb < now + 0.2){ if(rec.t0 + k * spb > now) click(rec.t0 + k * spb, k % bpb === 0); k++; } }, 50); }
+  const b = $(mode === 'pads' ? 'padRec' : 'padHum'); if(b){ b.textContent = '⏹ Stop'; b.style.background = 'var(--red)'; }
+  $('padMsg').textContent = mode === 'pads' ? '🔴 Recording — play the pads after the 4 clicks…' : '🔴 Listening — hum or sing after the 4 clicks…';
+}
+async function padStop(){
+  const rec = PAD.rec; if(!rec) return; PAD.rec = null; clearInterval(rec.clicker); if(player.playing){ player.stop(); syncPlay(); }
+  const ctx = player.ensure(song).ctx; let notes = [];
+  if(rec.mode === 'pads'){
+    const ts = rec.taps.filter(([at]) => at > rec.t0 - rec.spb * 0.5);
+    notes = ts.map(([at, m], i) => ({beat:(at - rec.t0) / rec.spb, m, end:i + 1 < ts.length ? (ts[i + 1][0] - rec.t0) / rec.spb : (at - rec.t0) / rec.spb + 1}));
+  } else {
+    await new Promise(res => { rec.mr.onstop = res; rec.mr.stop(); }); rec.stream.getTracks().forEach(t => t.stop());
+    $('padMsg').textContent = '🎵 Finding the notes in your voice…';
+    try{ const buf = await ctx.decodeAudioData(await new Blob(rec.chunks).arrayBuffer()); notes = humToNotes(buf, rec.t0 - rec.recCtx0, rec.spb); }
+    catch(e){ return toast('Could not read the recording: ' + e.message, true); }
+  }
+  const made = notesToTrack(notes, rec.inst, rec.mode === 'pads' ? 'My tune' : 'My hummed tune', rec.spb, rec.bpb);
+  if(!made){ toast(rec.mode === 'pads' ? 'No notes recorded — tap the pads after the 4 clicks' : 'No clear notes heard — hum louder, closer to the phone', true); padsSheet(); return; }
+  closeSheet(); toast(`🎵 Saved "${made.name}" — ${made.notes.length} notes. Press ▶ to hear it.`);
+}
+// snap to the raga and the beat, then save as a new track
+function notesToTrack(raw, inst, label, spb, bpb){
+  const I = S.INSTRUMENTS[inst], sc = S.SCALES[song.scale].s, r = S.rootOf(song) % 12, grid = song.bpm > 110 ? 0.5 : 0.25;
+  const inRaga = m => { let best = m, bd = 99; for(let d = -2; d <= 2; d++){ const x = Math.round(m) + d; if(sc.includes(((x - r) % 12 + 12) % 12) && Math.abs(x - m) < bd){ bd = Math.abs(x - m); best = x; } } return best; };
+  let ns = raw.filter(n => n.end > n.beat && n.beat > -0.5).map(n => { const b = Math.max(0, Math.round(n.beat / grid) * grid), e = Math.max(b + grid, Math.round(n.end / grid) * grid); return {t:b, d:Math.min(e - b, 4), m:inRaga(n.m), v:0.8}; });
+  ns = ns.filter((n, i) => !(i && n.t === ns[i - 1].t));   // one note per grid step
+  for(let i = 0; i + 1 < ns.length; i++) ns[i].d = Math.min(ns[i].d, ns[i + 1].t - ns[i].t);
+  if(!ns.length) return null;
+  const med = ns.map(n => n.m).sort((a, b) => a - b)[ns.length >> 1], mid = (I.range[0] + I.range[1]) / 2; let sh = 0; while(med + sh > mid + 7) sh -= 12; while(med + sh < mid - 9) sh += 12;
+  ns.forEach(n => n.m += sh);
+  pushUndo(); const t = instTrack(inst, `${label} · ${I.label}`, ns); song.tracks.push(t); selId = t.id;
+  const needBars = Math.ceil((ns[ns.length - 1].t + ns[ns.length - 1].d) / bpb); if(needBars > song.bars){ song.bars = Math.min(200, needBars); delete song.sections; delete song.seconds; }
+  changed(); return t;
+}
+// hum to notes: pitch (YIN) every 10 ms, then group steady stretches into notes
+function humToNotes(buf, offset, spb){
+  const sr = buf.sampleRate, x = buf.getChannelData(0), W = Math.round(sr * 0.04), hop = Math.round(sr * 0.01), maxLag = Math.round(sr / 70), minLag = Math.round(sr / 1100);
+  let peak = 0; for(let i = 0; i < x.length; i++) peak = Math.max(peak, Math.abs(x[i]));
+  const frames = [], d = new Float32Array(maxLag + 1);
+  for(let s0 = 0; s0 + W + maxLag < x.length; s0 += hop){
+    let rms = 0; for(let i = 0; i < W; i++) rms += x[s0 + i] * x[s0 + i]; rms = Math.sqrt(rms / W);
+    if(rms < Math.max(0.01, peak * 0.08)){ frames.push(null); continue; }
+    d[0] = 1; let run = 0, tau = -1;
+    for(let lag = 1; lag <= maxLag; lag++){ let sum = 0; for(let i = 0; i < W; i++){ const v = x[s0 + i] - x[s0 + i + lag]; sum += v * v; } run += sum; d[lag] = sum * lag / (run || 1);
+      if(tau < 0 && lag >= minLag && d[lag] < 0.15){ while(lag + 1 <= maxLag){ let s2 = 0; for(let i = 0; i < W; i++){ const v = x[s0 + i] - x[s0 + i + lag + 1]; s2 += v * v; } const n2 = s2 * (lag + 1) / (run + s2); if(n2 < d[lag]){ lag++; run += s2; d[lag] = n2; } else break; } tau = lag; break; } }
+    frames.push(tau > 0 ? 69 + 12 * Math.log2(sr / tau / 440) : null);
+  }
+  const med = frames.map((f, i) => { if(f == null) return null; const w = frames.slice(Math.max(0, i - 2), i + 3).filter(v => v != null).sort((a, b) => a - b); return w[w.length >> 1]; });
+  const out = []; let cur = null;
+  const close = i => { if(cur && (i - cur.i0) * 0.01 >= 0.09){ const ps = cur.ps.slice().sort((a, b) => a - b); out.push({beat:(cur.i0 * 0.01 - offset) / spb, end:(i * 0.01 - offset) / spb, m:ps[ps.length >> 1]}); } cur = null; };
+  med.forEach((f, i) => { if(f == null){ close(i); return; } if(cur){ const ps = cur.ps.slice().sort((a, b) => a - b), c = ps[ps.length >> 1]; if(Math.abs(f - c) > 0.8){ close(i); cur = {i0:i, ps:[f]}; } else cur.ps.push(f); } else cur = {i0:i, ps:[f]}; });
+  close(med.length); return out;
+}
+$('padBtn').onclick = padsSheet;
 // ---------- mixer ----------
 let mixRAF = 0;
 function mixFmt(k, v){ if(k === 'vol' || k === 'master') return v <= 0.001 ? '−∞' : (20 * Math.log10(v)).toFixed(1); if(k === 'pan') return Math.abs(v) < 0.03 ? 'C' : (v < 0 ? 'L' : 'R') + Math.round(Math.abs(v) * 100); if(k === 'verb') return Math.round(v * 100) + '%'; return (v > 0 ? '+' : '') + (+v).toFixed(0) + ' dB'; }
@@ -567,6 +661,7 @@ $('menuBtn').onclick = () => {
     <button data-m="save">💾 Save to My songs</button>
     <button data-m="rename">✏️ Rename song</button>
     <button data-m="voice">🎙️ Record my voice over the music</button>
+    <button data-m="pads">🎹 Play by ear (Sa Re Ga Ma pads, hum a tune)</button>
     <button data-m="mixer">🎚️ Mixer (balance all tracks)</button>
     <button data-m="bars">🔁 Repeat or remove bars</button>
     <button data-m="new">📄 New empty song</button>
@@ -592,6 +687,7 @@ async function menu(m){
   if(m === 'demo') demoSheet();
   if(m === 'bars') barsSheet();
   if(m === 'mixer') mixerSheet();
+  if(m === 'pads') padsSheet();
   if(m === 'voice'){ closeSheet(); pushUndo(); const t = {id:uid(), type:'audio', name:'My voice', blob:null, start:0, vol:1, pan:0, verb:0.12}; song.tracks.push(t); selId = t.id; changed(); recordVoice(t); }
   if(m === 'onetap') oneTapSheet();
   if(m === 'wav' || m === 'm4a' || m === 'anim'){
@@ -743,7 +839,7 @@ async function makeOneTap(){
 }
 $('oneTap').onclick = oneTapSheet;
 $('nextTune').onclick = () => { OT.seed = (OT.seed || 1) + 1; makeOneTap(); };
-function syncNextTune(){ $('nextTune').textContent = '🎲 Next tune' + (song && song.mood ? ` (${(OT.seed || 1) + 1})` : ''); }
+function syncNextTune(){ $('nextTune').textContent = '🎲 Next' + (song && song.mood ? ` (${(OT.seed || 1) + 1})` : ''); }
 
 // ------------------------------------------------------------ example songs
 const DEMOS = {

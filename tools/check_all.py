@@ -102,6 +102,14 @@ async def main():
             ok = await pg.evaluate("(()=>{ const sc=VG_STUDIO.SCALES[song.scale].s, r=VG_STUDIO.KEYS[song.key]; return song.scale==='hindolam' && song.tracks.filter(t=>t.type==='inst' && /^Melody/.test(t.name)).every(t=>t.notes.every(n=>sc.includes(((n.m-r)%12+12)%12))); })()")
             check(ok, 'changing the raga remakes the song in that raga')
             await pg.evaluate("mixerSheet()"); await pg.wait_for_timeout(300); check(await pg.is_visible('#mxPlay'), 'mixer opens')
+            # play by ear: pads show the raga's notes; a hummed tune (made here as sound) becomes the right notes
+            await pg.evaluate("padsSheet()"); await pg.wait_for_timeout(400)
+            n = await pg.evaluate("document.querySelectorAll('#pads button').length"); check(n >= 11, f'Sa Re Ga Ma pads show ({n} pads)')
+            hum = await pg.evaluate("""(()=>{ const sr = 48000, seq = [60, 62, 64, 67, 64, 62, 60], b = new AudioBuffer({length:sr * 6, numberOfChannels:1, sampleRate:sr}), x = b.getChannelData(0);
+                seq.forEach((m, k) => { const f = 440 * Math.pow(2, (m - 69) / 12), s0 = Math.round(sr * (1 + k * 0.62)); let ph = 0; for(let i = 0; i < sr * 0.58; i++){ ph += 2 * Math.PI * f / sr; x[s0 + i] = 0.3 * (Math.sin(ph) + 0.5 * Math.sin(2 * ph) + 0.3 * Math.sin(3 * ph)); } });
+                return humToNotes(b, 1, 0.62).map(n => Math.round(n.m) % 12).join(','); })()""")
+            check(hum == '0,2,4,7,4,2,0', f'hum to melody hears Sa Re Ga Pa Ga Re Sa ({hum})')
+            await pg.evaluate("closeSheet()")
             await pg.evaluate("closeSheet(); player.smooth=false; menu('m4a')"); await pg.wait_for_selector('#rdDl', timeout=180000)
             check(True, 'saving M4A reaches the "music is ready" box')
             check(not errs, 'studio has no errors ' + str(errs[:2])); await pg.close()
