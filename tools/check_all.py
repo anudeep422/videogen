@@ -54,6 +54,13 @@ STUDIO_JS = r"""async () => {
       for(const x of N) if(Math.abs(x.t % bpb) < 0.01){ const b = Math.floor(x.t / bpb), pcs = new Set(harm.flatMap(t => t.notes.filter(y => Math.floor(y.t / bpb) === b).map(y => y.m % 12))); if(pcs.size){ cn++; if(pcs.has(x.m % 12)) ct++; } } }
     const five = M.scales.every(k => S.SCALES[k].s.length <= 5), smooth = iv / n <= (M.mstyle === 'epic' || five ? 4.2 : 3.6), few = leaps / n <= 0.13, fit = !cn || ['romantic'].includes(M.mstyle) || ct / cn >= 0.65;
     out.rules.push([`${m}: melody smooth (${(iv / n).toFixed(1)}), few big jumps (${(100 * leaps / n).toFixed(0)}%), on the chord (${cn ? (100 * ct / cn).toFixed(0) : '-'}%)`, smooth && few && fit]); }
+  // each tune number uses different instruments; long songs keep changing
+  for(const m of ['spiritual', 'devotional', 'motivational', 'kids', 'sad', 'romantic']){
+    const ins = [1, 2, 3, 4].map(seed => S.compose({mood:m, seconds:60, seed}).tracks.filter(t => t.type === 'inst').map(t => t.inst).sort().join());
+    out.rules.push([m + ': tunes 1-4 use different instruments (' + new Set(ins).size + '/4)', new Set(ins).size >= 3]); }
+  { const s = S.compose({mood:'devotional', seconds:300, seed:2}), bpb = s.meter || 4, blocks = {};
+    for(const t of s.tracks.filter(t => /^Melody/.test(t.name))) for(const n of t.notes){ const b = Math.floor(n.t / bpb / 4); (blocks[b] = blocks[b] || []).push(t.inst + ':' + (n.t % (bpb * 4)).toFixed(2) + ':' + n.m); }
+    const sig = Object.values(blocks).map(x => x.sort().join(';')); out.rules.push(['5-minute song keeps changing (' + new Set(sig).size + ' different parts of ' + sig.length + ')', new Set(sig).size >= sig.length * 0.35]); }
   for(const m of ['happy', 'devotional', 'motivational', 'kids']){
     const sig = seed => { const s = S.compose({mood:m, seconds:60, seed}), mel = s.tracks.find(t => /^Melody/.test(t.name)); return JSON.stringify([s.progs, s.acc, mel && mel.notes.slice(0, 16).map(n => n.m)]); };
     out.variety.push([m, new Set([1, 2, 3, 4].map(sig)).size]);

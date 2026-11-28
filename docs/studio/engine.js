@@ -645,6 +645,20 @@ const PHRASEBOOK = {
 };
 const PHRASES4 = {}; for(const [k, list] of Object.entries(PHRASEBOOK)) PHRASES4[k] = list.map(str => str.split('|').map(bar => { const ns = bar.trim().split(/\s+/).map(x => x.split(':').map(Number)); return [ns.map(n => n[0]), ns.map(n => n[1])]; }));
 const LEGATO = {kids:0.62, bright:0.85, calm:1, sad:1, romantic:1, epic:0.95};
+// instruments that can take each other's place (so each tune number sounds different, but still fits the mood)
+const FAMILY = {
+  melody:[['s:bansuri', 's:veena', 'r:flute', 's:sitar', 'r:shehnai', 'r:sitar_rec', 's:harmonium'], ['r:piano', 'r:grand', 'r:flute', 'r:violin', 'r:oboe', 'r:clarinet', 'r:epiano'],
+    ['r:glock', 'r:xylophone', 'r:marimba', 'r:celesta', 'r:musicbox', 'r:kalimba_rec'], ['r:horn', 'r:trumpet', 'r:violins', 'r:cellos'], ['r:tsax', 'r:clarinet', 'r:epiano', 'r:violin']],
+  counter:[['r:violin', 'r:flute', 'r:oboe', 'r:clarinet', 'r:violas'], ['s:bansuri', 'r:flute', 's:veena', 's:santoor'], ['r:choir', 'r:violins', 'r:warmpad'], ['r:harmonica', 'r:accordion', 'r:violin']],
+  pad:[['r:warmpad', 'r:violins', 'r:choir', 'r:violas'], ['r:epiano', 'r:piano', 'r:grand'], ['s:harmonium', 'r:reedorgan', 'r:accordion']],
+  arp:[['r:harp', 's:santoor', 'r:celesta', 'r:dulcimer', 'r:kalimba_rec', 's:kalimba'], ['r:steel', 'r:nylon', 'r:marimba', 'r:harp'], ['r:xylophone', 'r:marimba', 'r:glock', 'r:musicbox']],
+  bass:[['r:pizz', 'r:basses', 'r:cellos']],
+};
+const FAMILY_CALM = {   // slower moods: only gentle instruments
+  melody:[['s:bansuri', 's:veena', 'r:flute', 'r:sitar_rec', 's:sitar', 's:harmonium', 'r:panflute'], ['r:piano', 'r:grand', 'r:flute', 'r:violin', 'r:clarinet'], ['r:glock', 'r:celesta', 'r:musicbox', 'r:kalimba_rec']],
+  pad:[['r:warmpad', 'r:violins', 'r:choir', 'r:violas'], ['r:epiano', 'r:piano', 'r:grand'], ['s:harmonium', 'r:reedorgan']],
+};
+const ROLE_OFF = {melody:1, counter:2, pad:3, arp:2, bass:1};
 const RHY4 = [[1, 1, 1, 1], [1.5, 0.5, 1, 1], [0.5, 0.5, 1, 2], [2, 1, 1], [1, 0.5, 0.5, 2], [1, 1, 2], [0.5, 0.5, 0.5, 0.5, 1, 1], [3, 1], [1.5, 1.5, 1]];
 const RHY3 = [[1, 1, 1], [2, 1], [1.5, 0.5, 1], [0.5, 0.5, 1, 1], [3]];
 function fit(arr, range){ const [lo, hi] = range; return arr.map(m => { while(m < lo) m += 12; while(m > hi) m -= 12; return m; }); }
@@ -926,18 +940,32 @@ function compose(o){
   song.acc = {chords:M.acc && M.acc.chords ? (R(), M.acc.chords) : R.pick(slow ? ['block', 'broken', 'broken', 'alberti'] : M.bright ? ['block', 'broken', 'offbeat', 'broken'] : ['block', 'pulse', 'broken', 'alberti', 'offbeat']),
     bass:M.acc && M.acc.bass ? M.acc.bass : ['jazz', 'blues'].includes(o.mood) ? 'walk' : R.pick(slow ? ['long', 'root5', 'walk'] : M.bright ? ['octave', 'root5', 'sync'] : ['root5', 'octave', 'walk', 'sync', 'root5']), arp:R() * 8 | 0};
   const secs_ = sections(bars, shape), seedA = R() * 1e6 | 0, seedB = R() * 1e6 | 0, seedC = R() * 1e6 | 0;
+  // rounds: verse + chorus = one round. Long songs change something every round so 5 minutes never sounds the same
+  { let r0 = 0; for(const sec of secs_){ sec.round = r0; if(sec.type === 'B') r0++; } }
+  const longSong = bars >= 32, roundsN = secs_[secs_.length - 1].round;
+  const breakdown = sec => longSong && sec.type === 'A' && sec.round % 4 === 2;   // drums rest, lighter band
   const has = (sec, role) => ({intro:['pad', 'arp', 'drone', 'bowls', 'hum'], A:['melody', 'pad', 'bass', 'drone', 'bowls', 'hum', 'sparkle'], B:['melody', 'counter', 'pad', 'bass', 'arp', 'drone', 'bowls', 'hum', 'sparkle'],
     C:['counter', 'pad', 'arp', 'drone', 'bass', 'bowls', 'hum', 'sparkle'], outro:['melody', 'pad', 'drone', 'arp', 'bowls', 'hum']}[sec.type].includes(role));
-  const parts = {...M.parts}; if(o.lead) parts.melody = o.lead; if(o.support){ if(parts.counter) parts.counter = o.support; else if(parts.pad) parts.pad = o.support; else parts.counter = o.support; }
+  const parts = {...M.parts};
+  // every tune number uses different instruments (from ones that suit the mood); a second lead takes over in later rounds
+  const calmMood = (M.bpm || [80])[0] < 84, alt = {};
+  for(const role of ['melody', 'counter', 'pad', 'arp', 'bass']){ const cur = parts[role]; if(!cur) continue;
+    const fam = (calmMood && FAMILY_CALM[role] || FAMILY[role] || []).find(f => f.includes(cur)); if(!fam) continue;
+    const pool = [cur, ...fam.filter(x => x !== cur && INSTRUMENTS[x] && !Object.entries(parts).some(([r2, v]) => r2 !== role && v === x))], k = (((o.seed || 1) - 1) * ROLE_OFF[role]) % pool.length;   // tune 1 = the mood's own choice
+    parts[role] = pool[k]; alt[role] = pool[(k + 1 + ((o.seed || 1) % Math.max(1, pool.length - 1))) % pool.length]; if(alt[role] === parts[role]) delete alt[role]; }
+  if(o.lead) parts.melody = o.lead; if(o.support){ if(parts.counter) parts.counter = o.support; else if(parts.pad) parts.pad = o.support; else parts.counter = o.support; }
   // "choose every instrument": '' = mood's choice, '-' = part off, otherwise that instrument
   if(o.parts) for(const [r0, v] of Object.entries(o.parts)){ if(!v) continue; if(v === '-') delete parts[r0]; else if(INSTRUMENTS[v]) parts[r0] = v; }
   const rhy1 = o.rhythm === '-' ? null : RHYTHMS[o.rhythm] ? o.rhythm : M.rhythm, rhy2 = o.rhythm ? null : M.rhythm2;
   for(const [role, inst] of Object.entries(parts)){
     if(!INSTRUMENTS[inst]) continue;
     const tr = {id:tid(), type:'inst', inst, name:`${ROLE_NAME[role]} · ${INSTRUMENTS[inst].label}`, notes:[], vol:ROLE_VOL[role], pan:ROLE_PAN[role], verb:M.verb};
+    const altInst = longSong && !o.lead && !(o.parts && o.parts[role]) && (role === 'melody' || role === 'arp') && alt[role] && INSTRUMENTS[alt[role]];
+    const tr2 = altInst ? {id:tid(), type:'inst', inst:alt[role], name:`${ROLE_NAME[role]} 2 · ${INSTRUMENTS[alt[role]].label}`, notes:[], vol:ROLE_VOL[role], pan:-ROLE_PAN[role] || 0.12, verb:M.verb} : null;
     const bpb = meter;
     for(const sec of secs_){
       if(!has(sec, role)) continue;
+      if(breakdown(sec) && (role === 'arp' || role === 'bass')) continue;
       // when a mood has no pad/arp, let the melody instrument play the intro softly
       let kind = role === 'pad' ? 'chords' : role === 'melody' ? (M.melodyKind || (M.indian ? 'raga' : 'melody')) : role === 'arp' && M.arpKind ? M.arpKind : role;
       if(sec.type === 'outro'){
@@ -947,21 +975,24 @@ function compose(o){
         if(role === 'pad'){ for(const m of fit(chordAt(song, 0, Math.max(I.range[0] + 5, Math.min(I.range[1] - 10, 60))), I.range)) tr.notes.push({t:sec.b0 * bpb, d:sec.n * bpb - 0.2, m, v:0.5}); continue; }
         if(role === 'arp'){ const n = auto(song, tr, 'arp', seedB, 1).map(x => ({...x, t:x.t + sec.b0 * bpb})); tr.notes.push(...n); continue; }
       }
-      const sd = sec.type === 'B' ? seedB : sec.type === 'C' ? seedC : seedA;
+      // verses get a new melody each round (3 versions), the chorus keeps its tune but changes every second round
+      const sd = (sec.type === 'B' ? seedB + ((sec.round >> 1) % 3) * 2027 : sec.type === 'C' ? seedC + (sec.round % 3) * 503 : seedA + (sec.round % 4) * 1013);
       const shift = role === 'melody' && sec.type === 'B' ? 5 : role === 'counter' ? 7 : 0;
       let notes = auto(song, tr, kind, sd + (role === 'counter' ? 17 : 0) + (role === 'melody' && sec.type === 'B' ? 7 : 0), sec.n, {shift, style:role === 'melody' ? style : 'balanced', mstyle:role === 'melody' ? M.mstyle : null, sec:/^[ABC]$/.test(sec.type) ? sec.type : 'A'});
       if(sec.type === 'intro' && role === 'arp') notes = notes.map(x => ({...x, v:x.v * 0.8}));
       if(sec.type === 'C' && role === 'counter') notes = notes.map(x => ({...x, v:0.65}));
       const dyn = {intro:0.85, A:0.94, B:1.08, C:0.9, outro:0.9}[sec.type] || 1; notes = notes.map(x => ({...x, v:Math.min(1, x.v * dyn)}));
-      tr.notes.push(...notes.map(x => ({...x, t:x.t + sec.b0 * bpb})));
+      const dest = tr2 && sec.round % 2 === 1 && /^[ABC]$/.test(sec.type) ? tr2 : tr;   // second lead in alternate rounds
+      dest.notes.push(...notes.map(x => ({...x, t:x.t + sec.b0 * bpb})));
     }
     if(tr.notes.length) song.tracks.push(tr);
+    if(tr2 && tr2.notes.length) song.tracks.push(tr2);
   }
   // intro for moods without pad/arp: drone carries it; melody gets a soft opening phrase
   const melTr = song.tracks.find(t => t.name.startsWith('Melody')), introSec = secs_[0];
   if(melTr && M.indian && introSec.n >= 2 && introMode === 'alap') melTr.notes.push(...auto(song, melTr, 'alap', seedA + 5, introSec.n).map(x => ({...x, t:x.t + introSec.b0 * meter})));
   else if(melTr && introMode !== 'drone' && (introMode === 'melody' || (!M.parts.pad && !M.parts.arp))){ melTr.notes.push(...auto(song, melTr, 'melody', seedA + 3, introSec.n).map(x => ({...x, v:x.v * 0.6, t:x.t + introSec.b0 * meter}))); }
-  const drumOff = rh => { const off = []; for(const sec of secs_) if(sec.type === 'intro' || sec.type === 'outro' || (sec.type === 'C' && rh === 'main')) for(let b = sec.b0; b < sec.b0 + sec.n; b++) off.push(b); return off; };
+  const drumOff = rh => { const off = []; for(const sec of secs_) if(sec.type === 'intro' || sec.type === 'outro' || (sec.type === 'C' && rh === 'main') || breakdown(sec)) for(let b = sec.b0; b < sec.b0 + sec.n; b++) off.push(b); return off; };
   const addDrum = (rhythm, name, vol, chorusOnly) => { const R2 = RHYTHMS[rhythm]; if(!R2) return; const tr = {id:tid(), type:'drum', kit:R2.kit, rhythm, name, steps:R2.steps, stepBeats:R2.stepBeats, grid:{}, vol, pan:0, verb:Math.min(0.3, M.verb), from:1, to:0};
     for(const [row, p] of Object.entries(R2.pat)) tr.grid[row] = [...p].map(velOf);
     tr.off = drumOff('main'); if(chorusOnly) for(const sec of secs_) if(sec.type !== 'B') for(let b = sec.b0; b < sec.b0 + sec.n; b++) tr.off.push(b);
