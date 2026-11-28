@@ -488,4 +488,5 @@ tpl('Greetings', 'Good morning (Reel)', '9:16', () => { const b = Builder('9:16'
   return b.p; });
 
 window.VG_TEMPLATES = TPL;
+window.VG_TPL = {Builder, anim, key, setText};
 })();

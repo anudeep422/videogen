@@ -203,6 +203,7 @@
 </div>
 <div id="tools">
   <button data-tool="select"><b>👆</b>Select</button>
+  <button id="tOne" style="border-color:#e5534b"><b>🎬</b>One-tap video</button>
   <button id="tTpl" style="border-color:var(--acc)"><b>🧩</b>Templates</button>
   <button id="tLib" style="border-color:var(--acc)"><b>📚</b>Library</button>
   <button id="tFx" style="border-color:var(--acc)"><b>✨</b>Effects</button>
@@ -243,6 +244,25 @@
       <span class="hint">Open one, change the words, and export</span><span style="flex:1"></span><button id="tplClose">Close</button></div>
     <div id="tplTabs" style="display:flex;gap:4px;padding:8px 10px;overflow-x:auto;flex-shrink:0"></div>
     <div id="tplGrid" style="flex:1;overflow:auto;padding:8px 10px 14px;display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;align-content:start"></div>
+  </div>
+</div>
+<div id="oneModal" style="position:fixed;inset:0;background:#000a;display:none;z-index:11;align-items:center;justify-content:center;padding:10px">
+  <div style="background:var(--panel);border:1px solid var(--line);border-radius:12px;width:min(640px,100%);max-height:94vh;display:flex;flex-direction:column;overflow:hidden">
+    <div style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--line)"><b style="font-size:16px">🎬 One-tap video</b><span style="flex:1"></span><button id="oneClose">Close</button></div>
+    <div style="overflow:auto;padding:10px 12px 14px;display:flex;flex-direction:column;gap:8px">
+      <span class="hint">Write your title and lines (Telugu or English). The app makes the scenes, the words on screen and the music. You can change anything after.</span>
+      <label>Title <input id="oTitle" placeholder="e.g. ఈశావాస్య ఉపనిషత్తు – మంత్రం 1" style="width:100%"></label>
+      <label>Small line under the title (optional) <input id="oSub" placeholder="e.g. తెలుగులో అర్థం" style="width:100%"></label>
+      <label>Your lines — one sentence per line <textarea id="oLines" rows="8" style="width:100%;background:#12141a;color:var(--text);border:1px solid var(--line);border-radius:8px;padding:8px;font:15px 'Noto Sans','Noto Sans Telugu',sans-serif" placeholder="ఈ జగత్తులో ఉన్నదంతా ఈశ్వరునితో నిండి ఉంది.&#10;త్యాగంతో అనుభవించు.&#10;ఎవరి ధనాన్నీ ఆశించకు."></textarea></label>
+      <div><span class="hint">Style</span><div id="oStyle" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px"></div></div>
+      <div><span class="hint">Shape</span><div id="oRatio" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px"><button data-r="16:9" class="on">▭ YouTube 16:9</button><button data-r="9:16">▯ Reels / Shorts 9:16</button><button data-r="1:1">◻ Square 1:1</button></div></div>
+      <label>End card (optional) <input id="oEnd" placeholder="e.g. తదుపరి: మంత్రం 2 · Subscribe" style="width:100%"></label>
+      <label style="display:flex;align-items:center;gap:8px">Music raga <select id="oRaga"><option value="">Auto (matches the style)</option></select></label>
+      <label style="display:flex;align-items:center;gap:8px"><input type="checkbox" id="oMusic" checked> Make music for the video (Studio)</label>
+      <button id="oMake" style="padding:12px;font-size:16px;font-weight:700;background:linear-gradient(90deg,#f0a830,#e5534b);border:0;color:#1a0d00">🎬 Make my video</button>
+      <button id="oAgain" style="display:none">🎲 Same words, new look</button>
+      <span id="oMsg" class="hint"></span>
+    </div>
   </div>
 </div>
 <div id="sndModal" style="position:fixed;inset:0;background:#000a;display:none;z-index:12;align-items:center;justify-content:center;padding:10px">
@@ -300,11 +320,13 @@
 <script type="module" src="char3d.js"></script>
 <script src="effects.js"></script>
 <script src="templates.js"></script>
+<script src="onetap.js"></script>
 <script src="sound.js"></script>
 <script src="ambience.js"></script>
 <script src="synth.js"></script>
 <script src="synthmusic.js"></script>
 <script src="musicgen.js"></script>
+<script src="../studio/engine.js"></script>
 <script>
 /* ==========================================================================
    VideoGen Animator – Stage 1: vector drawing with layers.
@@ -1593,6 +1615,44 @@ function useTemplate(t){
 }
 $('tTpl').onclick = openTemplates; $('tplClose').onclick = () => $('tplModal').style.display = 'none';
 $('tplModal').addEventListener('pointerdown', e => { if(e.target.id === 'tplModal') $('tplModal').style.display = 'none'; });
+
+// ------------------------------------------------------------------ one-tap video
+let ONE = (() => { try{ return JSON.parse(localStorage.getItem('vg_onetap_video')) || null; }catch(e){ return null; } })() || {style:'upanishad', ratio:'16:9', seed:1};
+function openOneTap(){
+  const O = window.VG_ONETAP; if(!O) return toast('One-tap video did not load', true);
+  $('oStyle').innerHTML = Object.entries(O.STYLES).map(([k, v]) => `<button data-s="${k}" class="${k === ONE.style ? 'on' : ''}">${v.name}</button>`).join('');
+  $('oStyle').querySelectorAll('button').forEach(b => b.onclick = () => { ONE.style = b.dataset.s; $('oStyle').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); });
+  $('oRatio').querySelectorAll('button').forEach(b => { b.classList.toggle('on', b.dataset.r === ONE.ratio); b.onclick = () => { ONE.ratio = b.dataset.r; $('oRatio').querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); }; });
+  const S = window.VG_STUDIO; if(S && $('oRaga').options.length < 2) $('oRaga').innerHTML += Object.entries(S.SCALES).map(([k, v]) => `<option value="${k}">${v.name}</option>`).join('');
+  for(const [id, k] of [['oTitle', 'title'], ['oSub', 'sub'], ['oLines', 'text'], ['oEnd', 'end'], ['oRaga', 'raga']]) if(ONE[k] != null) $(id).value = ONE[k];
+  $('oAgain').style.display = ONE.made ? '' : 'none'; $('oMsg').textContent = ''; $('oneModal').style.display = 'flex';
+}
+async function makeOneTap(again){
+  const O = window.VG_ONETAP;
+  for(const [id, k] of [['oTitle', 'title'], ['oSub', 'sub'], ['oLines', 'text'], ['oEnd', 'end'], ['oRaga', 'raga']]) ONE[k] = $(id).value.trim();
+  if(!ONE.text) return toast('Please write your lines first', true);
+  ONE.seed = again ? (ONE.seed || 1) + 1 : ONE.seed || 1; ONE.made = true; try{ localStorage.setItem('vg_onetap_video', JSON.stringify(ONE)); }catch(e){}
+  const hasWork = P.layers.some(L => L.objects.length);
+  if(hasWork && !again && !confirm('Make a new video? It replaces the current one. (You can undo, or Save first.)')) return;
+  $('oMake').disabled = $('oAgain').disabled = true; $('oMsg').textContent = 'Making the scenes…';
+  try{
+    if(document.fonts) await Promise.all(['700 40px "Noto Sans Telugu"', '700 40px "Noto Sans"'].map(f => document.fonts.load(f))).catch(() => {});
+    pushUndo(); const p = O.build({...ONE}); upgrade(p);
+    if($('oMusic').checked){
+      $('oMsg').textContent = 'Composing music for ' + Math.round(p.duration) + ' seconds…';
+      const m = await O.music({style:ONE.style, raga:ONE.raga || null, seed:ONE.seed}, p.duration, f => { $('oMsg').textContent = `Composing music… ${Math.round(f * 100)}%`; });
+      if(m){ const id = uid(); await idbPut(id, m.blob); p.audio.unshift({id, name:'🎹 ' + m.name, kind:'file', start:0, len:+p.duration.toFixed(2), volume:0.75}); }
+    }
+    P = p; P.layers.forEach(L => L.objects.forEach(touch)); curLayer = Math.min(2, P.layers.length - 1); selId = null;
+    $('oneModal').style.display = 'none'; syncCanvasUI(); fit(); setTime(0); refreshAll(); autosave(); setTool('select');
+    await ensureAudio(); renderClips(); drawTrack();
+    toast(`Video ready: ${Math.round(P.duration)} s. Press ▶ to watch, then Export`); play();
+  }catch(e){ console.error(e); toast('Could not make the video: ' + e.message, true); }
+  finally{ $('oMake').disabled = $('oAgain').disabled = false; $('oMsg').textContent = ''; }
+}
+$('tOne').onclick = openOneTap; $('oneClose').onclick = () => $('oneModal').style.display = 'none';
+$('oMake').onclick = () => makeOneTap(false); $('oAgain').onclick = () => makeOneTap(true);
+if(new URLSearchParams(location.search).get('onetap')) setTimeout(openOneTap, 600);
 
 // ------------------------------------------------------------------ start
 try{ const s = localStorage.getItem('videogen_animator'); if(s) P = JSON.parse(s); }catch(e){}

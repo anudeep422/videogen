@@ -195,6 +195,17 @@ async def main():
             ok = await pg.evaluate("""() => { P.layers.forEach(l => l.objects = []); insertLib(VG_LIBRARY.find(i => i.name === 'Twinkle star')); const o = P.layers[curLayer].objects.slice(-1)[0]; selId = o.id; setTime(0);
                 startPathMode(); startPath(100, 300); for(let i = 1; i < 20; i++) act.move(0, 0, 100 + i * 20, 300 - i * 5); act.end(); return !!(o.keys && o.keys.x && o.keys.x.length > 3); }""")
             check(ok, 'motion path creates a route')
+            # one-tap video: every style and shape builds, draws, has captions for every line, music fits the length
+            r = await pg.evaluate("""async () => { const out = [], txt = 'ఈ జగత్తులో ఉన్నదంతా ఈశ్వరునితో నిండి ఉంది.\\nత్యాగంతో అనుభవించు.\\nఎవరి ధనాన్నీ ఆశించకు. This is the way to peace, my friend, and it is very simple.';
+                for(const st of Object.keys(VG_ONETAP.STYLES)) for(const r of ['16:9', '9:16', '1:1']){ const p = VG_ONETAP.build({style:st, ratio:r, seed:2, title:'ఈశావాస్య ఉపనిషత్తు', sub:'మంత్రం 1', end:'Subscribe', text:txt}); upgrade(p); P = p; P.layers.forEach(L => L.objects.forEach(touch));
+                  for(const t of [0.5, 5, p.duration / 2, p.duration - 1]){ setTime(t); draw(); }
+                  const words = P.layers.flatMap(L => L.objects).filter(o => o.type === 'text' && o.tfx && o.tfx.k === 'words').length;
+                  out.push([st + ' ' + r, words, VG_ONETAP.plan(txt).length, +p.duration.toFixed(1), p.width + 'x' + p.height]); }
+                const m = await VG_ONETAP.music({style:'devotional', seed:1}, 12); out.push(['music', m ? m.seconds : 0]); return out; }""")
+            mus = r.pop()
+            for name, words, lines, dur, size in r: check(words == lines and 10 < dur < 60, f'one-tap video {name}: {size}, {words}/{lines} lines on screen, {dur}s')
+            check(abs(mus[1] - 12) < 0.6, f'one-tap video music fits the length ({mus[1]:.1f}s of 12s)')
+            await pg.evaluate("openOneTap()"); await pg.wait_for_timeout(300); check(await pg.is_visible('#oMake'), 'One-tap video screen opens')
             check(not errs, 'animator has no errors ' + str(errs[:2])); await pg.close()
             await b.close()
     finally:
